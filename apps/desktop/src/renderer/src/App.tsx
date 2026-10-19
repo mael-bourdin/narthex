@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { fmt } from "@narthex/core";
+import { Bureau } from "./Bureau.tsx";
 import { Entreprise } from "./Entreprise.tsx";
 import { Reglages, type ReglagesView } from "./Reglages.tsx";
 import { Equipe, type EquipeView } from "./Equipe.tsx";
@@ -90,14 +91,7 @@ export function App() {
           />
         )}
         {tab === "Réglages" && <Reglages state={state} status={status} view={reglages} onView={setReglages} onChange={refresh} />}
-        {tab === "Bureau" && (
-          <div className="columns">
-            <div className="main">
-              <h1>{tab}</h1>
-              <p className="muted">Cette vue arrive bientôt. Les maquettes sont dans Figma ; en attendant, tout est dans le Fil et dans « narthex » en ligne de commande.</p>
-            </div>
-          </div>
-        )}
+        {tab === "Bureau" && <Bureau state={state} status={status} onAgent={openAgent} onChange={refresh} />}
       </main>
     </div>
   );
