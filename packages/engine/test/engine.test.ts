@@ -128,6 +128,9 @@ describe("persistence and transport", () => {
     const b = new Engine({ store: new SqliteEventStore(file), runtime: new SimulationRuntime(), clock: new SimulatedClock(START) });
     expect(b.getState().posts.length).toBe(before.posts.length);
     expect(b.getState().company?.name).toBe("Maison Lumen");
+    // Windows cannot delete a database file that is still open.
+    await a.close();
+    await b.close();
   });
 
   it("serves the engine on a local socket", async () => {
