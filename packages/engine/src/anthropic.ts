@@ -92,6 +92,9 @@ export class AnthropicRuntime implements AgentRuntime {
           betas: ["server-side-fallback-2026-07-01"],
           fallbacks: "default",
           output_config: { effort: def.effort },
+          // Each turn re-reads the whole conversation (search results included): cache it, so the
+          // next turn reads it at a twentieth of the price instead of paying for it again.
+          cache_control: { type: "ephemeral" },
           system,
           tools,
           messages,
@@ -163,15 +166,37 @@ function error(id: string, content: string): ToolResult {
   return { type: "tool_result", tool_use_id: id, content, is_error: true };
 }
 
-function addUsage(total: NonNullable<WorkResult["usage"]>, u: Anthropic.Beta.BetaUsage, model: string): void {
-  const input = u.input_tokens + (u.cache_creation_input_tokens ?? 0);
-  const cacheRead = u.cache_read_input_tokens ?? 0;
-  total.inputTokens += input;
-  total.outputTokens += u.output_tokens;
-  total.cacheReadTokens += cacheRead;
+type UsageLike = {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  cache_creation?: { ephemeral_5m_input_tokens?: number | null; ephemeral_1h_input_tokens?: number | null } | null;
+};
+
+/**
+ * Credits (1 = 0,01 $) for one call, each kind of token at its real price:
+ * fresh input, cache writes (×1.25 for 5 min, ×2 for 1 h), cache reads, output.
+ */
+export function creditsFor(model: string, u: UsageLike): number {
   const price = PRICES[model] ?? PRICES[DEFAULT_MODEL]!;
-  const usd = (input * price.input + u.output_tokens * price.output + cacheRead * price.cacheRead) / 1_000_000;
-  total.credits += Math.ceil(usd * 100);
+  const write5m = u.cache_creation?.ephemeral_5m_input_tokens ?? (u.cache_creation ? 0 : (u.cache_creation_input_tokens ?? 0));
+  const write1h = u.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+  const usd =
+    (u.input_tokens * price.input +
+      write5m * price.input * 1.25 +
+      write1h * price.input * 2 +
+      (u.cache_read_input_tokens ?? 0) * price.cacheRead +
+      u.output_tokens * price.output) /
+    1_000_000;
+  return Math.ceil(usd * 100 - 1e-9);
+}
+
+function addUsage(total: NonNullable<WorkResult["usage"]>, u: Anthropic.Beta.BetaUsage, model: string): void {
+  total.inputTokens += u.input_tokens + (u.cache_creation_input_tokens ?? 0);
+  total.outputTokens += u.output_tokens;
+  total.cacheReadTokens += u.cache_read_input_tokens ?? 0;
+  total.credits += creditsFor(model, u);
 }
 
 // ---------- Prompt: stable prefix first, volatile content last ----------
