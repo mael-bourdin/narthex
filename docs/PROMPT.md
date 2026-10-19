@@ -22,7 +22,7 @@ Deux portes d'entrée : **open source** (ce dépôt, licence MIT, le joueur appo
 1. **Multiplateforme** : macOS (arm64, x64) et Windows (x64, arm64) sont des cibles de première classe ; Linux suit. Aucun chemin en dur, aucune commande shell propre à un OS, aucune dépendance native qui ne compile pas sur Windows. Les chemins passent par `node:path`, les dossiers de données par `packages/engine/src/paths.ts`, le transport local par un socket Unix ou un *named pipe* Windows (`socketPath()`).
 2. **Le CLI seul suffit** : tout ce que fait l'app de bureau doit être faisable avec `narthex` dans un terminal. Une fonctionnalité n'est pas finie tant qu'elle n'a pas son équivalent CLI (commande ou rendu texte). L'app et le CLI sont deux clients du **même moteur** et du **même protocole**.
 3. **Les agents sont autonomes** : pas de bouton « lancer une mission », pas de « choisis ton coéquipier », pas de validation systématique. Seules exceptions : les actions externes (délai d'annulation) et ce que la loi réserve au fondateur.
-4. **Jamais de dépense surprise** : le mode Claude ne s'active que si le joueur l'a choisi (`narthex config mode anthropic` ou clé enregistrée pour Narthex). Une variable `ANTHROPIC_API_KEY` exportée ne suffit pas. Sans choix explicite, tout tourne en **simulation**, hors ligne.
+4. **Jamais de dépense surprise, jamais de faux travail** : le mode Claude ne s'active que si le joueur l'a choisi (`narthex config mode anthropic` ou clé enregistrée pour Narthex). Une variable `ANTHROPIC_API_KEY` exportée ne suffit pas. Sans clé, personne ne travaille : l'équipe planifie et attend, le Fil reste vide. La simulation (`NARTHEX_RUNTIME=simulation`) sert au développement et aux tests, jamais au joueur.
 5. **Honnêteté** : chaque fait, chiffre ou règle vient avec sa source datée. Les agents disent qu'ils sont des IA (AI Act, art. 50). Les livrables simulés disent qu'ils sont simulés.
 6. **Lignes rouges légales** (voir `docs/LEGAL.md`) : pas de conseil juridique personnalisé (loi de 1971, art. 54), pas d'arrêté des comptes pour autrui (ordonnance de 1945), pas de tri automatisé de CV (AI Act, annexe III), pas de facture B2B en simple PDF quand l'émission électronique est obligatoire, prospection B2B conforme CNIL.
 
@@ -89,7 +89,9 @@ Cocher dans ce fichier au fil des PR.
 - [x] CI macOS / Windows / Linux.
 
 **v0.2 — Jouable de bout en bout avec de vrais agents**
-- [ ] Livrables : rendu Markdown (tableaux) dans l'app ; export `.md` / `.pdf` depuis le CLI et l'app.
+- [x] Premier lancement « le seuil » (app et `narthex init`) : porte traversée, Margaux qui parle mot à mot, clé du fournisseur demandée en version open source, premier coup d'œil sourcé, équipe, nom, puis le Fil. Conception : `docs/superpowers/specs/2026-10-19-onboarding-seuil-design.md`.
+- [x] Fil au format Figma, nourri par les vraies données : durées réelles, XP (règle `xpFor`), sources, équipe et heures de la semaine, quête de l'étape, livrables en Markdown (tableaux), clé ajoutable depuis le Fil.
+- [ ] Livrables : export `.md` / `.pdf` depuis le CLI et l'app.
 - [ ] Budget : plafond de crédits par jour et par tâche (réglage), arrêt propre quand il est atteint, affiché dans le Fil.
 - [ ] Escalade : après `MAX_ATTEMPTS` échecs, Margaux prévient le fondateur dans le Fil (une seule fois).
 - [ ] Mémoire L2/L3 : faits extraits des livrables (asynchrone, petit modèle), recherche dans le journal (« pourquoi a-t-on décidé X ? »).
@@ -125,7 +127,7 @@ Une PR est prête quand :
 ```bash
 npm install
 npm test
-npm run narthex -- init --idee "…" --prenom Inès --nom "Maison Lumen"   # simulation, hors ligne
+NARTHEX_RUNTIME=simulation npm run narthex -- init --idee "…" --prenom Inès --nom "Maison Lumen"   # agents d'exemple, hors ligne
 npm run dev:desktop
 ```
 

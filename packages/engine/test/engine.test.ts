@@ -95,7 +95,7 @@ describe("Engine (simulation)", () => {
   });
 
   it("records a failed task and frees the agent", async () => {
-    const failing: AgentRuntime = { name: "simulation", run: async () => { throw new Error("Panne"); } };
+    const failing: AgentRuntime = { name: "simulation", run: async () => { throw new Error("Panne"); }, firstLook: new SimulationRuntime().firstLook };
     const { engine } = make(failing);
     await engine.handle("company.found", { name: "X", idea: "Y", founderName: "Z" });
     const s = await settle(engine);

@@ -16,7 +16,9 @@
   },
   "dependencies": {
     "@narthex/core": "0.1.0",
-    "@narthex/engine": "0.1.0"
+    "@narthex/engine": "0.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

@@ -1,7 +1,8 @@
 import {
+  filView,
+  type FilItem,
   calendar,
   cancellable,
-  feed,
   fmt,
   forFounder,
   role,
@@ -13,7 +14,7 @@ import {
   type StoredEvent,
   type Task,
 } from "@narthex/core";
-import { bold, dim, green, red, rule, violet, wrapText, yellow } from "./style.ts";
+import { bold, clean, dim, green, red, rule, violet, wrapText, yellow } from "./style.ts";
 
 /** Pure renderers: state in, text out. Every screen of the app has its terminal twin here. */
 
@@ -27,9 +28,9 @@ const STAGE: Record<Stage, string> = {
 
 export function header(s: CompanyState, status: EngineStatus): string {
   const c = s.company!;
-  const mode = status.runtime === "simulation" ? yellow("simulation") : "Claude";
+  const mode = status.runtime === "simulation" ? yellow("simulation") : status.runtime === "none" ? yellow("sans clé") : "Claude";
   const run = c.paused ? yellow("en pause") : status.passive ? dim("équipe à l'arrêt · narthex lancer") : green("l'équipe travaille");
-  return `${bold(c.name)}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· ${fmt.credits(s.usage.credits)} crédits`)}`;
+  return `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· ${fmt.credits(s.usage.credits)} crédits`)}`;
 }
 
 /** The founder's own to-do: only what the law reserves to them, plus what they can still cancel. */
@@ -38,42 +39,65 @@ export function forYou(s: CompanyState, now: number): string {
   for (const o of forFounder(s)) {
     const due = o.due ? dim(` · avant le ${fmt.day(o.due)}`) : "";
     lines.push(`${violet("!")} ${bold(o.title)}${due}`);
-    lines.push(wrapText(dim(o.why), 4));
+    lines.push(dim(wrapText(o.why, 4)));
     const extra = o.code === "A3-forme" ? " --forme SASU" : "";
     lines.push(`    ${dim("→")} narthex valider ${o.id}${extra}`);
   }
   for (const t of cancellable(s, now)) {
     const who = s.agents[t.agentId]?.name ?? "?";
-    lines.push(`${yellow("◷")} ${who} · ${t.title} ${dim(`· annulable jusqu'à ${fmt.day(t.cancellableUntil!)} ${fmt.hour(t.cancellableUntil!)}`)}`);
+    lines.push(`${yellow("◷")} ${who} · ${clean(t.title)} ${dim(`· annulable jusqu'à ${fmt.day(t.cancellableUntil!)} ${fmt.hour(t.cancellableUntil!)}`)}`);
     lines.push(`    ${dim("→")} narthex annuler ${t.id}`);
   }
   return lines.length ? `${bold("Pour toi")}\n${lines.join("\n")}` : "";
 }
 
 export function fil(s: CompanyState, status: EngineStatus, limit = 15): string {
+  const view = filView(s, status.now, limit);
   const parts = [header(s, status), rule()];
   const you = forYou(s, status.now);
   if (you) parts.push(you, rule());
-  const items = feed(s, limit);
-  if (items.length === 0) parts.push(dim(status.passive ? "Rien encore. Lance l'équipe : narthex lancer" : "L'équipe arrive…"));
-  for (const item of items.reverse()) parts.push(postBlock(s, item.post.agentId, item.post.at, item.post.text, status.now, item.deliverable));
+  parts.push(pilot(s, status, view.pilot), "");
+  if (status.runtime === "none") parts.push(`${violet("!")} L'équipe attend ta clé pour travailler : ${bold("narthex config cle")}`, "");
+  if (view.items.length === 0) parts.push(dim("Le Fil est vide pour l'instant. Chaque travail terminé par l'équipe arrivera ici, avec ses sources."));
+  for (const item of [...view.items].reverse()) parts.push(publication(s, item, status.now));
   return parts.join("\n");
+}
+
+function pilot(s: CompanyState, status: EngineStatus, p: ReturnType<typeof filView>["pilot"]): string {
+  const waiting = status.runtime === "none" || s.company?.paused;
+  const next = p.next ? `${p.next.title}${s.agents[p.next.agentId] ? ` (${s.agents[p.next.agentId]!.name})` : ""}` : undefined;
+  if (waiting) return `${yellow("●")} ${s.company?.paused ? "L'équipe est en pause" : "L'équipe attend ta clé"}${next ? dim(` · première mission prête : ${clean(next)}`) : ""}`;
+  const running = p.running === 0 ? "aucune mission en cours" : `${p.running} mission${p.running > 1 ? "s" : ""} en cours`;
+  return `${green("●")} Ton entreprise tourne toute seule ${dim(`· ${running}${next ? ` · prochaine action : ${clean(next)}, ${fmt.relative(p.next!.at, status.now)}` : ""}`)}`;
+}
+
+/** One Fil message: who, when, what, the attached work and its real cost in time, XP and sources. */
+export function publication(s: CompanyState, item: FilItem, now: number): string {
+  const block = postBlock(s, item.post.agentId, item.post.at, item.post.text, now, item.deliverable);
+  const meta = [
+    item.durationMs !== undefined ? `◷ ${fmt.duration(item.durationMs)}` : "",
+    item.xp !== undefined ? `↑ ${item.xp} XP` : "",
+    item.sources.length ? `▤ ${clean([...new Set(item.sources)].slice(0, 3).join(", "))}` : "",
+  ].filter(Boolean);
+  const t = item.task;
+  const cancel = t && t.status === "planned" && t.kind === "external" && (t.cancellableUntil ?? 0) > now ? `  ${yellow("◷")} part ${fmt.relative(t.cancellableUntil!, now)} ${dim(`· narthex annuler ${t.id}`)}\n` : "";
+  return `${block.trimEnd()}\n${meta.length ? `  ${dim(meta.join("   "))}\n` : ""}${cancel}`;
 }
 
 export function postBlock(s: CompanyState, agentId: string, at: number, text: string, now: number, d?: Deliverable): string {
   const agent = s.agents[agentId];
   const who = agent ? `${bold(agent.name)} ${dim(`· ${role(agent.role).title}`)}` : bold("?");
   const lines = [`${who} ${dim(`· ${fmt.relative(at, now)}`)}`, wrapText(text)];
-  if (d) lines.push(`  ${violet("↳")} ${d.title} ${dim(`· narthex livrable ${d.id}`)}`);
+  if (d) lines.push(`  ${violet("↳")} ${clean(d.title)} ${dim(`· narthex livrable ${d.id}`)}`);
   return `${lines.join("\n")}\n`;
 }
 
 export function equipe(s: CompanyState, now: number): string {
   const rows = team(s).map((m) => {
     const state = m.current
-      ? `${green("●")} ${m.current.progress && m.current.progress !== "Au travail…" ? m.current.progress : m.current.title}`
+      ? `${green("●")} ${clean(m.current.progress && m.current.progress !== "Au travail…" ? m.current.progress : m.current.title)}`
       : m.next
-        ? `${dim("○")} ${dim(`ensuite : ${m.next.title} · ${fmt.relative(m.next.scheduledAt, now)}`)}`
+        ? `${dim("○")} ${dim(`ensuite : ${clean(m.next.title)} · ${fmt.relative(m.next.scheduledAt, now)}`)}`
         : `${dim("○ au repos")}`;
     const trust = dim(`${m.done} faite${m.done > 1 ? "s" : ""} · fiabilité ${Math.round(m.reliability * 100)} % · autonomie ${m.agent.autonomy}/4`);
     return `${bold(m.agent.name.padEnd(9))} ${m.title.padEnd(15)} ${state}\n${" ".repeat(26)}${trust}`;
@@ -115,7 +139,7 @@ export function calendrier(s: CompanyState, now: number, view: "jour" | "semaine
       out.push(`\n${bold(day)}`);
     }
     const who = s.agents[t.agentId]?.name ?? "?";
-    out.push(`  ${dim(fmt.hour(at).padStart(7))}  ${mark(t)} ${who.padEnd(8)} ${t.title}`);
+    out.push(`  ${dim(fmt.hour(at).padStart(7))}  ${mark(t)} ${who.padEnd(8)} ${clean(t.title)}`);
   }
   out.push(dim("\n✓ faite  ● en cours  ○ prévue  ◷ attend ton délai d'annulation"));
   return out.join("\n");
@@ -142,15 +166,15 @@ export function obligations(s: CompanyState): string {
 export function livrable(s: CompanyState, d: Deliverable): string {
   const agent = s.agents[d.agentId];
   const sources = d.sources.length
-    ? `\n${bold("Sources")}\n${d.sources.map((x) => `- ${x.title}${x.url ? ` ${dim(x.url)}` : ""}${x.checkedAt ? dim(` (vérifié le ${x.checkedAt})`) : ""}`).join("\n")}`
+    ? `\n${bold("Sources")}\n${d.sources.map((x) => `- ${clean(x.title)}${x.url ? ` ${dim(clean(x.url))}` : ""}${x.checkedAt ? dim(` (vérifié le ${clean(x.checkedAt)})`) : ""}`).join("\n")}`
     : "";
-  return `${bold(d.title)}\n${dim(`${agent?.name ?? "?"} · ${fmt.day(d.createdAt)} · ${d.summary}`)}\n${rule()}\n${d.body}\n${sources}`;
+  return `${bold(clean(d.title))}\n${dim(`${agent?.name ?? "?"} · ${fmt.day(d.createdAt)} · ${clean(d.summary)}`)}\n${rule()}\n${clean(d.body)}\n${sources}`;
 }
 
 /** The Journal: every action, with who did it. Built from the raw event log. */
 export function journal(s: CompanyState, events: StoredEvent[], last = Infinity): string {
   const name = (id?: string) => (id && s.agents[id]?.name) || "?";
-  const taskTitle = (id: string) => s.tasks[id]?.title ?? id;
+  const taskTitle = (id: string) => clean(s.tasks[id]?.title ?? id);
   const lines = events.flatMap((e) => {
     const when = dim(`${fmt.day(e.ts)} ${fmt.hour(e.ts)}`.padEnd(18));
     switch (e.type) {
@@ -165,7 +189,7 @@ export function journal(s: CompanyState, events: StoredEvent[], last = Infinity)
       case "task.completed":
         return [`${when} ${name(s.tasks[e.taskId]?.agentId)} termine « ${taskTitle(e.taskId)} »`];
       case "task.failed":
-        return [`${when} ${red("échec")} « ${taskTitle(e.taskId)} » : ${e.error}`];
+        return [`${when} ${red("échec")} « ${taskTitle(e.taskId)} » : ${clean(e.error)}`];
       case "task.cancelled":
         return [`${when} ${e.by === "founder" ? "Tu as annulé" : "L'équipe a annulé"} « ${taskTitle(e.taskId)} »`];
       case "obligation.fulfilled":

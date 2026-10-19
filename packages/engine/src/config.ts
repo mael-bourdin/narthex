@@ -40,12 +40,21 @@ export function apiKey(config: Config, env: NodeJS.ProcessEnv = process.env): st
   return env.ANTHROPIC_API_KEY || config.anthropicApiKey || undefined;
 }
 
-export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.env): "simulation" | "anthropic" {
+/**
+ * Who does the work. Without a key, nobody: the team plans and waits, and the Fil stays empty
+ * rather than showing invented work. The simulation is for development and tests only.
+ */
+export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.env): "simulation" | "anthropic" | "none" {
   const wanted = env.NARTHEX_RUNTIME === "simulation" || env.NARTHEX_RUNTIME === "anthropic" ? env.NARTHEX_RUNTIME : config.runtime;
   if (wanted === "simulation") return "simulation";
   if (wanted === "anthropic") {
     if (!apiKey(config, env)) throw new Error("Mode Claude choisi, mais aucune clé : « narthex config cle » ou ANTHROPIC_API_KEY.");
     return "anthropic";
   }
-  return config.anthropicApiKey ? "anthropic" : "simulation";
+  return config.anthropicApiKey ? "anthropic" : "none";
+}
+
+/** The first launch asks for a key unless the player already chose: a saved key, or a mode. */
+export function needsKey(config: Config): boolean {
+  return !(config.anthropicApiKey || config.runtime === "anthropic" || config.runtime === "simulation");
 }

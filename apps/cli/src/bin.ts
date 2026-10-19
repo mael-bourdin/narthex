@@ -1,4 +1,3 @@
-import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import type { CompanyState, LegalForm } from "@narthex/core";
 import {
@@ -17,7 +16,8 @@ import {
   type Config,
 } from "@narthex/engine";
 import * as render from "./render.ts";
-import { bold, dim, red, rule } from "./style.ts";
+import { runSeuil } from "./seuil.ts";
+import { bold, clean, dim, red, rule } from "./style.ts";
 
 const HELP = `${bold("narthex")} — une équipe d'agents IA qui crée et fait tourner ton entreprise.
 
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
       case "annuler": {
         const t = byPrefix(Object.values(state.tasks), args[0], "tâche");
         await client.call("task.cancel", { taskId: t.id });
-        return print(`Annulé : ${t.title}.`);
+        return print(`Annulé : ${clean(t.title)}.`);
       }
       case "pause":
         await client.call("company.pause", {});
@@ -174,27 +174,12 @@ async function withClient(fn: (client: Client) => Promise<void>): Promise<void> 
 // ---------- init ----------
 
 async function init(): Promise<void> {
-  const ask = process.stdin.isTTY ? createInterface({ input: process.stdin, output: process.stdout }) : null;
-  const question = async (label: string, given?: string): Promise<string> => {
-    if (given) return given;
-    if (!ask) throw new Error(`Il manque --${label === "Ton idée" ? "idee" : label === "Ton prénom" ? "prenom" : "nom"} (pas de terminal interactif).`);
-    return (await ask.question(`${bold(label)} › `)).trim();
-  };
-  try {
-    if (ask) print(`${bold("Bonjour.")} Je suis Margaux, ta future co-fondatrice. Raconte-moi ton idée en une ou deux phrases.\n`);
-    const idea = await question("Ton idée", opts.idee);
-    const founderName = await question("Ton prénom", opts.prenom);
-    const name = await question("Le nom de l'entreprise (même provisoire)", opts.nom);
-    ask?.close();
-    await withClient(async (client) => {
-      await client.call("company.found", { name, idea, founderName, ...(opts.ville ? { city: opts.ville } : {}) });
-    });
-  } finally {
-    ask?.close();
-  }
-  const runtime = chooseRuntime(loadConfig(dir));
-  print(`\n${bold("C'est parti.")} ${runtime === "simulation" ? dim("Mode simulation : ajoute une clé avec « narthex config cle » pour de vrais agents.") : ""}`);
-  if (opts["sans-lancer"] || (await isAlive(socketPath(dir)))) return print(`Lance l'équipe quand tu veux : ${bold("narthex lancer")}`);
+  await runSeuil({
+    dir,
+    interactive: process.stdin.isTTY === true && process.stdout.isTTY === true,
+    given: { ...(opts.idee ? { idee: opts.idee } : {}), ...(opts.prenom ? { prenom: opts.prenom } : {}), ...(opts.nom ? { nom: opts.nom } : {}) },
+  });
+  if (opts["sans-lancer"] || (await isAlive(socketPath(dir)))) return print(`\n  Lance l'équipe quand tu veux : ${bold("narthex lancer")}`);
   print("");
   return lancer();
 }
@@ -227,7 +212,7 @@ async function lancer(): Promise<void> {
       print(render.postBlock(s, e.post.agentId, e.post.at, e.post.text, engine.now(), d));
     } else if (e.type === "task.started") {
       const t = s.tasks[e.taskId];
-      if (t) print(dim(`  ${s.agents[t.agentId]?.name} commence : ${t.title}`));
+      if (t) print(dim(`  ${s.agents[t.agentId]?.name} commence : ${clean(t.title)}`));
     }
   });
   engine.start();

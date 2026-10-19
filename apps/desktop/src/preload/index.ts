@@ -11,6 +11,12 @@ const api = {
     ipcRenderer.on("narthex:event", handler);
     return () => ipcRenderer.removeListener("narthex:event", handler);
   },
+  onboarding: {
+    needsKey: (): Promise<boolean> => ipcRenderer.invoke("narthex:onboarding:needsKey") as Promise<boolean>,
+    /** Checks and saves the key; `applied` is false when another process runs the engine (it applies on its next start). */
+    submitKey: (key: string): Promise<{ ok: true; applied: boolean } | { ok: false; message: string }> =>
+      ipcRenderer.invoke("narthex:onboarding:submitKey", key) as Promise<{ ok: true; applied: boolean } | { ok: false; message: string }>,
+  },
   platform: process.platform,
 };
 

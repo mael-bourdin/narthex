@@ -27,6 +27,10 @@ export function openEngine(options: OpenOptions = {}): { engine: Engine; dir: st
     return { engine: new Engine({ store, runtime, clock: systemClock, passive: options.passive ?? false }), dir, config };
   }
 
+  if (runtimeName === "none") {
+    return { engine: new Engine({ store, runtime: null, clock: systemClock, passive: options.passive ?? false }), dir, config };
+  }
+
   // The simulated clock never goes back in time, even after an `avancer`.
   const id = store.companies()[0];
   const last = id ? store.read(id).at(-1)?.ts : undefined;

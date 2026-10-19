@@ -1,0 +1,120 @@
+/* « Le seuil » — first launch. Motion matches scene A of the brainstorm mockup (concepts.html). */
+.seuil {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #030306;
+  color: var(--text-primary);
+  cursor: text;
+}
+.seuil-drag { position: absolute; inset: 0 0 auto; height: 40px; -webkit-app-region: drag; z-index: 10; }
+
+/* Ambiance: Braise de minuit */
+.seuil-ambiance { position: absolute; inset: 0; opacity: 0; transition: opacity 2.2s, filter 2.4s; }
+.seuil-ambiance.on, .seuil-ambiance.awake, .seuil-ambiance.calm { opacity: 1; }
+.seuil-ambiance.awake { filter: saturate(1.12) brightness(1.12); }
+.seuil-ambiance.calm { filter: saturate(.85) brightness(.75); }
+.seuil-blob { position: absolute; border-radius: 50%; filter: blur(80px); mix-blend-mode: screen; }
+.seuil-blob.b1 { width: 60%; height: 70%; left: -10%; top: -20%; background: #1c2353; animation: seuil-d1 14s ease-in-out infinite alternate; }
+.seuil-blob.b2 { width: 55%; height: 65%; right: -10%; top: 5%; background: #5b2860; animation: seuil-d2 17s ease-in-out infinite alternate; }
+.seuil-blob.b3 { width: 45%; height: 50%; left: 25%; bottom: -25%; background: #c4607f; opacity: .75; animation: seuil-d3 12s ease-in-out infinite alternate; }
+.seuil-blob.b4 { width: 28%; height: 30%; left: 45%; top: 30%; background: #f0cfa0; opacity: .35; animation: seuil-d4 9s ease-in-out infinite alternate; }
+@keyframes seuil-d1 { to { transform: translate(18%, 12%) scale(1.15); } }
+@keyframes seuil-d2 { to { transform: translate(-22%, 10%) scale(.9); } }
+@keyframes seuil-d3 { to { transform: translate(-15%, -20%) scale(1.2); } }
+@keyframes seuil-d4 { to { transform: translate(-30%, 15%) scale(1.4); } }
+.seuil-burst {
+  position: absolute; left: 50%; top: 60%; width: 10px; height: 10px; border-radius: 50%;
+  background: #fff3dc; filter: blur(6px); pointer-events: none; z-index: 3;
+  animation: seuil-burst 1.6s cubic-bezier(.2, 0, .2, 1) forwards;
+}
+@keyframes seuil-burst { 0% { transform: translate(-50%, -50%) scale(0); opacity: .95; } 100% { transform: translate(-50%, -50%) scale(220); opacity: 0; } }
+.seuil-grain {
+  position: absolute; inset: -50%; pointer-events: none; opacity: .09; mix-blend-mode: overlay; z-index: 6;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  animation: seuil-grain 1.2s steps(6) infinite;
+}
+@keyframes seuil-grain { 0% { transform: translate(0, 0); } 20% { transform: translate(-3%, 2%); } 40% { transform: translate(2%, -3%); } 60% { transform: translate(-2%, -1%); } 80% { transform: translate(3%, 3%); } 100% { transform: translate(0, 0); } }
+
+/* The door */
+.seuil-door {
+  position: absolute; left: 50%; top: 50%; width: 150px; height: 150px; z-index: 2;
+  transform: translate(-50%, -50%); transition: transform 1.6s cubic-bezier(.7, 0, .2, 1), opacity 1.6s;
+}
+.seuil-door .stroke { fill: none; stroke: #EDEDEF; stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 180; stroke-dashoffset: 180; }
+.seuil-door .stroke.base { stroke-width: 2.8; }
+.seuil-door.drawing .stroke { animation: seuil-draw 1.8s cubic-bezier(.6, 0, .2, 1) forwards; }
+.seuil-door.drawing .stroke.base { animation-delay: .2s; }
+.seuil-door .light { clip-path: inset(100% 0 0 0); transition: clip-path 1.4s ease-out .9s; }
+.seuil-door .halo { opacity: 0; transition: opacity 1.8s 1.4s; }
+.seuil-door.drawing .light, .seuil-door.through .light, .seuil-door.small .light { clip-path: inset(0 0 0 0); }
+.seuil-door.drawing .halo { opacity: .9; }
+.seuil-door.through { transform: translate(-50%, -50%) scale(16); opacity: 0; }
+.seuil-door.through .stroke, .seuil-door.small .stroke { stroke-dashoffset: 0; }
+.seuil-door.small { top: 9%; width: 40px; height: 40px; opacity: 1; transition: all 1.4s cubic-bezier(.5, 0, .2, 1); }
+.seuil-door.small .stroke { stroke-width: 6; }
+@keyframes seuil-draw { to { stroke-dashoffset: 0; } }
+
+/* Margaux speaks */
+.seuil-say { position: absolute; left: 12%; right: 12%; top: 34%; text-align: center; z-index: 4; transition: top 1s cubic-bezier(.5, 0, .2, 1), opacity .45s; }
+.seuil-say.raised { top: 16%; }
+.seuil-say.fading { opacity: 0; }
+.seuil-say p { margin: 0; font-size: clamp(20px, 2.3vw, 32px); font-weight: 300; letter-spacing: -.015em; line-height: 1.38; }
+.seuil-say .w { display: inline-block; margin-right: .26em; opacity: 0; filter: blur(8px); transform: translateY(6px); transition: opacity .55s, filter .55s, transform .55s; }
+.seuil-say .w.in { opacity: 1; filter: blur(0); transform: none; }
+.seuil-say .seuil-aside { margin-top: 14px; font-size: 13.5px; font-weight: 400; letter-spacing: 0; color: var(--text-secondary); animation: seuil-fade .8s both; }
+@keyframes seuil-fade { from { opacity: 0; } }
+
+/* The founder types into the light */
+.seuil-type { position: absolute; left: 15%; right: 15%; top: 58%; text-align: center; z-index: 4; }
+.seuil-type p { margin: 0; font-size: clamp(16px, 1.6vw, 21px); line-height: 1.45; overflow-wrap: anywhere; }
+.seuil-type.masked p { letter-spacing: .06em; color: var(--text-secondary); }
+.seuil-hidden-input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+.seuil-caret { display: inline-block; width: 2px; height: 1.1em; background: #fff; vertical-align: -.15em; margin-left: 2px; animation: seuil-blink 1s steps(2) infinite; }
+@keyframes seuil-blink { 50% { opacity: 0; } }
+.seuil-type .rising span { display: inline-block; margin-right: .25em; animation: seuil-rise 1.7s cubic-bezier(.5, 0, .2, 1) forwards; }
+@keyframes seuil-rise { to { transform: translate(var(--dx), var(--dy)); opacity: 0; filter: blur(12px); } }
+.seuil-status { position: absolute; left: 0; right: 0; top: 65%; text-align: center; font-size: 13px; color: var(--text-secondary); z-index: 4; }
+.seuil-status::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f0cfa0; margin-right: 8px; vertical-align: 1px; animation: seuil-pulse 1s ease-in-out infinite; }
+@keyframes seuil-pulse { 50% { opacity: .25; } }
+.seuil-skip { position: absolute; right: 24px; bottom: 20px; z-index: 7; background: none; border: 0; padding: 4px; font-size: 12.5px; color: var(--text-tertiary); cursor: pointer; animation: seuil-fade 1s both; }
+.seuil-skip:hover { color: var(--text-secondary); }
+
+/* Margaux at work */
+.seuil-findings { position: absolute; left: 0; right: 0; top: 42%; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; align-items: center; gap: 11px; z-index: 4; }
+.seuil-findings li { max-width: 70%; text-align: center; font-size: clamp(13px, 1.25vw, 16px); opacity: 0; transform: translateY(6px); transition: all .6s; }
+.seuil-findings li.in { opacity: .92; transform: none; }
+.seuil-findings small { color: var(--text-secondary); margin-left: 10px; font-size: .88em; }
+
+/* The team arrives */
+.seuil-team { position: absolute; left: 0; right: 0; top: 40%; display: flex; justify-content: center; gap: 5%; z-index: 4; transition: opacity .8s; }
+.seuil-team.dimmed { opacity: .28; }
+.seuil-team .member { width: 17%; text-align: center; opacity: 0; transition: opacity 1s; }
+.seuil-team .member.in { opacity: 1; }
+.seuil-team .member.later { filter: saturate(0); }
+.seuil-team .member.later.in { opacity: .38; }
+.seuil-team .spark { width: 56px; height: 56px; margin: 0 auto 14px; position: relative; }
+.seuil-team .spark::before { content: ""; position: absolute; inset: -30px; border-radius: 50%; background: radial-gradient(closest-side, var(--c), transparent); filter: blur(6px); animation: seuil-breathe 3.4s ease-in-out infinite; }
+.seuil-team .spark::after { content: ""; position: absolute; inset: 21px; border-radius: 50%; background: #fff8ee; box-shadow: 0 0 18px 6px var(--c); }
+@keyframes seuil-breathe { 50% { transform: scale(1.18); opacity: .75; } }
+.seuil-team .name { font-size: clamp(16px, 1.6vw, 21px); }
+.seuil-team .role { color: var(--text-secondary); font-size: 13px; }
+.seuil-team .what { color: var(--text-secondary); font-size: 12.5px; margin-top: 8px; opacity: .85; }
+
+.seuil-enter {
+  position: absolute; left: 50%; top: 78%; transform: translateX(-50%); z-index: 7;
+  background: var(--text-primary); color: var(--bg-app); border: 0; border-radius: 12px; padding: 11px 22px;
+  font-weight: 500; cursor: pointer; animation: seuil-up .8s cubic-bezier(.3, 0, .2, 1) both;
+}
+@keyframes seuil-up { from { opacity: 0; transform: translate(-50%, 8px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .seuil-blob, .seuil-grain, .seuil-team .spark::before { animation: none; }
+  .seuil-door, .seuil-door .light, .seuil-door .halo, .seuil-say { transition: opacity .3s; }
+  .seuil-door.drawing .stroke { animation: none; stroke-dashoffset: 0; }
+  .seuil-door.through { transform: translate(-50%, -50%); }
+  .seuil-say .w { filter: none; transform: none; transition: opacity .15s; }
+  .seuil-type .rising span { animation: seuil-fade-out .2s forwards; }
+  .seuil-burst { display: none; }
+}
+@keyframes seuil-fade-out { to { opacity: 0; } }

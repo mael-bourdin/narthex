@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { fmt, role, ROLES, type RoleDef, type RoleId, type Source, type TaskKind } from "@narthex/core";
+import { fmt, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind } from "@narthex/core";
 import type { AgentRuntime, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 type Tool = Anthropic.Beta.BetaToolUnion;
@@ -38,6 +38,34 @@ export class AnthropicRuntime implements AgentRuntime {
     this.client = options.client ?? new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {});
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTurns = options.maxTurns ?? 12;
+  }
+
+  async firstLook(input: { idea: string; founderName: string; now: number; signal: AbortSignal }): Promise<FirstLook> {
+    // No forced JSON format: web search always cites, and the two cannot be combined. We ask for JSON instead.
+    const response = await this.client.beta.messages.create(
+      {
+        model: this.model,
+        max_tokens: 16000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low" },
+        system: [
+          "Tu es Margaux, co-fondatrice IA d'une petite entreprise française qui n'existe pas encore.",
+          "Tu fais un tout premier coup d'œil, rapide et vérifié, sur une idée. Tu ne donnes aucun conseil juridique personnalisé.",
+          'Ta réponse finale est uniquement un objet JSON : {"reaction": string, "findings": [{"text": string, "source": string}]}.',
+          "reaction : une seule phrase courte et chaleureuse qui réagit à l'idée, sans annoncer que tu vas chercher.",
+          "findings : 3 à 5 constats vérifiés sur le web, en France, chacun avec sa source courte (nom du site ou de l'organisme).",
+        ].join("\n"),
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+        messages: [{ role: "user", content: `Nous sommes le ${fmt.day(input.now)}. ${input.founderName} vient de te confier son idée : « ${input.idea} »` }],
+      },
+      { signal: input.signal },
+    );
+    if (response.stop_reason === "refusal") throw new Error("Claude a refusé.");
+    if (response.stop_reason === "max_tokens" || response.stop_reason === "pause_turn") throw new Error("Réponse incomplète.");
+    const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
+    addUsage(usage, response.usage, this.model);
+    return { ...parseFirstLook(response.content), simulated: false, usage };
   }
 
   async run(ctx: WorkContext): Promise<WorkResult> {
@@ -198,6 +226,25 @@ function brief(ctx: WorkContext): string {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/** The answer comes after the last search, possibly split across several (cited) text blocks. */
+export function parseFirstLook(content: readonly Anthropic.Beta.BetaContentBlock[]): { reaction: string; findings: Finding[] } {
+  const lastSearch = content.map((b) => b.type).lastIndexOf("web_search_tool_result");
+  const text = content
+    .slice(lastSearch + 1)
+    .flatMap((b) => (b.type === "text" ? [b.text] : []))
+    .join("");
+  const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+  const parsed = JSON.parse(json) as { reaction?: unknown; findings?: unknown };
+  const findings: Finding[] = Array.isArray(parsed.findings)
+    ? parsed.findings.flatMap((f) => {
+        const o = (f ?? {}) as Record<string, unknown>;
+        return typeof o.text === "string" && typeof o.source === "string" ? [{ text: o.text, source: o.source }] : [];
+      })
+    : [];
+  if (typeof parsed.reaction !== "string" || findings.length === 0) throw new Error("Réponse inattendue.");
+  return { reaction: parsed.reaction, findings: findings.slice(0, 5) };
 }
 
 // ---------- Tools ----------

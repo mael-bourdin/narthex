@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { fmt } from "@narthex/core";
 import { Equipe } from "./Equipe.tsx";
 import { Fil } from "./Fil.tsx";
-import { Onboarding } from "./Onboarding.tsx";
+import { Seuil } from "./seuil/Seuil.tsx";
+import { Bolt } from "./icons.tsx";
+import { PixelAvatar } from "./PixelAvatar.tsx";
 import { Logo } from "./ui.tsx";
 import { useCompany } from "./useCompany.ts";
 
@@ -12,9 +14,23 @@ const TABS: Tab[] = ["Fil", "Bureau", "Équipe", "Entreprise"];
 export function App() {
   const { state, status, refresh } = useCompany();
   const [tab, setTab] = useState<Tab>("Fil");
+  // The first launch keeps the screen until « Entrer », even after the company is founded.
+  const firstLaunch = useRef<boolean | undefined>(undefined);
+  const [entered, setEntered] = useState(false);
+  if (firstLaunch.current === undefined && state !== undefined) firstLaunch.current = state === null;
 
   if (state === undefined || !status) return <div className="splash"><Logo /></div>;
-  if (state === null) return <Onboarding onDone={refresh} />;
+  if (firstLaunch.current && !entered) {
+    return (
+      <Seuil
+        onDone={() => {
+          setEntered(true);
+          refresh();
+        }}
+      />
+    );
+  }
+  if (state === null) return <div className="splash"><Logo /></div>;
 
   return (
     <div className={`app platform-${window.narthex.platform}`}>
@@ -31,9 +47,11 @@ export function App() {
           ))}
         </nav>
         <div className="top-right">
-          {status.runtime === "simulation" && <span className="pill muted" title="Agents simulés : rien ne sort de ton ordinateur.">Simulation</span>}
-          {state.company?.paused && <span className="pill">En pause</span>}
-          <span className="pill" title="Crédits utilisés">⚡ {fmt.credits(state.usage.credits)}</span>
+          {status.runtime === "simulation" && <span className="pill muted" title="Agents simulés, pour le développement">Simulation</span>}
+          <span className="pill credits" title="Crédits utilisés">
+            <Bolt /> {fmt.credits(state.usage.credits)}
+          </span>
+          <PixelAvatar founder size={30} />
         </div>
       </header>
       <main className="page">

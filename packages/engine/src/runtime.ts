@@ -1,4 +1,4 @@
-import type { Agent, CompanyState, RoleId, Source, Task, TaskKind } from "@narthex/core";
+import type { Agent, CompanyState, FirstLook, RoleId, Source, Task, TaskKind } from "@narthex/core";
 
 /** What an agent asks to do next; the engine runs it through `guardTask` before anything is planned. */
 export interface FollowUp {
@@ -37,4 +37,6 @@ export interface WorkResult {
 export interface AgentRuntime {
   readonly name: "simulation" | "anthropic";
   run(ctx: WorkContext): Promise<WorkResult>;
+  /** Margaux's quick, sourced look at an idea during the first launch, before the company exists. */
+  firstLook(input: { idea: string; founderName: string; now: number; signal: AbortSignal }): Promise<FirstLook>;
 }

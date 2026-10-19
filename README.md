@@ -16,22 +16,17 @@ Il faut [Node.js 24](https://nodejs.org) ou plus récent, sur macOS, Windows ou 
 git clone https://github.com/mael-bourdin/narthex.git
 cd narthex
 npm install
-npm run narthex -- init        # raconte ton idée, l'équipe se met au travail
+npm run narthex -- init        # Margaux t'accueille, te demande ta clé et ton idée, puis l'équipe se met au travail
 ```
 
-Sans clé API, Narthex tourne en **simulation** : des agents d'exemple, hors ligne, rien ne sort de ton ordinateur. Pour de vrais agents (Claude) :
+Au premier lancement, Margaux te demande ta clé API Anthropic : c'est ce qui lui permet de penser. Elle reste sur ton ordinateur. Sans clé, l'équipe prépare tout et attend : rien n'est inventé, le Fil reste vide. Tu peux ajouter ta clé plus tard, dans le Fil ou avec `npm run narthex -- config cle`.
 
-```bash
-npm run narthex -- config cle      # ta clé API Anthropic, enregistrée pour Narthex seulement
-npm run narthex -- lancer
-```
-
-Narthex n'utilise jamais une clé `ANTHROPIC_API_KEY` exportée sans que tu aies choisi le mode Claude (`narthex config mode anthropic`) : pas de dépense surprise.
+Narthex n'utilise jamais une clé `ANTHROPIC_API_KEY` exportée sans que tu l'aies choisi (`narthex config mode anthropic`) : pas de dépense surprise. Pour développer sans clé, `NARTHEX_RUNTIME=simulation` fait tourner des agents d'exemple hors ligne.
 
 ## Tout en ligne de commande
 
 ```
-narthex init                      Raconte ton idée ; Margaux monte l'équipe
+narthex init                      Le premier lancement : ta clé, ton idée, ton équipe
 narthex lancer                    Fait travailler l'équipe (Fil en direct)
 narthex fil                       Ce que l'équipe a fait, ce qui t'attend
 narthex equipe                    Qui fait quoi en ce moment

@@ -2,7 +2,21 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import type { Method, Params } from "@narthex/core";
-import { dataDir, InProcessClient, openEngine, serve, SocketClient, socketPath, type Client, type Engine } from "@narthex/engine";
+import {
+  AnthropicRuntime,
+  dataDir,
+  InProcessClient,
+  loadConfig,
+  needsKey,
+  openEngine,
+  saveKey,
+  serve,
+  SocketClient,
+  socketPath,
+  verifyAnthropicKey,
+  type Client,
+  type Engine,
+} from "@narthex/engine";
 
 /**
  * The app is a thin client. If `narthex lancer` already runs the company in a terminal,
@@ -13,8 +27,9 @@ let engine: Engine | undefined;
 let closeServer: (() => void) | undefined;
 let window: BrowserWindow | undefined;
 
+const dir = dataDir();
+
 async function connect(): Promise<Client> {
-  const dir = dataDir();
   const existing = await SocketClient.connect(socketPath(dir));
   if (existing) return existing;
   engine = openEngine({ dir }).engine;
@@ -32,6 +47,8 @@ function createWindow(): void {
     minHeight: 640,
     backgroundColor: "#0B0C16",
     title: "Narthex",
+    // NARTHEX_HEADLESS: render off screen (visual checks, CI), never in the player's face.
+    show: !process.env.NARTHEX_HEADLESS,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/index.cjs"),
@@ -64,6 +81,17 @@ function snapshot(win: BrowserWindow, file: string): void {
 ipcMain.handle("narthex:call", async (_event, method: Method, params: Params<Method>) => {
   if (!client) throw new Error("Le moteur démarre…");
   return client.call(method, params);
+});
+
+// First launch (« le seuil »). The key never reaches the page's storage: it goes straight to config.json.
+ipcMain.handle("narthex:onboarding:needsKey", () => needsKey(loadConfig(dir)));
+ipcMain.handle("narthex:onboarding:submitKey", async (_event, key: string) => {
+  const check = await verifyAnthropicKey(String(key));
+  if (!check.ok) return check;
+  const config = saveKey(dir, check.key);
+  // When we run the engine, the team starts working with Claude right away.
+  engine?.useRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}) }));
+  return { ok: true, applied: Boolean(engine) };
 });
 
 app.whenReady().then(async () => {
