@@ -1,0 +1,158 @@
+import { useEffect, useRef, useState } from "react";
+import { onboardingTeam, SEUIL, type FirstLook, type Finding } from "@narthex/core";
+import { Ambiance, type AmbiancePhase } from "./Ambiance.tsx";
+import { Door, type DoorState } from "./Door.tsx";
+import { Findings } from "./Findings.tsx";
+import { Speech } from "./Speech.tsx";
+import { TeamReveal } from "./TeamReveal.tsx";
+import { TypeLine } from "./TypeLine.tsx";
+import "./seuil.css";
+
+const SKIP = Symbol("skip");
+const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, reduced() ? Math.min(ms, 300) : ms));
+
+interface Scene {
+  door: DoorState;
+  ambiance: AmbiancePhase;
+  /** `id` remounts the speech, so the same sentence said twice (a second bad key) still plays. */
+  say?: { id: number; text: string; aside?: string; raised?: boolean };
+  input?: { masked: boolean };
+  status?: string;
+  skip?: boolean;
+  findings?: Finding[];
+  team?: { dimmed: boolean };
+  enter?: boolean;
+}
+
+/**
+ * The first launch, as one script: Margaux speaks, the founder answers into the light.
+ * Nothing is created until the company name is given (spec: « le seuil »).
+ */
+export function Seuil({ onDone }: { onDone: () => void }) {
+  const [scene, setScene] = useState<Scene>({ door: "idle", ambiance: "hidden" });
+  const spoken = useRef<() => void>(() => {});
+  const answered = useRef<(v: string | typeof SKIP) => void>(() => {});
+  const looked = useRef<() => void>(() => {});
+  const started = useRef(false);
+  const lines = useRef(0);
+  const team = onboardingTeam();
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    const set = (patch: Partial<Scene>) => setScene((s) => ({ ...s, ...patch }));
+    const say = (text: string, extra: { aside?: string; raised?: boolean } = {}) =>
+      new Promise<void>((resolve) => {
+        spoken.current = resolve;
+        set({ say: { id: ++lines.current, text, ...extra } });
+      });
+    const ask = (masked = false, skip = false) =>
+      new Promise<string | typeof SKIP>((resolve) => {
+        answered.current = (v) => {
+          set({ input: undefined, skip: false });
+          resolve(v);
+        };
+        set({ input: { masked }, skip });
+      });
+
+    void (async () => {
+      await wait(400);
+      set({ door: "drawing" });
+      await wait(3300);
+      set({ door: "through", ambiance: "on" });
+      await wait(1500);
+
+      const needsKey = await window.narthex.onboarding.needsKey();
+      await say(SEUIL.hello);
+      await wait(900);
+      if (needsKey) {
+        await say(SEUIL.askKey, { aside: SEUIL.keyAside });
+        for (;;) {
+          const key = await ask(true, true);
+          if (key === SKIP) {
+            await window.narthex.onboarding.useSimulation();
+            await say(SEUIL.askNameNoKey);
+            break;
+          }
+          set({ status: SEUIL.checking });
+          const check = await window.narthex.onboarding.submitKey(key);
+          set({ status: undefined });
+          if (check.ok) {
+            set({ ambiance: "awake" });
+            await wait(1100);
+            await say(SEUIL.askName);
+            break;
+          }
+          await say(check.message);
+        }
+      } else {
+        await say(SEUIL.askNameNoKey);
+      }
+
+      const name = (await ask()) as string;
+      await say(SEUIL.askIdea(name));
+      const idea = (await ask()) as string;
+
+      const look: Promise<FirstLook> = window.narthex.call("onboarding.firstLook", { idea, founderName: name });
+      set({ ambiance: "calm" });
+      await say(SEUIL.searching, { raised: true });
+      const result = await look;
+      if (result.findings.length > 0) {
+        await say(result.reaction, { raised: true });
+        await new Promise<void>((resolve) => {
+          looked.current = resolve;
+          set({ findings: result.findings });
+        });
+      } else {
+        await say(result.reaction, { raised: true });
+        await wait(1200);
+      }
+
+      set({ findings: undefined, ambiance: "on" });
+      await say(SEUIL.team, { raised: true });
+      set({ team: { dimmed: false } });
+      await wait(1300 * (team.now.length + team.later.length) + 600);
+
+      set({ team: { dimmed: true } });
+      await say(SEUIL.askCompany, { raised: true });
+      for (;;) {
+        const company = (await ask()) as string;
+        try {
+          await window.narthex.call("company.found", { name: company, idea, founderName: name, firstLook: result });
+          set({ team: { dimmed: false } });
+          await say(SEUIL.welcome(company), { raised: true });
+          break;
+        } catch (e) {
+          await say(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : String(e), { raised: true });
+        }
+      }
+      set({ door: "small" });
+      await wait(900);
+      set({ enter: true });
+    })();
+  }, [team.now.length, team.later.length]);
+
+  return (
+    <div className="seuil">
+      <div className="seuil-drag" />
+      <Ambiance phase={scene.ambiance} />
+      <Door state={scene.door} />
+      {scene.say && <Speech key={scene.say.id} text={scene.say.text} aside={scene.say.aside} raised={scene.say.raised} onDone={() => spoken.current()} />}
+      {scene.input && <TypeLine masked={scene.input.masked} onSubmit={(v) => answered.current(v)} />}
+      {scene.status && <p className="seuil-status">{scene.status}</p>}
+      {scene.findings && <Findings items={scene.findings} onDone={() => looked.current()} />}
+      {scene.team && <TeamReveal now={team.now} later={team.later} dimmed={scene.team.dimmed} />}
+      {scene.skip && (
+        <button className="seuil-skip" onClick={() => answered.current(SKIP)}>
+          {SEUIL.skipKey}
+        </button>
+      )}
+      {scene.enter && (
+        <button className="seuil-enter" autoFocus onClick={onDone}>
+          {SEUIL.enter}
+        </button>
+      )}
+    </div>
+  );
+}

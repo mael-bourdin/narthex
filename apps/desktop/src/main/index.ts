@@ -49,6 +49,8 @@ function createWindow(): void {
     minHeight: 640,
     backgroundColor: "#0B0C16",
     title: "Narthex",
+    // NARTHEX_HEADLESS: render off screen (visual checks, CI), never in the player's face.
+    show: !process.env.NARTHEX_HEADLESS,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/index.cjs"),
