@@ -15,6 +15,8 @@ import {
   cancellable,
   fmt,
   MAX_ATTEMPTS,
+  isValid,
+  searchJournal,
   forFounder,
   role,
   team,
@@ -274,5 +276,34 @@ export function tableaux(s: CompanyState): string {
   if (t.length === 0) return dim("Pas encore de tableau.");
   return t
     .map((x) => [bold(clean(x.deliverable.title)), dim(x.header.map(clean).join(" | ")), ...x.rows.map((r) => r.map(clean).join(" | "))].join("\n"))
+    .join("\n\n");
+}
+
+/** L2 memory: what the team knows now, most important first, then what is no longer true. */
+export function memoire(s: CompanyState, now: number): string {
+  const facts = Object.values(s.facts);
+  const current = facts.filter((f) => isValid(f, now)).sort((a, b) => b.importance - a.importance || b.validFrom - a.validFrom);
+  const outdated = facts.filter((f) => f.invalidAt !== undefined && f.invalidAt <= now);
+  const out = [bold("Ce que l'équipe sait")];
+  if (current.length === 0) out.push(dim("Rien pour l'instant. Chaque livrable terminé y ajoute ce qu'il faut retenir."));
+  for (const f of current) {
+    const from = s.deliverables[f.deliverableId];
+    out.push(`${f.importance >= 8 ? violet("●") : dim("●")} ${clean(f.text)}`);
+    out.push(dim(`    ${f.subject ? `${clean(f.subject)} · ` : ""}appris le ${fmt.day(f.validFrom)}${from ? ` · ${clean(from.title)}` : ""}${f.sensitive ? " · réservé" : ""}`));
+  }
+  if (outdated.length) out.push("", dim(`${outdated.length} fait${outdated.length > 1 ? "s" : ""} qui ne ${outdated.length > 1 ? "sont" : "est"} plus vrai${outdated.length > 1 ? "s" : ""} (gardé${outdated.length > 1 ? "s" : ""} pour l'historique).`));
+  return out.join("\n");
+}
+
+/** « Pourquoi a-t-on décidé X ? » over the journal: tasks with their reason, deliverables, facts. */
+export function pourquoi(s: CompanyState, question: string): string {
+  const hits = searchJournal(s, question);
+  if (hits.length === 0) return dim("Rien dans le journal ni dans la mémoire ne répond à ça.");
+  return hits
+    .map((h) => {
+      const who = h.agentId ? (s.agents[h.agentId]?.name ?? "") : "";
+      const kind = h.kind === "task" ? "Tâche" : h.kind === "deliverable" ? "Livrable" : "Fait retenu";
+      return [`${bold(clean(h.title))}`, ...(h.why ? [`  Pourquoi : ${clean(h.why)}`] : []), dim(`  ${kind}${who ? ` · ${who}` : ""} · ${fmt.day(h.at)}`)].join("\n");
+    })
     .join("\n\n");
 }

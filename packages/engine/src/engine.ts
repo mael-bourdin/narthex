@@ -4,6 +4,8 @@ import {
   emptyState,
   fmt,
   MAX_ATTEMPTS,
+  overBudget,
+  recallFacts,
   guardTask,
   replay,
   role,
@@ -464,7 +466,10 @@ export class Engine {
         ? { id: newId("dl"), taskId, agentId: agent.id, createdAt: this.now(), ...result.deliverable }
         : undefined;
       this.emit({ type: "task.completed", taskId, at: this.now(), ...(deliverable ? { deliverable } : {}) });
-      if (deliverable) this.checkSources(deliverable.id);
+      if (deliverable) {
+        this.checkSources(deliverable.id);
+        this.extractFacts(deliverable.id);
+      }
       this.post(agent.id, deliverable ? "deliverable" : "update", result.post, { taskId, ...(deliverable ? { deliverableId: deliverable.id } : {}) });
     } catch (e) {
       if (overBudget && this.state.tasks[taskId]?.status === "running") {
@@ -478,6 +483,43 @@ export class Engine {
       this.emit({ type: "task.failed", taskId, at: this.now(), error: message });
       this.post(agent.id, "update", `Je n'ai pas pu terminer « ${task.title} » : ${message}`, { taskId });
     }
+  }
+
+  /**
+   * After delivery, a small model writes what the team learnt to L2 memory (research: extraction
+   * Mem0-style, asynchronous, off the critical path). Contradicted facts are dated, never erased.
+   */
+  private extractFacts(deliverableId: string): void {
+    const runtime = this.runtime;
+    const d = this.state.deliverables[deliverableId];
+    if (!runtime?.extractFacts || !d || overBudget(this.state, this.now())) return;
+    const known = recallFacts(this.state, `${d.title} ${d.summary} ${d.body.slice(0, 2000)}`, { role: "cofondateur", now: this.now(), k: 40 });
+    const run = (async () => {
+      try {
+        const out = await runtime.extractFacts!({ deliverable: { title: d.title, summary: d.summary, body: d.body.slice(0, 40_000) }, known: known.map((f) => ({ id: f.id, text: f.text })), now: this.now(), signal: AbortSignal.timeout(120_000) });
+        if (!this.companyId) return;
+        this.emit({ type: "usage.recorded", agentId: d.agentId, taskId: d.taskId, ...out.usage, at: this.now() });
+        const at = this.now();
+        const added = out.added
+          .filter((f) => f.text.trim())
+          .slice(0, 12)
+          .map((f) => ({
+            id: newId("fa"),
+            text: f.text.trim(),
+            subject: f.subject.trim(),
+            importance: Math.min(10, Math.max(1, Math.round(f.importance))),
+            deliverableId,
+            validFrom: at,
+            ...(f.sensitive ? { sensitive: true } : {}),
+          }));
+        const knownIds = new Set(known.map((f) => f.id));
+        this.emit({ type: "facts.extracted", deliverableId, at, added, invalidated: out.invalidated.filter((id) => knownIds.has(id)) });
+      } catch {
+        // Memory is a bonus: a failed extraction never blocks the work, and costs nothing more.
+      }
+    })();
+    this.checks.add(run);
+    void run.finally(() => this.checks.delete(run));
   }
 
   /** After delivery, Narthex itself checks that every cited link answers (no model, no cost). */

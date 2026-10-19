@@ -37,10 +37,27 @@ export interface WorkResult {
   usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
 }
 
+/** What the memory extractor reads: one deliverable, and the facts already known around it. */
+export interface FactsInput {
+  deliverable: { title: string; summary: string; body: string };
+  known: { id: string; text: string }[];
+  now: number;
+  signal: AbortSignal;
+}
+
+/** New facts, and the known ones this deliverable contradicts or updates (Mem0: ADD / UPDATE as invalidate + add). */
+export interface FactsResult {
+  added: { text: string; subject: string; importance: number; sensitive?: boolean }[];
+  invalidated: string[];
+  usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
+}
+
 /** Something that can make an agent work: Claude, the offline simulation, or a test double. */
 export interface AgentRuntime {
   readonly name: Exclude<RuntimeName, "none">;
   run(ctx: WorkContext): Promise<WorkResult>;
   /** Margaux's quick, sourced look at an idea during the first launch, before the company exists. */
   firstLook(input: { idea: string; founderName: string; now: number; signal: AbortSignal }): Promise<FirstLook>;
+  /** L2 memory: facts from a finished deliverable, with a small model, off the critical path. Absent in simulation. */
+  extractFacts?(input: FactsInput): Promise<FactsResult>;
 }
