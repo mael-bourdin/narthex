@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { ALWAYS_ASK, fmt, ROLES, type CompanyState, type LegalForm } from "@narthex/core";
+import { ALWAYS_ASK, deliverableMarkdown, fmt, ROLES, type CompanyState, type LegalForm } from "@narthex/core";
 import {
   archiveCompany,
   chooseRuntime,
@@ -38,7 +38,7 @@ ${bold("Regarder")}
   narthex entreprise [section] [page]  Vue d'ensemble, finances, ventes, marketing, juridique
   narthex depense                   La dépense IA, par coéquipier et par jour
   narthex tableaux                  Tous les tableaux produits par l'équipe
-  narthex livrable <id|dernier>     Lire un livrable
+  narthex livrable <id|dernier>     Lire un livrable (--fichier x.md pour l'enregistrer)
 
 ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
   narthex valider <id> [--forme SASU]   Dire que tu as fait une obligation
@@ -159,6 +159,10 @@ async function main(): Promise<void> {
         const all = Object.values(state.deliverables).sort((a, b) => b.createdAt - a.createdAt);
         const d = !args[0] || args[0] === "dernier" ? all[0] : all.find((x) => x.id.startsWith(args[0]!));
         if (!d) throw new Error("Livrable introuvable.");
+        if (opts.fichier) {
+          writeFileSync(opts.fichier, deliverableMarkdown(state, d));
+          return print(`${bold("Enregistré.")} ${opts.fichier}`);
+        }
         return print(opts.json ? JSON.stringify(d, null, 2) : render.livrable(state, d));
       }
       case "valider": {
