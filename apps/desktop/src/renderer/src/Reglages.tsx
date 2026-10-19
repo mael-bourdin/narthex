@@ -371,7 +371,7 @@ function ApiModels({ state, status, config, events, onChange }: { state: Company
                 </span>
                 <span className="row-actions">
                   <span className="muted small">{perMonth(r)} / mois</span>
-                  <select value={models[r] ?? "claude-opus-5-5"} onChange={(e) => setModels({ ...models, [r]: e.target.value })}>
+                  <select value={models[r] ?? role(r).model} onChange={(e) => setModels({ ...models, [r]: e.target.value })}>
                     {MODELS.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.label}

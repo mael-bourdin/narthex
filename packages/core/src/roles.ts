@@ -20,6 +20,8 @@ export interface RoleDef {
   guardrails: string[];
   /** Reasoning effort used for this role's work. */
   effort: "low" | "medium" | "high";
+  /** Claude model by default: Opus where a mistake costs most, lighter ones elsewhere. Réglages can change it. */
+  model: "claude-opus-5-5" | "claude-sonnet-5-5" | "claude-haiku-5-5";
 }
 
 const COMMON_GUARDRAILS = [
@@ -38,6 +40,7 @@ export const ROLES: readonly RoleDef[] = [
     tools: ["web_search", "plan_task", "post_update", "update_memory", "publish_deliverable", "recruit"],
     guardrails: COMMON_GUARDRAILS,
     effort: "high",
+    model: "claude-opus-5-5",
   },
   {
     id: "recherche",
@@ -47,6 +50,7 @@ export const ROLES: readonly RoleDef[] = [
     tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
     effort: "high",
+    model: "claude-sonnet-5-5",
   },
   {
     id: "technique",
@@ -56,6 +60,7 @@ export const ROLES: readonly RoleDef[] = [
     tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
     effort: "high",
+    model: "claude-sonnet-5-5",
   },
   {
     id: "juridique",
@@ -69,6 +74,7 @@ export const ROLES: readonly RoleDef[] = [
       "Les statuts partent d'un modèle et c'est l'entrepreneur qui choisit chaque clause.",
     ],
     effort: "high",
+    model: "claude-opus-5-5",
   },
   {
     id: "prospection",
@@ -82,6 +88,7 @@ export const ROLES: readonly RoleDef[] = [
       "Tout envoi vers l'extérieur est une tâche externe : il attend le délai d'annulation.",
     ],
     effort: "medium",
+    model: "claude-sonnet-5-5",
   },
   {
     id: "redaction",
@@ -91,6 +98,7 @@ export const ROLES: readonly RoleDef[] = [
     tools: ["web_search", "publish_deliverable", "post_update", "plan_task"],
     guardrails: [...COMMON_GUARDRAILS, "Tout contenu généré par IA est signalé comme tel quand la loi l'exige."],
     effort: "medium",
+    model: "claude-sonnet-5-5",
   },
   {
     id: "video",
@@ -100,6 +108,7 @@ export const ROLES: readonly RoleDef[] = [
     tools: ["web_search", "publish_deliverable", "post_update", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
     effort: "medium",
+    model: "claude-sonnet-5-5",
   },
   {
     id: "comptable",
@@ -113,6 +122,7 @@ export const ROLES: readonly RoleDef[] = [
       "Jamais de facture B2B en simple PDF quand l'émission électronique est obligatoire : passer par une plateforme agréée.",
     ],
     effort: "medium",
+    model: "claude-opus-5-5",
   },
   {
     id: "support",
@@ -122,6 +132,7 @@ export const ROLES: readonly RoleDef[] = [
     tools: ["post_update", "publish_deliverable", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
     effort: "low",
+    model: "claude-haiku-5-5",
   },
 ];
 

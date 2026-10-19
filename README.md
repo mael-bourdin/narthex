@@ -23,7 +23,7 @@ Au premier lancement, Margaux te demande ta clé API Anthropic : c'est ce qui lu
 
 Avec ta clé, l'équipe dépense par défaut au plus 3 $ par jour et 1,50 $ par tâche ; une tâche qui dépasse s'arrête, et au-delà du budget du jour plus rien ne démarre avant le lendemain. La dépense IA s'affiche en dollars en haut de l'app et du Fil. Ajuste les plafonds dans l'app (pancarte) ou avec `narthex config budget <dollars>` et `narthex config budget-tache <dollars>`.
 
-Narthex n'utilise jamais une clé `ANTHROPIC_API_KEY` exportée sans que tu l'aies choisi (`narthex config mode anthropic`) : pas de dépense surprise. Pour développer sans clé, `NARTHEX_RUNTIME=simulation` fait tourner des agents d'exemple hors ligne.
+Narthex n'utilise jamais une clé `ANTHROPIC_API_KEY` exportée sans que tu l'aies choisi (`narthex config mode anthropic`) : pas de dépense surprise. Pour développer sans clé, `NARTHEX_RUNTIME=simulation` fait tourner des agents d'exemple hors ligne, et `NARTHEX_RUNTIME=claude-code` fait passer les agents par ton propre Claude Code, sur ton abonnement claude.ai. Ce second mode sert uniquement à développer Narthex : Anthropic n'autorise pas les produits tiers à proposer la connexion claude.ai à leurs utilisateurs, donc il n'est jamais proposé aux joueurs.
 
 ## Tout en ligne de commande
 

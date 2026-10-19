@@ -66,6 +66,7 @@ export function App() {
         </nav>
         <div className="top-right">
           {status.runtime === "simulation" && <span className="pill muted" title="Agents simulés, pour le développement">Simulation</span>}
+          {status.runtime === "claude-code" && <span className="pill muted" title="Développement : ton Claude Code et ton abonnement claude.ai, sans clé API">Claude Code (dev)</span>}
           <span className="pill credits" title="Dépense IA sur ton compte Anthropic, depuis le début">
             <Bolt /> Dépense IA · {fmt.dollars(state.usage.credits)}
           </span>

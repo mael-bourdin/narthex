@@ -34,12 +34,15 @@ export class AnthropicRuntime implements AgentRuntime {
   readonly name = "anthropic" as const;
   private readonly client: Anthropic;
   private readonly model: string;
+  /** The model chosen for everyone (« narthex config modele »), over each role's default. */
+  private readonly chosen: string | undefined;
   private readonly models: Partial<Record<RoleId, string>>;
   private readonly maxTurns: number;
 
   constructor(options: AnthropicRuntimeOptions = {}) {
     this.client = options.client ?? new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {});
     this.model = options.model ?? DEFAULT_MODEL;
+    this.chosen = options.model;
     this.models = options.models ?? {};
     this.maxTurns = options.maxTurns ?? 12;
   }
@@ -53,19 +56,10 @@ export class AnthropicRuntime implements AgentRuntime {
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
         output_config: { effort: "low" },
-        system: [
-          "Tu es Margaux, co-fondatrice IA d'une petite entreprise française qui n'existe pas encore.",
-          "Tu fais un tout premier coup d'œil, rapide et vérifié, sur une idée. Tu ne donnes aucun conseil juridique personnalisé.",
-          'Ta réponse finale est uniquement un objet JSON : {"reaction": string, "findings": [{"text": string, "source": string}]}.',
-          "reaction : une seule phrase courte et chaleureuse qui réagit à l'idée, sans annoncer que tu vas chercher.",
-          "findings : 3 à 5 constats vérifiés sur le web, en France, chacun avec sa source courte (nom du site ou de l'organisme). Trois recherches au plus suffisent.",
-          `team : les 1 à 3 coéquipiers dont CETTE idée a besoin maintenant, choisis parmi ${TEAM_CHOICES}. Ne prends pas le juridique si rien de légal ne presse ; une idée technique peut commencer par la recherche technique et de marché. why : une phrase.`,
-          "later : 0 à 3 coéquipiers qui viendront quand on créera la société, mêmes postes possibles, sans répéter team.",
-          'Format complet : {"reaction": string, "findings": [{"text", "source"}], "team": [{"role", "why"}], "later": [{"role", "why"}]}.',
-        ].join("\n"),
+        system: firstLookSystem(),
         // Searches launched from the tool's own code each count as a use: leave room, ask for few.
         tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 10 }],
-        messages: [{ role: "user", content: `Nous sommes le ${fmt.day(input.now)}. ${input.founderName} vient de te confier son idée : « ${input.idea} »` }],
+        messages: [{ role: "user", content: firstLookPrompt(input) }],
       },
       { signal: input.signal },
     );
@@ -78,7 +72,7 @@ export class AnthropicRuntime implements AgentRuntime {
 
   async run(ctx: WorkContext): Promise<WorkResult> {
     const def = role(ctx.agent.role);
-    const model = this.models[ctx.agent.role] ?? this.model;
+    const model = this.models[ctx.agent.role] ?? this.chosen ?? def.model;
     const tools = toolsFor(def);
     const system: Anthropic.Beta.BetaTextBlockParam[] = [
       { type: "text", text: identity(def, ctx.agent.name) },
@@ -206,7 +200,24 @@ function addUsage(total: NonNullable<WorkResult["usage"]>, u: Anthropic.Beta.Bet
 
 // ---------- Prompt: stable prefix first, volatile content last ----------
 
-function identity(def: RoleDef, name: string): string {
+export function firstLookSystem(): string {
+  return [
+    "Tu es Margaux, co-fondatrice IA d'une petite entreprise française qui n'existe pas encore.",
+    "Tu fais un tout premier coup d'œil, rapide et vérifié, sur une idée. Tu ne donnes aucun conseil juridique personnalisé.",
+    'Ta réponse finale est uniquement un objet JSON : {"reaction": string, "findings": [{"text": string, "source": string}]}.',
+    "reaction : une seule phrase courte et chaleureuse qui réagit à l'idée, sans annoncer que tu vas chercher.",
+    "findings : 3 à 5 constats vérifiés sur le web, en France, chacun avec sa source courte (nom du site ou de l'organisme). Trois recherches au plus suffisent.",
+    `team : les 1 à 3 coéquipiers dont CETTE idée a besoin maintenant, choisis parmi ${TEAM_CHOICES}. Ne prends pas le juridique si rien de légal ne presse ; une idée technique peut commencer par la recherche technique et de marché. why : une phrase.`,
+    "later : 0 à 3 coéquipiers qui viendront quand on créera la société, mêmes postes possibles, sans répéter team.",
+    'Format complet : {"reaction": string, "findings": [{"text", "source"}], "team": [{"role", "why"}], "later": [{"role", "why"}]}.',
+  ].join("\n");
+}
+
+export function firstLookPrompt(input: { idea: string; founderName: string; now: number }): string {
+  return `Nous sommes le ${fmt.day(input.now)}. ${input.founderName} vient de te confier son idée : « ${input.idea} »`;
+}
+
+export function identity(def: RoleDef, name: string): string {
   return [
     `Tu es ${name}, ${def.title.toLowerCase()} dans une petite entreprise française que tu fais tourner avec une équipe d'agents IA, pour le compte de son fondateur.`,
     `Ta mission : ${def.mission}`,
@@ -224,7 +235,7 @@ function identity(def: RoleDef, name: string): string {
   ].join("\n");
 }
 
-function companySheet(ctx: WorkContext): string {
+export function companySheet(ctx: WorkContext): string {
   const c = ctx.state.company;
   const team = Object.values(ctx.state.agents)
     .map((a) => `- ${a.name}, ${role(a.role).title}`)
@@ -247,7 +258,7 @@ function companySheet(ctx: WorkContext): string {
     .join("\n");
 }
 
-function brief(ctx: WorkContext): string {
+export function brief(ctx: WorkContext): string {
   const recent = Object.values(ctx.state.deliverables)
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, 8)
@@ -276,8 +287,12 @@ export function parseFirstLook(content: readonly Anthropic.Beta.BetaContentBlock
     .slice(lastSearch + 1)
     .flatMap((b) => (b.type === "text" ? [b.text] : []))
     .join("");
-  const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-  const parsed = JSON.parse(json) as { reaction?: unknown; findings?: unknown };
+  return firstLookFrom(JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)));
+}
+
+/** Checks the first look a model returned; whatever does not fit is dropped. */
+export function firstLookFrom(value: unknown): Pick<FirstLook, "reaction" | "findings" | "team" | "later"> {
+  const parsed = (value ?? {}) as { reaction?: unknown; findings?: unknown };
   const findings: Finding[] = Array.isArray(parsed.findings)
     ? parsed.findings.flatMap((f) => {
         const o = (f ?? {}) as Record<string, unknown>;
@@ -392,7 +407,7 @@ function requireString(input: Record<string, unknown>, key: string): string {
   return v;
 }
 
-function parseDeliverable(input: Record<string, unknown>): NonNullable<WorkResult["deliverable"]> {
+export function parseDeliverable(input: Record<string, unknown>): NonNullable<WorkResult["deliverable"]> {
   const sources: Source[] = Array.isArray(input.sources)
     ? input.sources.flatMap((s) => {
         if (!s || typeof s !== "object") return [];
@@ -405,7 +420,7 @@ function parseDeliverable(input: Record<string, unknown>): NonNullable<WorkResul
   return { title: requireString(input, "title"), summary: requireString(input, "summary"), body: requireString(input, "body"), sources };
 }
 
-function parseFollowUp(input: Record<string, unknown>): FollowUp {
+export function parseFollowUp(input: Record<string, unknown>): FollowUp {
   const kind: TaskKind = input.kind === "external" ? "external" : "internal";
   const assignee = typeof input.assignee === "string" && input.assignee !== "self" && (ROLE_IDS as string[]).includes(input.assignee)
     ? (input.assignee as RoleId)

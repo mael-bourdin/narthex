@@ -1,3 +1,4 @@
+import type { RuntimeName } from "./protocol.ts";
 import { dollars, relative } from "./format.ts";
 import { filView } from "./fil.ts";
 import { overBudget, spentOn } from "./policy.ts";
@@ -22,7 +23,7 @@ export interface Mission {
   obligationId?: string;
 }
 
-export function missions(state: CompanyState, now: Timestamp, runtime: "simulation" | "anthropic" | "none"): Mission[] {
+export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeName): Mission[] {
   if (!state.company) return [];
   const agents = Object.values(state.agents).sort((a, b) => a.hiredAt - b.hiredAt);
   const margaux = agents.find((a) => a.role === "cofondateur");

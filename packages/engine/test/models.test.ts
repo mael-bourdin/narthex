@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
-import { emptyState, type Agent, type Task } from "@narthex/core";
+import { emptyState, ROLES, type Agent, type Task } from "@narthex/core";
 import { AnthropicRuntime, Engine, MemoryEventStore, SimulatedClock, SimulationRuntime, type WorkContext } from "../src/index.ts";
 
 describe("model per teammate", () => {
@@ -14,7 +14,25 @@ describe("model per teammate", () => {
     const ctx = { state: emptyState(), agent, task, now: 0, signal: new AbortController().signal, progress() {}, plan: () => null, recruit: () => null, spend() {} } as unknown as WorkContext;
     await new AnthropicRuntime({ client, models: { video: "claude-haiku-5-5" } }).run(ctx);
     await new AnthropicRuntime({ client }).run(ctx);
-    expect(models).toEqual(["claude-haiku-5-5", "claude-opus-5-5"]);
+    await new AnthropicRuntime({ client, model: "claude-opus-5-5" }).run(ctx);
+    await new AnthropicRuntime({ client, model: "claude-opus-5-5", models: { video: "claude-haiku-5-5" } }).run(ctx);
+    // Choice for the role, then the model chosen for everyone, then the role's own default (Sonnet for video).
+    expect(models).toEqual(["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"]);
+  });
+
+  it("keeps Opus where a mistake costs most, and lighter models elsewhere", () => {
+    const by = Object.fromEntries(ROLES.map((r) => [r.id, r.model]));
+    expect(by).toEqual({
+      cofondateur: "claude-opus-5-5",
+      recherche: "claude-sonnet-5-5",
+      technique: "claude-sonnet-5-5",
+      juridique: "claude-opus-5-5",
+      prospection: "claude-sonnet-5-5",
+      redaction: "claude-sonnet-5-5",
+      video: "claude-sonnet-5-5",
+      comptable: "claude-opus-5-5",
+      support: "claude-haiku-5-5",
+    });
   });
 });
 

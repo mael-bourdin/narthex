@@ -38,7 +38,7 @@ const STAGE: Record<Stage, string> = {
 
 export function header(s: CompanyState, status: EngineStatus): string {
   const c = s.company!;
-  const mode = status.runtime === "simulation" ? yellow("simulation") : status.runtime === "none" ? yellow("sans clé") : "Claude";
+  const mode = status.runtime === "simulation" ? yellow("simulation") : status.runtime === "claude-code" ? yellow("Claude Code (dev, abonnement)") : status.runtime === "none" ? yellow("sans clé") : "Claude";
   const run = c.paused ? yellow("en pause") : status.passive ? dim("équipe à l'arrêt · narthex lancer") : green("l'équipe travaille");
   return `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· dépense IA ${fmt.dollars(s.usage.credits)}`)}`;
 }

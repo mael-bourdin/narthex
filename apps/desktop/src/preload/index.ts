@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import type { Method, Params, Result, StoredEvent } from "@narthex/core";
+import type { Method, Params, Result, RuntimeName, StoredEvent } from "@narthex/core";
 
 /** The only bridge between the page and the engine: the same API as the CLI, nothing more. */
 const api = {
@@ -22,7 +22,7 @@ const api = {
       dir: string;
       hasKey: boolean;
       keyHint: string | null;
-      runtime: "simulation" | "anthropic" | "none";
+      runtime: RuntimeName;
       models: Partial<Record<string, string>>;
       notifications: { legal: boolean; leaving: boolean; budget: boolean; deliverables: boolean };
       ownsEngine: boolean;
