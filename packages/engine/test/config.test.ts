@@ -30,3 +30,9 @@ describe("needsKey", () => {
     expect(needsKey({ anthropicApiKey: "sk-ant-x" })).toBe(false);
   });
 });
+
+describe("needsKey in development", () => {
+  it("never asks for a key when the simulation is forced", () => {
+    expect(needsKey({}, { NARTHEX_RUNTIME: "simulation" })).toBe(false);
+  });
+});

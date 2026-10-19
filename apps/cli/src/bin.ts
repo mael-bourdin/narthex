@@ -22,7 +22,7 @@ import { bold, clean, dim, red, rule } from "./style.ts";
 const HELP = `${bold("narthex")} — une équipe d'agents IA qui crée et fait tourner ton entreprise.
 
 ${bold("Commencer")}
-  narthex init                      Raconte ton idée ; Margaux monte l'équipe
+  narthex init                      Le premier lancement : ta clé, ton idée, ton équipe
   narthex lancer                    Fait travailler l'équipe (et affiche le Fil en direct)
 
 ${bold("Regarder")}
@@ -47,7 +47,7 @@ ${bold("Réglages")}
   narthex avancer <heures>          Simulation : avancer l'horloge
 
 ${bold("Options")}  --dossier <chemin>  --json  --aide
-Sans clé API, Narthex tourne en simulation : rien ne sort de ton ordinateur.`;
+Sans clé API, l'équipe prépare tout et attend ta clé : rien n'est inventé.`;
 
 const { values: opts, positionals } = parseArgs({
   allowPositionals: true,

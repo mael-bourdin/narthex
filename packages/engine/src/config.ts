@@ -55,6 +55,7 @@ export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.e
 }
 
 /** The first launch asks for a key unless the player already chose: a saved key, or a mode. */
-export function needsKey(config: Config): boolean {
+export function needsKey(config: Config, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NARTHEX_RUNTIME === "simulation") return false;
   return !(config.anthropicApiKey || config.runtime === "anthropic" || config.runtime === "simulation");
 }
