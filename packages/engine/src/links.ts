@@ -1,5 +1,7 @@
 import { lookup as dnsLookup } from "node:dns/promises";
-import { BlockList, isIP } from "node:net";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { BlockList, isIP, type LookupFunction } from "node:net";
 import type { LinkCheck } from "./engine.ts";
 
 /** What the checker needs from the outside world; injected in tests. */
@@ -28,12 +30,14 @@ for (const [net, bits] of [
   ["224.0.0.0", 4],
   ["240.0.0.0", 4],
 ] as const) PRIVATE.addSubnet(net, bits, "ipv4");
+// IPv6: only global unicast (2000::/3), minus the prefixes that carry an IPv4 address or are not routed:
+// Teredo, documentation, 6to4. NAT64 (64:ff9b::/96), IPv4-compatible (::/96), local and multicast are outside 2000::/3.
+const GLOBAL_V6 = new BlockList();
+GLOBAL_V6.addSubnet("2000::", 3, "ipv6");
 for (const [net, bits] of [
-  ["::", 128],
-  ["::1", 128],
-  ["fc00::", 7],
-  ["fe80::", 10],
-  ["ff00::", 8],
+  ["2001::", 32],
+  ["2001:db8::", 32],
+  ["2002::", 16],
 ] as const) PRIVATE.addSubnet(net, bits, "ipv6");
 
 export function isPublicAddress(address: string): boolean {
@@ -41,7 +45,8 @@ export function isPublicAddress(address: string): boolean {
   if (mapped) return isPublicAddress(mapped);
   const family = isIP(address);
   if (family === 0) return false;
-  return !PRIVATE.check(address, family === 4 ? "ipv4" : "ipv6");
+  if (family === 6) return GLOBAL_V6.check(address, "ipv6") && !PRIVATE.check(address, "ipv6");
+  return !PRIVATE.check(address, "ipv4");
 }
 
 async function isPublicUrl(url: URL, lookup: LinkCheckDeps["lookup"]): Promise<boolean> {
@@ -87,14 +92,41 @@ export function makeLinkCheck(deps: LinkCheckDeps): LinkCheck {
 }
 
 /**
- * The real checker. A host could still change its DNS answer between the check and the request
- * (rebinding); the window is a few milliseconds and only a yes/no comes back, which we accept here.
+ * A `lookup` for the connection itself: it resolves the name, refuses if any address is not public,
+ * and hands over only the addresses it checked. The check and the connection share one resolution,
+ * so a name cannot point outside for the check and inside for the request (DNS rebinding).
  */
+export function pinnedLookup(resolve: (host: string) => Promise<string[]>): LookupFunction {
+  return ((hostname: string, options: { all?: boolean }, callback: (err: NodeJS.ErrnoException | null, address?: unknown, family?: number) => void) => {
+    resolve(hostname).then(
+      (addresses) => {
+        if (addresses.length === 0 || !addresses.every(isPublicAddress)) {
+          return callback(Object.assign(new Error(`${hostname} pointe vers le réseau local : lien non vérifié.`), { code: "ENOTFOUND" }));
+        }
+        const list = addresses.map((address) => ({ address, family: isIP(address) }));
+        if (options?.all) callback(null, list);
+        else callback(null, list[0]!.address, list[0]!.family);
+      },
+      (e: NodeJS.ErrnoException) => callback(e),
+    );
+  }) as LookupFunction;
+}
+
+const resolveAll = async (host: string) => (await dnsLookup(host, { all: true })).map((a) => a.address);
+
+/** The real checker: every connection goes through `pinnedLookup`. */
 export const httpLinkCheck: LinkCheck = makeLinkCheck({
-  lookup: async (host) => (await dnsLookup(host, { all: true })).map((a) => a.address),
-  fetch: async (url, { method, signal }) => {
-    const res = await fetch(url, { method, redirect: "manual", signal, headers: { "user-agent": "Narthex (vérification des sources)" } });
-    void res.body?.cancel();
-    return { status: res.status, location: res.headers.get("location") ?? undefined };
-  },
+  lookup: resolveAll,
+  fetch: (url, { method, signal }) =>
+    new Promise((resolve, reject) => {
+      const send = url.startsWith("https:") ? httpsRequest : httpRequest;
+      const req = send(url, { method, signal, lookup: pinnedLookup(resolveAll), headers: { "user-agent": "Narthex (vérification des sources)" } }, (res) => {
+        res.resume();
+        const location = res.headers.location;
+        resolve({ status: res.statusCode ?? 0, location: Array.isArray(location) ? location[0] : location });
+        req.destroy();
+      });
+      req.on("error", reject);
+      req.end();
+    }),
 });
