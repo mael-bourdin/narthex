@@ -2,7 +2,23 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import type { Method, Params } from "@narthex/core";
-import { dataDir, InProcessClient, openEngine, serve, SocketClient, socketPath, type Client, type Engine } from "@narthex/engine";
+import {
+  AnthropicRuntime,
+  chooseSimulation,
+  dataDir,
+  InProcessClient,
+  loadConfig,
+  needsKey,
+  openEngine,
+  saveKey,
+  serve,
+  SocketClient,
+  socketPath,
+  systemClock,
+  verifyAnthropicKey,
+  type Client,
+  type Engine,
+} from "@narthex/engine";
 
 /**
  * The app is a thin client. If `narthex lancer` already runs the company in a terminal,
@@ -13,8 +29,9 @@ let engine: Engine | undefined;
 let closeServer: (() => void) | undefined;
 let window: BrowserWindow | undefined;
 
+const dir = dataDir();
+
 async function connect(): Promise<Client> {
-  const dir = dataDir();
   const existing = await SocketClient.connect(socketPath(dir));
   if (existing) return existing;
   engine = openEngine({ dir }).engine;
@@ -64,6 +81,22 @@ function snapshot(win: BrowserWindow, file: string): void {
 ipcMain.handle("narthex:call", async (_event, method: Method, params: Params<Method>) => {
   if (!client) throw new Error("Le moteur démarre…");
   return client.call(method, params);
+});
+
+// First launch (« le seuil »). The key never reaches the page's storage: it goes straight to config.json.
+ipcMain.handle("narthex:onboarding:needsKey", () => needsKey(loadConfig(dir)));
+ipcMain.handle("narthex:onboarding:submitKey", async (_event, key: string) => {
+  const check = await verifyAnthropicKey(String(key));
+  if (!check.ok) return check;
+  const config = saveKey(dir, check.key);
+  // We run the engine and nothing is founded yet: Margaux thinks with Claude from now on.
+  if (engine && !engine.getState().company) {
+    engine.switchRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}) }), systemClock);
+  }
+  return { ok: true };
+});
+ipcMain.handle("narthex:onboarding:useSimulation", () => {
+  chooseSimulation(dir);
 });
 
 app.whenReady().then(async () => {
