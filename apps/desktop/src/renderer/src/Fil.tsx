@@ -1,6 +1,4 @@
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   filView,
   fmt,
@@ -15,12 +13,13 @@ import {
   type Task,
 } from "@narthex/core";
 import { ActionModal } from "./ActionModal.tsx";
+import { DeliverableView } from "./Deliverable.tsx";
 import { Chevron, Clock, Doc, Up } from "./icons.tsx";
 import { PixelAvatar } from "./PixelAvatar.tsx";
 
 
 /** The Fil, as in Figma (163:17001): only what really happened, newest first. */
-export function Fil({ state, status, onChange }: { state: CompanyState; status: EngineStatus; onChange(): void }) {
+export function Fil({ state, status, onChange, onAgent }: { state: CompanyState; status: EngineStatus; onChange(): void; onAgent(id: string): void }) {
   const view = filView(state, status.now);
   const signs = missions(state, status.now, status.runtime);
   const [open, setOpen] = useState<Deliverable>();
@@ -48,7 +47,7 @@ export function Fil({ state, status, onChange }: { state: CompanyState; status: 
         </div>
       </div>
       <aside className="side">
-        <TeamCard view={view} />
+        <TeamCard view={view} onAgent={onAgent} />
         {view.quest && <QuestCard quest={view.quest} />}
       </aside>
       {open && <DeliverableView d={open} state={state} onClose={() => setOpen(undefined)} />}
@@ -232,7 +231,7 @@ function Attachment({ d }: { d: Deliverable }) {
   );
 }
 
-function TeamCard({ view }: { view: FilView }) {
+function TeamCard({ view, onAgent }: { view: FilView; onAgent(id: string): void }) {
   return (
     <section className="card">
       <header className="card-head">
@@ -240,7 +239,7 @@ function TeamCard({ view }: { view: FilView }) {
         <span className="muted">cette semaine</span>
       </header>
       {view.team.map((m) => (
-        <div key={m.agent.id} className="member-row">
+        <button key={m.agent.id} className="member-row as-button" onClick={() => onAgent(m.agent.id)}>
           <PixelAvatar role={m.agent.role} size={32} />
           <div className="member-text">
             <div>{m.agent.name}</div>
@@ -249,7 +248,7 @@ function TeamCard({ view }: { view: FilView }) {
             </div>
           </div>
           <span className={`status-dot ${m.status}`} title={m.status === "working" ? "Au travail" : m.status === "waiting-you" ? "T'attend" : "Au repos"} />
-        </div>
+        </button>
       ))}
       {view.upcoming && (
         <div className="member-row ghost">
@@ -281,49 +280,6 @@ function QuestCard({ quest }: { quest: NonNullable<FilView["quest"]> }) {
       </div>
       {quest.next && <div className="muted small">Prochaine étape : {lowerFirst(quest.next)}.</div>}
     </section>
-  );
-}
-
-function DeliverableView({ d, state, onClose }: { d: Deliverable; state: CompanyState; onClose(): void }) {
-  const agent = state.agents[d.agentId];
-  return (
-    <div className="overlay" onClick={onClose}>
-      <article className="sheet" onClick={(e) => e.stopPropagation()}>
-        <button className="link" onClick={onClose}>
-          ← Fil
-        </button>
-        <div className="post-head">
-          <PixelAvatar role={agent?.role} size={40} />
-          <div>
-            <h1>{d.title}</h1>
-            <div className="muted small">
-              {agent?.name} · {fmt.day(d.createdAt)} · {d.sources.length} source{d.sources.length > 1 ? "s" : ""}
-            </div>
-          </div>
-        </div>
-        <div className="doc">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer">{children}</a> }}>
-            {d.body}
-          </ReactMarkdown>
-        </div>
-        {d.sources.length > 0 && (
-          <ul className="sources">
-            {d.sources.map((s, i) => (
-              <li key={i}>
-                {s.url ? (
-                  <a href={s.url} target="_blank" rel="noreferrer">
-                    {s.title}
-                  </a>
-                ) : (
-                  s.title
-                )}
-                {s.checkedAt && <span className="muted"> · vérifié le {s.checkedAt}</span>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </article>
-    </div>
   );
 }
 

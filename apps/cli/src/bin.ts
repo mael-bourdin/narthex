@@ -32,6 +32,8 @@ ${bold("Regarder")}
   narthex calendrier [--semaine]    Les tâches du jour ou de la semaine  [--agent Samir]
   narthex obligations               Les obligations légales, les tiennes en premier
   narthex journal                   Toutes les actions, dans l'ordre
+  narthex recrutements              Qui est arrivé, qui viendra et quand
+  narthex agent <nom>               La fiche d'un coéquipier
   narthex livrable <id|dernier>     Lire un livrable
 
 ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
@@ -111,6 +113,13 @@ async function main(): Promise<void> {
       }
       case "obligations":
         return print(render.obligations(state));
+      case "recrutements":
+        return print(render.recrutementsView(state));
+      case "agent": {
+        const a = Object.values(state.agents).find((x) => x.name.toLowerCase() === (args[0] ?? "").toLowerCase());
+        if (!a) throw new Error(`Personne ne s'appelle ${args[0] ?? "ainsi"} dans l'équipe.`);
+        return print(render.agentView(state, a.id, status.now));
+      }
       case "journal": {
         const events = await client.call("events.read", {});
         const n = Number(opts.nombre ?? 40);
