@@ -1,0 +1,78 @@
+import { existsSync, unlinkSync } from "node:fs";
+import { createConnection, createServer, type Server, type Socket } from "node:net";
+import { platform } from "node:os";
+import type { RpcRequest, RpcResponse } from "@narthex/core";
+import type { Engine } from "./engine.ts";
+
+/**
+ * Serves the engine on a local socket (JSON lines), so the CLI and the desktop app
+ * can share one running company. Local only: a Unix socket in the user's data folder,
+ * or a per-user named pipe on Windows. Nothing listens on the network.
+ */
+export async function serve(engine: Engine, path: string): Promise<Server> {
+  if (platform() !== "win32" && existsSync(path)) {
+    if (await isAlive(path)) throw new Error("Narthex tourne déjà (un autre moteur écoute sur ce dossier).");
+    unlinkSync(path);
+  }
+  const server = createServer((socket) => attach(engine, socket));
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(path, () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  return server;
+}
+
+function attach(engine: Engine, socket: Socket): void {
+  socket.setEncoding("utf8");
+  const unsubscribe = engine.subscribe((event) => write(socket, { event }));
+  socket.on("close", unsubscribe);
+  socket.on("error", unsubscribe);
+  readLines(socket, async (line) => {
+    let request: RpcRequest;
+    try {
+      request = JSON.parse(line) as RpcRequest;
+    } catch {
+      return;
+    }
+    let response: RpcResponse;
+    try {
+      response = { id: request.id, result: await engine.handle(request.method, request.params) };
+    } catch (e) {
+      response = { id: request.id, error: { message: e instanceof Error ? e.message : String(e) } };
+    }
+    write(socket, response);
+  });
+}
+
+export function write(socket: Socket, message: unknown): void {
+  if (!socket.destroyed) socket.write(`${JSON.stringify(message)}\n`);
+}
+
+export function readLines(socket: Socket, onLine: (line: string) => void): void {
+  let buffer = "";
+  socket.on("data", (chunk: string | Buffer) => {
+    buffer += chunk.toString();
+    let index: number;
+    while ((index = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, index).trim();
+      buffer = buffer.slice(index + 1);
+      if (line) onLine(line);
+    }
+  });
+}
+
+export function isAlive(path: string, timeoutMs = 500): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection(path);
+    const done = (alive: boolean) => {
+      socket.destroy();
+      resolve(alive);
+    };
+    socket.once("connect", () => done(true));
+    socket.once("error", () => done(false));
+    setTimeout(() => done(false), timeoutMs).unref();
+  });
+}

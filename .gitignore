@@ -1,0 +1,15 @@
+node_modules/
+dist/
+out/
+release/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+# Données locales d'une partie (jamais versionnées)
+.narthex/
+*.sqlite
+*.sqlite-*
+.vitest/

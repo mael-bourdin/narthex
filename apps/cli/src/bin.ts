@@ -1,0 +1,354 @@
+import { createInterface } from "node:readline/promises";
+import { parseArgs } from "node:util";
+import type { CompanyState, LegalForm } from "@narthex/core";
+import {
+  chooseRuntime,
+  InProcessClient,
+  isAlive,
+  loadConfig,
+  openEngine,
+  saveConfig,
+  serve,
+  SocketClient,
+  socketPath,
+  dataDir,
+  DEFAULT_MODEL,
+  type Client,
+  type Config,
+} from "@narthex/engine";
+import * as render from "./render.ts";
+import { bold, dim, red, rule } from "./style.ts";
+
+const HELP = `${bold("narthex")} — une équipe d'agents IA qui crée et fait tourner ton entreprise.
+
+${bold("Commencer")}
+  narthex init                      Raconte ton idée ; Margaux monte l'équipe
+  narthex lancer                    Fait travailler l'équipe (et affiche le Fil en direct)
+
+${bold("Regarder")}
+  narthex [fil]                     Le Fil : ce que l'équipe a fait, ce qui t'attend
+  narthex equipe                    Qui fait quoi en ce moment
+  narthex calendrier [--semaine]    Les tâches du jour ou de la semaine  [--agent Samir]
+  narthex obligations               Les obligations légales, les tiennes en premier
+  narthex journal                   Toutes les actions, dans l'ordre
+  narthex livrable <id|dernier>     Lire un livrable
+
+${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
+  narthex valider <id> [--forme SASU]   Dire que tu as fait une obligation
+  narthex annuler <id>                  Annuler une action prévue
+  narthex pause | reprendre             Mettre l'équipe en pause
+
+${bold("Réglages")}
+  narthex config                    Voir la configuration
+  narthex config cle                Enregistrer ta clé API Anthropic (ou ANTHROPIC_API_KEY)
+  narthex config mode <auto|simulation|anthropic>
+  narthex config modele <id>        Modèle Claude (défaut : claude-opus-5-5)
+  narthex config delai <heures>     Délai pour annuler une action externe
+  narthex avancer <heures>          Simulation : avancer l'horloge
+
+${bold("Options")}  --dossier <chemin>  --json  --aide
+Sans clé API, Narthex tourne en simulation : rien ne sort de ton ordinateur.`;
+
+const { values: opts, positionals } = parseArgs({
+  allowPositionals: true,
+  options: {
+    dossier: { type: "string" },
+    json: { type: "boolean" },
+    aide: { type: "boolean", short: "h" },
+    help: { type: "boolean" },
+    nom: { type: "string" },
+    idee: { type: "string" },
+    prenom: { type: "string" },
+    ville: { type: "string" },
+    "sans-lancer": { type: "boolean" },
+    semaine: { type: "boolean" },
+    agent: { type: "string" },
+    forme: { type: "string" },
+    nombre: { type: "string", short: "n" },
+  },
+});
+
+const dir = opts.dossier ?? dataDir();
+const [command = "fil", ...args] = positionals;
+
+async function main(): Promise<void> {
+  if (opts.aide || opts.help || command === "aide" || command === "help") return print(HELP);
+  switch (command) {
+    case "init":
+      return init();
+    case "lancer":
+    case "run":
+      return lancer();
+    case "config":
+      return config();
+  }
+  await withClient(async (client) => {
+    const state = await client.call("state.get", {});
+    if (!state) {
+      print(`Pas encore d'entreprise ici. Commence par ${bold("narthex init")}.`);
+      return;
+    }
+    const status = await client.call("engine.status", {});
+    if (opts.json && ["fil", "equipe", "calendrier", "obligations"].includes(command)) return print(JSON.stringify(state, null, 2));
+    switch (command) {
+      case "fil":
+        return print(render.fil(state, status, Number(opts.nombre ?? 15)));
+      case "equipe":
+      case "team":
+        return print(render.equipe(state, status.now));
+      case "calendrier":
+      case "calendar": {
+        const agent = opts.agent ? Object.values(state.agents).find((a) => a.name.toLowerCase() === opts.agent!.toLowerCase()) : undefined;
+        if (opts.agent && !agent) throw new Error(`Personne ne s'appelle ${opts.agent} dans l'équipe.`);
+        return print(render.calendrier(state, status.now, opts.semaine ? "semaine" : "jour", agent?.id));
+      }
+      case "obligations":
+        return print(render.obligations(state));
+      case "journal": {
+        const events = await client.call("events.read", {});
+        const n = Number(opts.nombre ?? 40);
+        return print(opts.json ? JSON.stringify(events, null, 2) : render.journal(state, events, n));
+      }
+      case "livrable": {
+        const all = Object.values(state.deliverables).sort((a, b) => b.createdAt - a.createdAt);
+        const d = !args[0] || args[0] === "dernier" ? all[0] : all.find((x) => x.id.startsWith(args[0]!));
+        if (!d) throw new Error("Livrable introuvable.");
+        return print(opts.json ? JSON.stringify(d, null, 2) : render.livrable(state, d));
+      }
+      case "valider": {
+        const o = byPrefix(Object.values(state.obligations), args[0], "obligation");
+        const next = await client.call("obligation.fulfill", { obligationId: o.id, ...(opts.forme ? { legalForm: legalForm(opts.forme) } : {}) });
+        print(`${bold("C'est noté.")} ${o.title}.`);
+        return afterAction(next, status.passive);
+      }
+      case "annuler": {
+        const t = byPrefix(Object.values(state.tasks), args[0], "tâche");
+        await client.call("task.cancel", { taskId: t.id });
+        return print(`Annulé : ${t.title}.`);
+      }
+      case "pause":
+        await client.call("company.pause", {});
+        return print("L'équipe est en pause. Les obligations restent suivies dans la liste. Reprends avec : narthex reprendre");
+      case "reprendre":
+        await client.call("company.resume", {});
+        return print("L'équipe reprend.");
+      case "avancer": {
+        const hours = Number(args[0] ?? 24);
+        if (!Number.isFinite(hours) || hours <= 0) throw new Error("Donne un nombre d'heures, par exemple : narthex avancer 24");
+        const s = await client.call("clock.advance", { hours });
+        return print(`Horloge avancée de ${hours} h.${s.passive ? " L'équipe travaillera au prochain « narthex lancer »." : ""}`);
+      }
+      case "statut":
+      case "status":
+        return print(JSON.stringify(status, null, 2));
+      default:
+        throw new Error(`Commande inconnue : ${command}. Voir narthex --aide`);
+    }
+  });
+}
+
+function afterAction(_state: CompanyState, passive: boolean): void {
+  if (passive) print(dim("L'équipe s'en occupera au prochain « narthex lancer »."));
+}
+
+// ---------- Connecting ----------
+
+/** Talks to a running `narthex lancer` when there is one, else opens the company read-and-record only. */
+async function withClient(fn: (client: Client) => Promise<void>): Promise<void> {
+  const socket = await SocketClient.connect(socketPath(dir));
+  if (socket) {
+    try {
+      return await fn(socket);
+    } finally {
+      await socket.close();
+    }
+  }
+  const { engine } = openEngine({ dir, passive: true });
+  try {
+    await fn(new InProcessClient(engine));
+  } finally {
+    await engine.close();
+  }
+}
+
+// ---------- init ----------
+
+async function init(): Promise<void> {
+  const ask = process.stdin.isTTY ? createInterface({ input: process.stdin, output: process.stdout }) : null;
+  const question = async (label: string, given?: string): Promise<string> => {
+    if (given) return given;
+    if (!ask) throw new Error(`Il manque --${label === "Ton idée" ? "idee" : label === "Ton prénom" ? "prenom" : "nom"} (pas de terminal interactif).`);
+    return (await ask.question(`${bold(label)} › `)).trim();
+  };
+  try {
+    if (ask) print(`${bold("Bonjour.")} Je suis Margaux, ta future co-fondatrice. Raconte-moi ton idée en une ou deux phrases.\n`);
+    const idea = await question("Ton idée", opts.idee);
+    const founderName = await question("Ton prénom", opts.prenom);
+    const name = await question("Le nom de l'entreprise (même provisoire)", opts.nom);
+    ask?.close();
+    await withClient(async (client) => {
+      await client.call("company.found", { name, idea, founderName, ...(opts.ville ? { city: opts.ville } : {}) });
+    });
+  } finally {
+    ask?.close();
+  }
+  const runtime = chooseRuntime(loadConfig(dir));
+  print(`\n${bold("C'est parti.")} ${runtime === "simulation" ? dim("Mode simulation : ajoute une clé avec « narthex config cle » pour de vrais agents.") : ""}`);
+  if (opts["sans-lancer"] || (await isAlive(socketPath(dir)))) return print(`Lance l'équipe quand tu veux : ${bold("narthex lancer")}`);
+  print("");
+  return lancer();
+}
+
+// ---------- lancer ----------
+
+async function lancer(): Promise<void> {
+  if (await isAlive(socketPath(dir))) {
+    print(`L'équipe travaille déjà dans un autre terminal ou dans l'app. Regarde le Fil : ${bold("narthex fil")}`);
+    return;
+  }
+  const { engine } = openEngine({ dir });
+  if (!engine.getState().company) {
+    await engine.close();
+    print(`Pas encore d'entreprise ici. Commence par ${bold("narthex init")}.`);
+    return;
+  }
+  const server = await serve(engine, socketPath(dir));
+  print(render.fil(engine.getState(), engine.status(), 8));
+  if (engine.status().runtime === "anthropic") {
+    print(dim(`Agents réels : Claude (${loadConfig(dir).model ?? DEFAULT_MODEL}) avec ta clé. Chaque tâche consomme des crédits API ; le total s'affiche en haut du Fil.`));
+  }
+  print(rule());
+  print(dim("En direct. Ctrl+C pour arrêter (l'équipe termine ce qu'elle a commencé)."));
+
+  engine.subscribe((e) => {
+    const s = engine.getState();
+    if (e.type === "post.published") {
+      const d = e.post.deliverableId ? s.deliverables[e.post.deliverableId] : undefined;
+      print(render.postBlock(s, e.post.agentId, e.post.at, e.post.text, engine.now(), d));
+    } else if (e.type === "task.started") {
+      const t = s.tasks[e.taskId];
+      if (t) print(dim(`  ${s.agents[t.agentId]?.name} commence : ${t.title}`));
+    }
+  });
+  engine.start();
+
+  let stopping = false;
+  const stop = async () => {
+    if (stopping) {
+      engine.abortAll();
+      process.exit(130);
+    }
+    stopping = true;
+    print(dim("\nJ'attends que l'équipe finisse ce qu'elle a commencé… (Ctrl+C encore pour couper net)"));
+    server.close();
+    await engine.close();
+    process.exit(0);
+  };
+  process.on("SIGINT", () => void stop());
+  process.on("SIGTERM", () => void stop());
+  await new Promise(() => {});
+}
+
+// ---------- config ----------
+
+async function config(): Promise<void> {
+  const current = loadConfig(dir);
+  const [key, value] = args;
+  const next: Config = { ...current };
+  switch (key) {
+    case undefined: {
+      const shown = { ...current, ...(current.anthropicApiKey ? { anthropicApiKey: `${current.anthropicApiKey.slice(0, 10)}…` } : {}) };
+      print(`${bold("Dossier")} ${dir}\n${bold("Mode")} ${chooseRuntime(current)}\n${JSON.stringify(shown, null, 2)}`);
+      return;
+    }
+    case "cle": {
+      const k = value ?? (await readSecret("Clé API Anthropic (sk-ant-…) › "));
+      if (!k.startsWith("sk-ant-")) throw new Error("Ça ne ressemble pas à une clé Anthropic (sk-ant-…).");
+      next.anthropicApiKey = k;
+      break;
+    }
+    case "mode":
+      if (value === "auto") delete next.runtime;
+      else if (value === "simulation" || value === "anthropic") next.runtime = value;
+      else throw new Error("Mode : auto, simulation ou anthropic.");
+      break;
+    case "modele":
+      if (!value) throw new Error("Donne un identifiant de modèle, par exemple claude-opus-5-5.");
+      next.model = value;
+      break;
+    case "vitesse":
+      next.simulationSpeed = Number(value);
+      break;
+    case "delai": {
+      const hours = Number(value);
+      if (!Number.isFinite(hours) || hours < 0) throw new Error("Donne un nombre d'heures.");
+      await withClient(async (client) => {
+        await client.call("settings.update", { patch: { cancelWindowHours: hours } });
+      });
+      return print(`Délai d'annulation : ${hours} h.`);
+    }
+    default:
+      throw new Error(`Réglage inconnu : ${key}`);
+  }
+  saveConfig(dir, next);
+  print("Enregistré. Il s'applique au prochain « narthex lancer ».");
+}
+
+async function readSecret(prompt: string): Promise<string> {
+  if (!process.stdin.isTTY) {
+    let data = "";
+    for await (const chunk of process.stdin) data += chunk;
+    return data.trim();
+  }
+  process.stdout.write(prompt);
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding("utf8");
+  return new Promise((resolve) => {
+    let secret = "";
+    const onData = (ch: string) => {
+      if (ch === "\r" || ch === "\n" || ch === "\u0004") {
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+        process.stdin.off("data", onData);
+        process.stdout.write("\n");
+        resolve(secret.trim());
+      } else if (ch === "\u0003") process.exit(130);
+      else if (ch === "\u007f" || ch === "\b") secret = secret.slice(0, -1);
+      else secret += ch;
+    };
+    process.stdin.on("data", onData);
+  });
+}
+
+// ---------- helpers ----------
+
+function byPrefix<T extends { id: string }>(items: T[], prefix: string | undefined, what: string): T {
+  if (!prefix) throw new Error(`Donne l'identifiant de la ${what} (affiché dans le Fil).`);
+  const found = items.filter((i) => i.id === prefix || i.id.startsWith(prefix));
+  if (found.length === 0) throw new Error(`Aucune ${what} ne correspond à « ${prefix} ».`);
+  if (found.length > 1) throw new Error(`Plusieurs ${what}s correspondent à « ${prefix} » : donne plus de caractères.`);
+  return found[0]!;
+}
+
+function legalForm(v: string): LegalForm {
+  const forms: LegalForm[] = ["SASU", "SAS", "EURL", "SARL", "EI", "micro"];
+  const f = forms.find((x) => x.toLowerCase() === v.toLowerCase());
+  if (!f) throw new Error(`Forme inconnue : ${v}. Choix : ${forms.join(", ")}.`);
+  return f;
+}
+
+function print(text: string): void {
+  process.stdout.write(`${text}\n`);
+}
+
+// node:sqlite still prints an experimental warning on Node 24; it means nothing to a player.
+process.removeAllListeners("warning");
+process.on("warning", (w) => {
+  if (w.name !== "ExperimentalWarning") console.warn(w);
+});
+
+main().catch((e: unknown) => {
+  process.stderr.write(`${red("Erreur")} ${e instanceof Error ? e.message : String(e)}\n`);
+  process.exit(1);
+});

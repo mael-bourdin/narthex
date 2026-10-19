@@ -1,0 +1,22 @@
+{
+  "name": "@narthex/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Narthex en ligne de commande : toute l'entreprise, sans interface graphique.",
+  "license": "MIT",
+  "bin": {
+    "narthex": "dist/narthex.mjs"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "tsx src/bin.ts"
+  },
+  "dependencies": {
+    "@narthex/core": "0.1.0",
+    "@narthex/engine": "0.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
+  }
+}

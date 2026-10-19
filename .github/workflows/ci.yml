@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      NARTHEX_RUNTIME: simulation
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: CLI bundle smoke test
+        shell: bash
+        run: |
+          npm run build:cli
+          export NARTHEX_HOME="$RUNNER_TEMP/narthex"
+          node apps/cli/dist/narthex.mjs init --idee "Des bougies" --prenom Ines --nom "Maison Lumen" --sans-lancer
+          node apps/cli/dist/narthex.mjs fil
+      - name: Desktop build
+        run: npm run build -w @narthex/desktop

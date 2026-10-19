@@ -1,0 +1,15 @@
+{
+  "name": "@narthex/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Moteur de Narthex : journal d'événements SQLite, boucle de l'entreprise, runtimes d'agents (Claude, simulation), serveur local.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@narthex/core": "0.1.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "narthex",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Une équipe d'agents IA qui crée et fait tourner une vraie entreprise, comme dans un jeu.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "narthex": "tsx apps/cli/src/bin.ts",
+    "dev:desktop": "npm run dev -w @narthex/desktop",
+    "build": "npm run build -w @narthex/cli && npm run build -w @narthex/desktop",
+    "build:cli": "npm run build -w @narthex/cli",
+    "typecheck": "tsc -p packages/core && tsc -p packages/engine && tsc -p apps/cli && tsc -p apps/desktop",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

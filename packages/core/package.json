@@ -1,0 +1,11 @@
+{
+  "name": "@narthex/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Domaine pur de Narthex : types, événements, projection, rôles, règles et obligations légales. Aucune entrée/sortie.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
