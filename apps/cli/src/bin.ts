@@ -268,6 +268,7 @@ async function lancer(): Promise<void> {
   if (engine.status().runtime === "anthropic") {
     print(dim(`Agents réels : Claude (${loadConfig(dir).model ?? DEFAULT_MODEL}) avec ta clé. Chaque tâche a un coût en dollars sur ton compte Anthropic ; la dépense IA s'affiche en haut du Fil.`));
   }
+  if (engine.status().runtime === "claude-code") print(dim("Développement : les agents passent par ton Claude Code, sur ton abonnement claude.ai. Aucune clé API, aucune dépense en dollars."));
   print(rule());
   print(dim("En direct. Ctrl+C pour arrêter (l'équipe termine ce qu'elle a commencé)."));
 

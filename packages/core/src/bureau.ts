@@ -1,3 +1,4 @@
+import type { RuntimeName } from "./protocol.ts";
 import { filView } from "./fil.ts";
 import { missions, type Mission } from "./missions.ts";
 import type { CompanyState, Id, Timestamp } from "./types.ts";
@@ -11,7 +12,7 @@ export interface BureauDialogue {
   options: { label: string; mission?: Mission; agent?: Id }[];
 }
 
-export function bureauDialogue(state: CompanyState, agentId: Id, now: Timestamp, runtime: "simulation" | "anthropic" | "none"): BureauDialogue {
+export function bureauDialogue(state: CompanyState, agentId: Id, now: Timestamp, runtime: RuntimeName): BureauDialogue {
   const agent = state.agents[agentId]!;
   const signs = missions(state, now, runtime);
   const mine = signs.find((m) => (m.kind === "legal" || m.kind === "key" || m.kind === "budget" || m.kind === "cancel") && m.speakerId === agentId);

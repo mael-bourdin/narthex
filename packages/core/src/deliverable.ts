@@ -1,3 +1,4 @@
+import type { RuntimeName } from "./protocol.ts";
 import type { StoredEvent } from "./events.ts";
 import { duration } from "./format.ts";
 import { missions, type Mission } from "./missions.ts";
@@ -20,7 +21,7 @@ export function deliverableSheet(
   d: Deliverable,
   events: readonly StoredEvent[],
   now: Timestamp,
-  runtime: "simulation" | "anthropic" | "none",
+  runtime: RuntimeName,
 ): DeliverableSheet {
   // The page shows the title already; a trailing « --- » only separated sections that are now rows.
   const tidy = (md: string) => md.trim().replace(/(\n\s*(-{3,}|\*{3,}|_{3,})\s*)+$/, "").trim();

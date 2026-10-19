@@ -22,7 +22,7 @@ Deux portes d'entrée : **open source** (ce dépôt, licence MIT, le joueur appo
 1. **Multiplateforme** : macOS (arm64, x64) et Windows (x64, arm64) sont des cibles de première classe ; Linux suit. Aucun chemin en dur, aucune commande shell propre à un OS, aucune dépendance native qui ne compile pas sur Windows. Les chemins passent par `node:path`, les dossiers de données par `packages/engine/src/paths.ts`, le transport local par un socket Unix ou un *named pipe* Windows (`socketPath()`).
 2. **Le CLI seul suffit** : tout ce que fait l'app de bureau doit être faisable avec `narthex` dans un terminal. Une fonctionnalité n'est pas finie tant qu'elle n'a pas son équivalent CLI (commande ou rendu texte). L'app et le CLI sont deux clients du **même moteur** et du **même protocole**.
 3. **Les agents sont autonomes** : pas de bouton « lancer une mission », pas de « choisis ton coéquipier », pas de validation systématique. Seules exceptions : les actions externes (délai d'annulation) et ce que la loi réserve au fondateur.
-4. **Jamais de dépense surprise, jamais de faux travail** : le mode Claude ne s'active que si le joueur l'a choisi (`narthex config mode anthropic` ou clé enregistrée pour Narthex). Une variable `ANTHROPIC_API_KEY` exportée ne suffit pas. Sans clé, personne ne travaille : l'équipe planifie et attend, le Fil reste vide. La simulation (`NARTHEX_RUNTIME=simulation`) sert au développement et aux tests, jamais au joueur.
+4. **Jamais de dépense surprise, jamais de faux travail** : le mode Claude ne s'active que si le joueur l'a choisi (`narthex config mode anthropic` ou clé enregistrée pour Narthex). Une variable `ANTHROPIC_API_KEY` exportée ne suffit pas. Sans clé, personne ne travaille : l'équipe planifie et attend, le Fil reste vide. La simulation (`NARTHEX_RUNTIME=simulation`) et Claude Code (`NARTHEX_RUNTIME=claude-code`, l'abonnement claude.ai du développeur, vérifié via `claude auth status`, sans clé API) servent au développement et aux tests, jamais au joueur : Anthropic n'autorise pas un produit tiers à proposer la connexion claude.ai. Ne jamais l'exposer dans l'onboarding, les Réglages ni la configuration enregistrée.
 5. **Honnêteté** : chaque fait, chiffre ou règle vient avec sa source datée. Les agents disent qu'ils sont des IA (AI Act, art. 50). Les livrables simulés disent qu'ils sont simulés.
 6. **Lignes rouges légales** (voir `docs/LEGAL.md`) : pas de conseil juridique personnalisé (loi de 1971, art. 54), pas d'arrêté des comptes pour autrui (ordonnance de 1945), pas de tri automatisé de CV (AI Act, annexe III), pas de facture B2B en simple PDF quand l'émission électronique est obligatoire, prospection B2B conforme CNIL.
 
@@ -128,6 +128,7 @@ Une PR est prête quand :
 npm install
 npm test
 NARTHEX_RUNTIME=simulation npm run narthex -- init --idee "…" --prenom Inès --nom "Maison Lumen"   # agents d'exemple, hors ligne
+NARTHEX_RUNTIME=claude-code npm run narthex -- lancer   # vrais agents via ton Claude Code (abonnement), développement seulement
 npm run dev:desktop
 ```
 

@@ -1,5 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import type { RuntimeName } from "@narthex/core";
 import { configPath } from "./paths.ts";
 
 export interface Config {
@@ -48,7 +49,9 @@ export function apiKey(config: Config, env: NodeJS.ProcessEnv = process.env): st
  * Who does the work. Without a key, nobody: the team plans and waits, and the Fil stays empty
  * rather than showing invented work. The simulation is for development and tests only.
  */
-export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.env): "simulation" | "anthropic" | "none" {
+export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.env): RuntimeName {
+  // Development only, never saved nor offered to players: the developer's own Claude Code subscription.
+  if (env.NARTHEX_RUNTIME === "claude-code") return "claude-code";
   const wanted = env.NARTHEX_RUNTIME === "simulation" || env.NARTHEX_RUNTIME === "anthropic" ? env.NARTHEX_RUNTIME : config.runtime;
   if (wanted === "simulation") return "simulation";
   if (wanted === "anthropic") {
@@ -60,6 +63,6 @@ export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.e
 
 /** The first launch asks for a key unless the player already chose: a saved key, or a mode. */
 export function needsKey(config: Config, env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.NARTHEX_RUNTIME === "simulation") return false;
+  if (env.NARTHEX_RUNTIME === "simulation" || env.NARTHEX_RUNTIME === "claude-code") return false;
   return !(config.anthropicApiKey || config.runtime === "anthropic" || config.runtime === "simulation");
 }
