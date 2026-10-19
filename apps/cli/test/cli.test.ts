@@ -36,6 +36,12 @@ describe("narthex CLI", () => {
     narthex("init", "--idee", "Des bougies", "--prenom", "Inès", "--nom", "Maison Lumen", "--sans-lancer");
   });
 
+  it("shows recruitments and an agent's sheet", () => {
+    expect(narthex("recrutements")).toContain("Arrivés");
+    expect(narthex("agent", "Margaux")).toContain("Terminées");
+    expect(narthex("journal")).toContain("a fondé");
+  });
+
   it("explains itself", () => {
     expect(narthex("--aide")).toContain("narthex lancer");
   });

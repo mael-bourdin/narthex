@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { fmt } from "@narthex/core";
-import { Equipe } from "./Equipe.tsx";
+import { Equipe, type EquipeView } from "./Equipe.tsx";
 import { Fil } from "./Fil.tsx";
 import { Seuil } from "./seuil/Seuil.tsx";
 import { Bolt } from "./icons.tsx";
@@ -14,6 +14,12 @@ const TABS: Tab[] = ["Fil", "Bureau", "Équipe", "Entreprise"];
 export function App() {
   const { state, status, refresh } = useCompany();
   const [tab, setTab] = useState<Tab>("Fil");
+  const [equipeView, setEquipeView] = useState<EquipeView>("Organigramme");
+  const [agentId, setAgentId] = useState<string>();
+  const openAgent = (id?: string) => {
+    setAgentId(id);
+    if (id) setTab("Équipe");
+  };
   // The first launch keeps the screen until « Entrer », even after the company is founded.
   const firstLaunch = useRef<boolean | undefined>(undefined);
   const [entered, setEntered] = useState(false);
@@ -41,7 +47,14 @@ export function App() {
         </div>
         <nav className="tabs">
           {TABS.map((t) => (
-            <button key={t} className={t === tab ? "tab active" : "tab"} onClick={() => setTab(t)}>
+            <button
+              key={t}
+              className={t === tab ? "tab active" : "tab"}
+              onClick={() => {
+                setTab(t);
+                setAgentId(undefined);
+              }}
+            >
               {t}
             </button>
           ))}
@@ -55,8 +68,10 @@ export function App() {
         </div>
       </header>
       <main className="page">
-        {tab === "Fil" && <Fil state={state} status={status} onChange={refresh} />}
-        {tab === "Équipe" && <Equipe state={state} status={status} />}
+        {tab === "Fil" && <Fil state={state} status={status} onChange={refresh} onAgent={openAgent} />}
+        {tab === "Équipe" && (
+          <Equipe state={state} status={status} view={equipeView} agentId={agentId} onView={setEquipeView} onAgent={openAgent} onChange={refresh} />
+        )}
         {(tab === "Bureau" || tab === "Entreprise") && (
           <div className="columns">
             <div className="main">

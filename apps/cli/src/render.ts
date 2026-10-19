@@ -1,4 +1,7 @@
 import {
+  agentSheet,
+  journalEntries,
+  recruitments,
   overBudget,
   spentOn,
   filView,
@@ -177,36 +180,42 @@ export function livrable(s: CompanyState, d: Deliverable): string {
   return `${bold(clean(d.title))}\n${dim(`${agent?.name ?? "?"} · ${fmt.day(d.createdAt)} · ${clean(d.summary)}`)}\n${rule()}\n${clean(d.body)}\n${sources}`;
 }
 
-/** The Journal: every action, with who did it. Built from the raw event log. */
+/** The Journal: every action, with who did it, in the same sentences as the app. */
 export function journal(s: CompanyState, events: StoredEvent[], last = Infinity): string {
-  const name = (id?: string) => (id && s.agents[id]?.name) || "?";
-  const taskTitle = (id: string) => clean(s.tasks[id]?.title ?? id);
-  const lines = events.flatMap((e) => {
-    const when = dim(`${fmt.day(e.ts)} ${fmt.hour(e.ts)}`.padEnd(18));
-    switch (e.type) {
-      case "company.founded":
-        return [`${when} ${e.company.founder.name} a fondé ${e.company.name}`];
-      case "agent.hired":
-        return [`${when} ${e.agent.name} rejoint l'équipe (${role(e.agent.role).title})`];
-      case "stage.changed":
-        return [`${when} L'entreprise passe à l'étape « ${STAGE[e.stage]} »`];
-      case "task.started":
-        return [`${when} ${name(s.tasks[e.taskId]?.agentId)} commence « ${taskTitle(e.taskId)} »`];
-      case "task.completed":
-        return [`${when} ${name(s.tasks[e.taskId]?.agentId)} termine « ${taskTitle(e.taskId)} »`];
-      case "task.failed":
-        return [`${when} ${red("échec")} « ${taskTitle(e.taskId)} » : ${clean(e.error)}`];
-      case "task.cancelled":
-        return [`${when} ${e.by === "founder" ? "Tu as annulé" : "L'équipe a annulé"} « ${taskTitle(e.taskId)} »`];
-      case "obligation.fulfilled":
-        return [`${when} ${e.by === "founder" ? "Tu as fait" : `${name(e.by)} a fait`} « ${s.obligations[e.obligationId]?.title ?? ""} »`];
-      case "company.paused":
-        return [`${when} Équipe mise en pause`];
-      case "company.resumed":
-        return [`${when} L'équipe reprend`];
-      default:
-        return [];
-    }
+  const entries = journalEntries(s, events).slice(0, last === Infinity ? undefined : last).reverse();
+  const lines = entries.map((e) => {
+    const when = dim(`${fmt.day(e.at)} ${fmt.hour(e.at)}`.padEnd(18));
+    const text = e.kind === "problem" ? red(clean(e.text)) : clean(e.text);
+    return `${when} ${text}${e.detail && e.kind === "problem" ? dim(` · ${clean(e.detail)}`) : ""}`;
   });
-  return [bold("Journal"), ...lines.slice(-last)].join("\n");
+  return [bold("Journal"), ...lines].join("\n");
+}
+
+export function recrutementsView(s: CompanyState): string {
+  const r = recruitments(s);
+  const out = [bold("Recrutements prévus")];
+  if (r.planned.length === 0) out.push(dim("Toute l'équipe prévue est là."));
+  for (const p of r.planned) out.push(`  ○ ${p.role.defaultName} · ${p.role.title} ${dim(`· ${p.when}${p.why ? ` · ${clean(p.why)}` : ""}`)}`);
+  out.push("", bold("Arrivés"));
+  for (const a of r.arrived) out.push(`  ● ${a.agent.name} · ${a.title} ${dim(`· ${fmt.day(a.agent.hiredAt)}`)}`);
+  return out.join("\n");
+}
+
+export function agentView(s: CompanyState, agentId: string, now: number): string {
+  const sheet = agentSheet(s, agentId, now);
+  const h = sheet.stats.hoursThisWeek;
+  const out = [
+    `${bold(sheet.agent.name)} ${dim(`· ${sheet.title} · arrivé le ${fmt.day(sheet.agent.hiredAt)}`)}`,
+    dim(`${h < 1 ? `${Math.round(h * 60)} min` : `${Math.round(h)} h`} cette semaine · ${sheet.stats.xp} XP · ${sheet.stats.done} terminées · ${sheet.stats.failed} pas abouties`),
+    "",
+    bold("En ce moment"),
+    sheet.current ? `  ● ${clean(sheet.current.title)}` : dim("  Au repos."),
+    "",
+    bold("Ensuite"),
+    ...(sheet.next.length ? sheet.next.map((t) => `  ○ ${clean(t.title)} ${dim(`· ${t.scheduledAt <= now ? "dès que possible" : fmt.relative(t.scheduledAt, now)}`)}`) : [dim("  Rien de prévu.")]),
+    "",
+    bold("Terminées"),
+    ...(sheet.finished.length ? sheet.finished.map((f) => `  ✓ ${clean(f.task.title)}${f.deliverableId ? dim(` · narthex livrable ${f.deliverableId}`) : ""}`) : [dim("  Pas encore.")]),
+  ];
+  return out.join("\n");
 }
