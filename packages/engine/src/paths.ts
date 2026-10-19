@@ -1,4 +1,6 @@
-import { homedir, platform, userInfo } from "node:os";
+import { createHash } from "node:crypto";
+import { lstatSync, mkdirSync } from "node:fs";
+import { homedir, platform, tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 
 /**
@@ -26,7 +28,28 @@ export function socketPath(dir: string = dataDir()): string {
     const scope = Buffer.from(`${userInfo().username}:${dir}`).toString("base64url").slice(0, 24);
     return `\\\\.\\pipe\\narthex-${scope}`;
   }
-  return join(dir, "narthex.sock");
+  const inside = join(dir, "narthex.sock");
+  // Unix socket paths are limited (~104 bytes on macOS): a deep data folder gets a short, stable one in /tmp.
+  if (Buffer.byteLength(inside) < 100) return inside;
+  const id = createHash("sha256").update(dir).digest("hex").slice(0, 16);
+  return join(privateRuntimeDir(), `${id}.sock`);
+}
+
+/**
+ * A folder only the current user can enter, for sockets that cannot live in the data folder.
+ * Refuses a folder someone else made, a symlink, or one others can read: a socket there could be
+ * hijacked or listened to by another account on the machine.
+ */
+function privateRuntimeDir(): string {
+  const uid = process.getuid?.() ?? 0;
+  const base = process.env.XDG_RUNTIME_DIR || (platform() === "darwin" ? "/tmp" : tmpdir());
+  const dir = join(base, `narthex-${uid}`);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const st = lstatSync(dir);
+  if (st.isSymbolicLink() || !st.isDirectory() || st.uid !== uid || (st.mode & 0o077) !== 0) {
+    throw new Error(`Dossier non sûr pour le socket de Narthex : ${dir}. Supprime-le ou définis NARTHEX_HOME vers un dossier plus court.`);
+  }
+  return dir;
 }
 
 export function databasePath(dir: string = dataDir()): string {

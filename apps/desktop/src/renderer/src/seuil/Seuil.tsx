@@ -56,7 +56,7 @@ export function Seuil({ onDone }: { onDone: () => void }) {
         set({ input: { masked }, skip });
       });
 
-    void (async () => {
+    const script = async () => {
       await wait(400);
       set({ door: "drawing" });
       await wait(3300);
@@ -76,12 +76,20 @@ export function Seuil({ onDone }: { onDone: () => void }) {
             await say(SEUIL.askNameNoKey);
             break;
           }
-          set({ status: SEUIL.checking });
-          const check = await window.narthex.onboarding.submitKey(key);
-          set({ status: undefined });
+          set({ status: SEUIL.checking, skip: true });
+          const skipped = new Promise<typeof SKIP>((resolve) => (answered.current = () => resolve(SKIP)));
+          const check = await Promise.race([window.narthex.onboarding.submitKey(key), skipped]);
+          set({ status: undefined, skip: false });
+          if (check === SKIP) {
+            await say(SEUIL.noKeyYet);
+            await wait(600);
+            await say(SEUIL.askNameNoKey);
+            break;
+          }
           if (check.ok) {
             set({ ambiance: "awake" });
             await wait(1100);
+            if (!check.applied) await say("Clé enregistrée. Elle servira dès que l'équipe sera relancée.");
             await say(SEUIL.askName);
             break;
           }
@@ -131,7 +139,11 @@ export function Seuil({ onDone }: { onDone: () => void }) {
       set({ door: "small" });
       await wait(900);
       set({ enter: true });
-    })();
+    };
+    // A failure (unreadable config, engine gone) is said in Margaux's voice instead of freezing the screen.
+    script().catch((e: unknown) => {
+      set({ input: undefined, status: undefined, findings: undefined, say: { id: ++lines.current, text: `Quelque chose s'est mal passé : ${e instanceof Error ? e.message : String(e)}. Relance Narthex.` } });
+    });
   }, [team.now.length, team.later.length]);
 
   return (
