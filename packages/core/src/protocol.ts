@@ -36,8 +36,9 @@ export interface FoundParams {
 
 export interface EngineStatus {
   version: string;
-  /** "simulation" runs scripted agents offline; "anthropic" calls Claude with the player's key. */
-  runtime: "simulation" | "anthropic";
+  /** "anthropic" calls Claude with the player's key; "none" means no key yet (nobody works);
+   * "simulation" runs scripted agents offline, for development and tests only. */
+  runtime: "simulation" | "anthropic" | "none";
   /** Simulated clock in simulation mode, wall clock otherwise. */
   now: number;
   companyId: Id | null;

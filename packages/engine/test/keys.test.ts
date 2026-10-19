@@ -13,7 +13,6 @@ import {
   SimulatedClock,
   SimulationRuntime,
   verifyAnthropicKey,
-  type AgentRuntime,
 } from "../src/index.ts";
 
 function fakeModels(behaviour: () => Promise<unknown>) {
@@ -72,18 +71,11 @@ describe("saving the choice", () => {
   });
 });
 
-describe("Engine.switchRuntime", () => {
-  const claudeLike: AgentRuntime = { ...new SimulationRuntime(), name: "anthropic", run: async () => ({ post: "" }), firstLook: async () => ({ reaction: "", findings: [], simulated: false }) };
-
-  it("switches before the company exists", () => {
-    const e = new Engine({ store: new MemoryEventStore(), runtime: new SimulationRuntime(), clock: new SimulatedClock(0) });
-    e.switchRuntime(claudeLike, new SimulatedClock(0));
-    expect(e.status().runtime).toBe("anthropic");
-  });
-
-  it("refuses once the company exists", async () => {
-    const e = new Engine({ store: new MemoryEventStore(), runtime: new SimulationRuntime(), clock: new SimulatedClock(0) });
+describe("Engine.useRuntime", () => {
+  it("takes effect right away, before or after founding", async () => {
+    const e = new Engine({ store: new MemoryEventStore(), runtime: null, clock: new SimulatedClock(0) });
     await e.handle("company.found", { name: "M", idea: "Bougies", founderName: "I" });
-    expect(() => e.switchRuntime(claudeLike, new SimulatedClock(0))).toThrow(/existe déjà/);
+    e.useRuntime(new SimulationRuntime());
+    expect(e.status().runtime).toBe("simulation");
   });
 });

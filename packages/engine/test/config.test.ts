@@ -3,7 +3,7 @@ import { chooseRuntime } from "../src/index.ts";
 
 describe("chooseRuntime", () => {
   it("never spends credits just because ANTHROPIC_API_KEY is exported", () => {
-    expect(chooseRuntime({}, { ANTHROPIC_API_KEY: "sk-ant-x" })).toBe("simulation");
+    expect(chooseRuntime({}, { ANTHROPIC_API_KEY: "sk-ant-x" })).toBe("none");
   });
   it("uses Claude when the player chose it", () => {
     expect(chooseRuntime({ runtime: "anthropic" }, { ANTHROPIC_API_KEY: "sk-ant-x" })).toBe("anthropic");

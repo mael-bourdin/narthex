@@ -71,7 +71,8 @@ export function Seuil({ onDone }: { onDone: () => void }) {
         for (;;) {
           const key = await ask(true, true);
           if (key === SKIP) {
-            await window.narthex.onboarding.useSimulation();
+            await say(SEUIL.noKeyYet);
+            await wait(600);
             await say(SEUIL.askNameNoKey);
             break;
           }

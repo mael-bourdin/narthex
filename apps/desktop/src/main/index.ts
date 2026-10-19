@@ -4,7 +4,6 @@ import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import type { Method, Params } from "@narthex/core";
 import {
   AnthropicRuntime,
-  chooseSimulation,
   dataDir,
   InProcessClient,
   loadConfig,
@@ -14,7 +13,6 @@ import {
   serve,
   SocketClient,
   socketPath,
-  systemClock,
   verifyAnthropicKey,
   type Client,
   type Engine,
@@ -91,14 +89,9 @@ ipcMain.handle("narthex:onboarding:submitKey", async (_event, key: string) => {
   const check = await verifyAnthropicKey(String(key));
   if (!check.ok) return check;
   const config = saveKey(dir, check.key);
-  // We run the engine and nothing is founded yet: Margaux thinks with Claude from now on.
-  if (engine && !engine.getState().company) {
-    engine.switchRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}) }), systemClock);
-  }
-  return { ok: true };
-});
-ipcMain.handle("narthex:onboarding:useSimulation", () => {
-  chooseSimulation(dir);
+  // When we run the engine, the team starts working with Claude right away.
+  engine?.useRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}) }));
+  return { ok: true, applied: Boolean(engine) };
 });
 
 app.whenReady().then(async () => {

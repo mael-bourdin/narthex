@@ -13,9 +13,9 @@ const api = {
   },
   onboarding: {
     needsKey: (): Promise<boolean> => ipcRenderer.invoke("narthex:onboarding:needsKey") as Promise<boolean>,
-    submitKey: (key: string): Promise<{ ok: true } | { ok: false; message: string }> =>
-      ipcRenderer.invoke("narthex:onboarding:submitKey", key) as Promise<{ ok: true } | { ok: false; message: string }>,
-    useSimulation: (): Promise<void> => ipcRenderer.invoke("narthex:onboarding:useSimulation") as Promise<void>,
+    /** Checks and saves the key; `applied` is false when another process runs the engine (it applies on its next start). */
+    submitKey: (key: string): Promise<{ ok: true; applied: boolean } | { ok: false; message: string }> =>
+      ipcRenderer.invoke("narthex:onboarding:submitKey", key) as Promise<{ ok: true; applied: boolean } | { ok: false; message: string }>,
   },
   platform: process.platform,
 };

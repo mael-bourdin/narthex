@@ -20,6 +20,7 @@ import {
   type StoredEvent,
   type TaskDraft,
   SEUIL,
+  ROLE_PROMISE,
 } from "@narthex/core";
 import { SimulatedClock, systemClock, type Clock } from "./clock.ts";
 import { newId } from "./ids.ts";
@@ -30,7 +31,8 @@ export const ENGINE_VERSION = "0.1.0";
 
 export interface EngineOptions {
   store: EventStore;
-  runtime: AgentRuntime;
+  /** null: nobody can work yet (no key). The company still plans; nothing is pretended. */
+  runtime: AgentRuntime | null;
   clock?: Clock;
   /** How often the company checks what to do next. */
   tickMs?: number;
@@ -49,8 +51,9 @@ type Listener = (event: StoredEvent) => void;
  */
 export class Engine {
   private readonly store: EventStore;
-  private runtime: AgentRuntime;
-  private clock: Clock;
+  private runtime: AgentRuntime | null;
+  private hiredThisTick: Agent[] = [];
+  private readonly clock: Clock;
   private readonly tickMs: number;
   private readonly passive: boolean;
   private readonly listeners = new Set<Listener>();
@@ -88,11 +91,10 @@ export class Engine {
     await this.idle();
   }
 
-  /** Changes who does the work (e.g. a key was just given during the first launch). Only before founding. */
-  switchRuntime(runtime: AgentRuntime, clock: Clock): void {
-    if (this.state.company) throw new Error("L'entreprise existe déjà : relance Narthex pour changer de mode.");
+  /** Changes who does the work (a key was just given). Work already running finishes with the old one. */
+  useRuntime(runtime: AgentRuntime | null): void {
     this.runtime = runtime;
-    this.clock = clock;
+    this.tick();
   }
 
   /** Stops and releases the event store. */
@@ -171,7 +173,7 @@ export class Engine {
   }
 
   status(): EngineStatus {
-    return { version: ENGINE_VERSION, runtime: this.runtime.name, now: this.now(), companyId: this.companyId, running: this.work.size, passive: this.passive };
+    return { version: ENGINE_VERSION, runtime: this.runtime?.name ?? "none", now: this.now(), companyId: this.companyId, running: this.work.size, passive: this.passive };
   }
 
   private requireCompany(): void {
@@ -204,7 +206,8 @@ export class Engine {
   }
 
   private async firstLook(p: Params<"onboarding.firstLook">): Promise<FirstLook> {
-    const fallback: FirstLook = { reaction: SEUIL.noLook, findings: [], simulated: this.runtime.name === "simulation" };
+    const fallback: FirstLook = { reaction: SEUIL.noLook, findings: [], simulated: this.runtime?.name === "simulation" };
+    if (!this.runtime) return fallback;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 45_000);
     try {
@@ -271,16 +274,30 @@ export class Engine {
 
   /** Applies policy decisions until there is nothing left to decide. Synchronous by design. */
   tick(): void {
-    if (this.passive) return;
-    const tried = new Set<string>();
-    for (let round = 0; round < 50; round++) {
-      const fresh = decide(this.state, this.now()).filter((i) => !tried.has(key(i)));
-      if (fresh.length === 0) return;
-      for (const intent of fresh) {
-        tried.add(key(intent));
-        this.applyIntent(intent);
+    if (!this.passive) {
+      const tried = new Set<string>();
+      for (let round = 0; round < 50; round++) {
+        const fresh = decide(this.state, this.now()).filter((i) => !tried.has(key(i)));
+        if (fresh.length === 0) break;
+        for (const intent of fresh) {
+          tried.add(key(intent));
+          this.applyIntent(intent);
+        }
       }
     }
+    this.announceHires();
+  }
+
+  /** Everyone who joined in the same instant is announced by Margaux in a single message. */
+  private announceHires(): void {
+    const joined = this.hiredThisTick.filter((a) => a.role !== "cofondateur");
+    this.hiredThisTick = [];
+    const cofounder = this.agentWith("cofondateur");
+    if (joined.length === 0 || !cofounder) return;
+    const names = joined.map((a) => a.name);
+    const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(", ")} et ${names.at(-1)}`;
+    const what = joined.map((a) => `${a.name} ${lowerFirst(ROLE_PROMISE[a.role])}`).join(", ");
+    this.post(cofounder.id, "hire", `J'ai fait venir ${list}. ${what}.`);
   }
 
   private applyIntent(intent: Intent): void {
@@ -288,8 +305,6 @@ export class Engine {
     switch (intent.type) {
       case "advance-stage": {
         this.emit({ type: "stage.changed", stage: intent.stage, at: now });
-        const cofounder = this.agentWith("cofondateur");
-        if (cofounder) this.post(cofounder.id, "update", intent.reason);
         return;
       }
       case "hire":
@@ -312,10 +327,7 @@ export class Engine {
             ...(r.legalBasis ? { legalBasis: r.legalBasis } : {}),
           },
         });
-        if (r.owner === "founder") {
-          const speaker = this.agentWith("juridique") ?? this.agentWith("cofondateur");
-          if (speaker) this.post(speaker.id, "legal", `Pour toi, la loi l'impose : ${lowerFirst(r.title)}. ${r.why}`);
-        }
+        // Founder duties show on the pancarte, not as a post.
         return;
       }
       case "fulfill-obligation":
@@ -325,7 +337,7 @@ export class Engine {
         this.plan(intent.draft);
         return;
       case "start-task":
-        this.startTask(intent.taskId);
+        if (this.runtime) this.startTask(intent.taskId);
         return;
     }
   }
@@ -337,13 +349,7 @@ export class Engine {
     for (let n = 2; taken.has(name); n++) name = `${def.defaultName} ${n}`;
     const agent: Agent = { id: newId("ag"), name, role: r, hiredAt: this.now(), status: "idle", skill: { success: 0, failure: 0 }, autonomy: 1 };
     this.emit({ type: "agent.hired", agent, reason });
-    const cofounder = this.agentWith("cofondateur");
-    if (r === "cofondateur" || !cofounder) {
-      const founder = this.state.company?.founder.name ?? "";
-      this.post(agent.id, "hire", `Bonjour ${founder}. Je suis ${name}, ta ${def.title.toLowerCase()}. ${def.mission}`);
-    } else {
-      this.post(cofounder.id, "hire", `J'ai fait venir ${name} (${def.title.toLowerCase()}). ${reason}`);
-    }
+    this.hiredThisTick.push(agent);
   }
 
   /** Returns why the draft was refused, or null when it was planned. */
@@ -374,8 +380,10 @@ export class Engine {
 
   private async runTask(taskId: string, agent: Agent, controller: AbortController): Promise<void> {
     const task = this.state.tasks[taskId]!;
+    const runtime = this.runtime;
     try {
-      const result = await this.runtime.run({
+      if (!runtime) throw new Error("Personne ne peut travailler sans clé.");
+      const result = await runtime.run({
         state: this.state,
         agent,
         task,

@@ -2,14 +2,12 @@ import { createInterface } from "node:readline/promises";
 import { onboardingTeam, ROLE_PROMISE, SEUIL, type FirstLook } from "@narthex/core";
 import {
   AnthropicRuntime,
-  chooseSimulation,
   loadConfig,
   needsKey,
   openEngine,
   saveKey,
   SocketClient,
   socketPath,
-  systemClock,
   verifyAnthropicKey,
   InProcessClient,
   type Client,
@@ -59,11 +57,11 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
     if (options.interactive && needsKey(loadConfig(options.dir))) {
       await say(SEUIL.askKey);
       print(dim(`  ${SEUIL.keyAside}`));
-      print(dim("  Entrée sans rien : essayer en simulation."));
+      print(dim("  Entrée sans rien : plus tard (l'équipe attendra ta clé)."));
       for (;;) {
         const raw = await readMasked(`  ${violet("›")} `);
         if (!raw.trim()) {
-          chooseSimulation(options.dir);
+          await say(SEUIL.noKeyYet);
           await say(SEUIL.askNameNoKey);
           break;
         }
@@ -71,7 +69,7 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
         const check = await verifyAnthropicKey(raw);
         if (check.ok) {
           const config = saveKey(options.dir, check.key);
-          engine?.switchRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}) }), systemClock);
+          engine?.useRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}) }));
           print(violet("  ✦"));
           await say(SEUIL.askName);
           break;
