@@ -37,3 +37,33 @@ export function wrapText(text: string, indent = 2): string {
   }
   return out.map((l) => " ".repeat(indent) + l).join("\n");
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Margaux's voice in a terminal: each word appears faint, then sharp, a beat apart,
+ * wrapped at the terminal width. Plain text when colours are off or output is piped.
+ */
+export async function streamWords(text: string, out: NodeJS.WriteStream = process.stdout, indent = 2): Promise<void> {
+  if (!enabled) {
+    out.write(`${" ".repeat(indent)}${text}\n`);
+    return;
+  }
+  const max = width() - 2;
+  let col = indent;
+  out.write(" ".repeat(indent));
+  for (const word of text.split(" ").filter(Boolean)) {
+    if (col + word.length + 1 > max) {
+      out.write(`\n${" ".repeat(indent)}`);
+      col = indent;
+    }
+    out.write(dim(word));
+    await sleep(45);
+    out.write(`\u001b[${word.length}D${word} `);
+    col += word.length + 1;
+    await sleep(55 + word.length * 12 + (/[.?…!]$/.test(word) ? 220 : 0));
+  }
+  out.write("\n");
+}
+
+export const colours = enabled;
