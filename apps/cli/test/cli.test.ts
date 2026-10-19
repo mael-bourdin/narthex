@@ -46,3 +46,21 @@ describe("narthex CLI", () => {
     expect(state.company.name).toBe("Maison Lumen");
   });
 });
+
+describe("narthex fil without a key", () => {
+  const home = mkdtempSync(join(tmpdir(), "narthex-cli-"));
+  const bare = { ...process.env, NARTHEX_HOME: home, NO_COLOR: "1" } as NodeJS.ProcessEnv;
+  delete bare.NARTHEX_RUNTIME;
+  delete bare.ANTHROPIC_API_KEY;
+  const run = (...args: string[]) => execFileSync(process.execPath, ["--import", "tsx", "apps/cli/src/bin.ts", ...args], { env: bare, encoding: "utf8" });
+  afterAll(() => rmSync(home, { recursive: true, force: true }));
+
+  it("shows the team waiting and invents no work", () => {
+    run("init", "--idee", "Des bougies", "--prenom", "Inès", "--nom", "Maison Lumen", "--sans-lancer");
+    const fil = run("fil");
+    expect(fil).toContain("L'équipe attend ta clé");
+    expect(fil).not.toContain("C'est fait");
+    const state = JSON.parse(run("fil", "--json")) as { deliverables: Record<string, unknown> };
+    expect(Object.keys(state.deliverables)).toHaveLength(0);
+  });
+});

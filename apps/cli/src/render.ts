@@ -1,7 +1,8 @@
 import {
+  filView,
+  type FilItem,
   calendar,
   cancellable,
-  feed,
   fmt,
   forFounder,
   role,
@@ -27,7 +28,7 @@ const STAGE: Record<Stage, string> = {
 
 export function header(s: CompanyState, status: EngineStatus): string {
   const c = s.company!;
-  const mode = status.runtime === "simulation" ? yellow("simulation") : "Claude";
+  const mode = status.runtime === "simulation" ? yellow("simulation") : status.runtime === "none" ? yellow("sans clé") : "Claude";
   const run = c.paused ? yellow("en pause") : status.passive ? dim("équipe à l'arrêt · narthex lancer") : green("l'équipe travaille");
   return `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· ${fmt.credits(s.usage.credits)} crédits`)}`;
 }
@@ -51,13 +52,36 @@ export function forYou(s: CompanyState, now: number): string {
 }
 
 export function fil(s: CompanyState, status: EngineStatus, limit = 15): string {
+  const view = filView(s, status.now, limit);
   const parts = [header(s, status), rule()];
   const you = forYou(s, status.now);
   if (you) parts.push(you, rule());
-  const items = feed(s, limit);
-  if (items.length === 0) parts.push(dim(status.passive ? "Rien encore. Lance l'équipe : narthex lancer" : "L'équipe arrive…"));
-  for (const item of items.reverse()) parts.push(postBlock(s, item.post.agentId, item.post.at, item.post.text, status.now, item.deliverable));
+  parts.push(pilot(s, status, view.pilot), "");
+  if (status.runtime === "none") parts.push(`${violet("!")} L'équipe attend ta clé pour travailler : ${bold("narthex config cle")}`, "");
+  if (view.items.length === 0) parts.push(dim("Le Fil est vide pour l'instant. Chaque travail terminé par l'équipe arrivera ici, avec ses sources."));
+  for (const item of [...view.items].reverse()) parts.push(publication(s, item, status.now));
   return parts.join("\n");
+}
+
+function pilot(s: CompanyState, status: EngineStatus, p: ReturnType<typeof filView>["pilot"]): string {
+  const waiting = status.runtime === "none" || s.company?.paused;
+  const next = p.next ? `${p.next.title}${s.agents[p.next.agentId] ? ` (${s.agents[p.next.agentId]!.name})` : ""}` : undefined;
+  if (waiting) return `${yellow("●")} ${s.company?.paused ? "L'équipe est en pause" : "L'équipe attend ta clé"}${next ? dim(` · première mission prête : ${clean(next)}`) : ""}`;
+  const running = p.running === 0 ? "aucune mission en cours" : `${p.running} mission${p.running > 1 ? "s" : ""} en cours`;
+  return `${green("●")} Ton entreprise tourne toute seule ${dim(`· ${running}${next ? ` · prochaine action : ${clean(next)}, ${fmt.relative(p.next!.at, status.now)}` : ""}`)}`;
+}
+
+/** One Fil message: who, when, what, the attached work and its real cost in time, XP and sources. */
+export function publication(s: CompanyState, item: FilItem, now: number): string {
+  const block = postBlock(s, item.post.agentId, item.post.at, item.post.text, now, item.deliverable);
+  const meta = [
+    item.durationMs !== undefined ? `◷ ${fmt.duration(item.durationMs)}` : "",
+    item.xp !== undefined ? `↑ ${item.xp} XP` : "",
+    item.sources.length ? `▤ ${clean([...new Set(item.sources)].slice(0, 3).join(", "))}` : "",
+  ].filter(Boolean);
+  const t = item.task;
+  const cancel = t && t.status === "planned" && t.kind === "external" && (t.cancellableUntil ?? 0) > now ? `  ${yellow("◷")} part ${fmt.relative(t.cancellableUntil!, now)} ${dim(`· narthex annuler ${t.id}`)}\n` : "";
+  return `${block.trimEnd()}\n${meta.length ? `  ${dim(meta.join("   "))}\n` : ""}${cancel}`;
 }
 
 export function postBlock(s: CompanyState, agentId: string, at: number, text: string, now: number, d?: Deliverable): string {

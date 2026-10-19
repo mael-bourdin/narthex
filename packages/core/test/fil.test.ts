@@ -86,3 +86,14 @@ describe("filView", () => {
     expect(filView(s, NOW).quest).toEqual({ title: "Valider ton idée", done: 1, total: 3, next: "Activité" });
   });
 });
+
+import { fmt } from "../src/index.ts";
+
+describe("fmt.duration", () => {
+  it("writes durations the French way", () => {
+    expect(fmt.duration(35 * 60_000)).toBe("35 min");
+    expect(fmt.duration(130 * 60_000)).toBe("2 h 10");
+    expect(fmt.duration(3 * 3_600_000)).toBe("3 h");
+    expect(fmt.duration(20_000)).toBe("1 min");
+  });
+});

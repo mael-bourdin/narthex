@@ -19,9 +19,9 @@ npm install
 npm run narthex -- init        # Margaux t'accueille, te demande ta clé et ton idée, puis l'équipe se met au travail
 ```
 
-Au premier lancement, Margaux te demande ta clé API Anthropic : c'est ce qui lui permet de penser. Elle reste sur ton ordinateur. Sans clé, Narthex tourne en **simulation** : des agents d'exemple, hors ligne, rien ne sort de ton ordinateur. Tu peux ajouter une clé plus tard avec `npm run narthex -- config cle`.
+Au premier lancement, Margaux te demande ta clé API Anthropic : c'est ce qui lui permet de penser. Elle reste sur ton ordinateur. Sans clé, l'équipe prépare tout et attend : rien n'est inventé, le Fil reste vide. Tu peux ajouter ta clé plus tard, dans le Fil ou avec `npm run narthex -- config cle`.
 
-Narthex n'utilise jamais une clé `ANTHROPIC_API_KEY` exportée sans que tu aies choisi le mode Claude (`narthex config mode anthropic`) : pas de dépense surprise.
+Narthex n'utilise jamais une clé `ANTHROPIC_API_KEY` exportée sans que tu l'aies choisi (`narthex config mode anthropic`) : pas de dépense surprise. Pour développer sans clé, `NARTHEX_RUNTIME=simulation` fait tourner des agents d'exemple hors ligne.
 
 ## Tout en ligne de commande
 

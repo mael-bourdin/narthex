@@ -3,6 +3,8 @@ import { fmt } from "@narthex/core";
 import { Equipe } from "./Equipe.tsx";
 import { Fil } from "./Fil.tsx";
 import { Seuil } from "./seuil/Seuil.tsx";
+import { Bolt } from "./icons.tsx";
+import { PixelAvatar } from "./PixelAvatar.tsx";
 import { Logo } from "./ui.tsx";
 import { useCompany } from "./useCompany.ts";
 
@@ -45,9 +47,11 @@ export function App() {
           ))}
         </nav>
         <div className="top-right">
-          {status.runtime === "simulation" && <span className="pill muted" title="Agents simulés : rien ne sort de ton ordinateur.">Simulation</span>}
-          {state.company?.paused && <span className="pill">En pause</span>}
-          <span className="pill" title="Crédits utilisés">⚡ {fmt.credits(state.usage.credits)}</span>
+          {status.runtime === "simulation" && <span className="pill muted" title="Agents simulés, pour le développement">Simulation</span>}
+          <span className="pill credits" title="Crédits utilisés">
+            <Bolt /> {fmt.credits(state.usage.credits)}
+          </span>
+          <PixelAvatar founder size={30} />
         </div>
       </header>
       <main className="page">

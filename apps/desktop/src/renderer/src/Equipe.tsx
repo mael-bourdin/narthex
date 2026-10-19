@@ -1,5 +1,6 @@
 import { calendar, fmt, team, type CompanyState, type EngineStatus } from "@narthex/core";
-import { Avatar, Card } from "./ui.tsx";
+import { PixelAvatar } from "./PixelAvatar.tsx";
+import { Card } from "./ui.tsx";
 
 export function Equipe({ state, status }: { state: CompanyState; status: EngineStatus }) {
   const start = new Date(status.now);
@@ -13,7 +14,7 @@ export function Equipe({ state, status }: { state: CompanyState; status: EngineS
           {team(state).map((m) => (
             <Card key={m.agent.id}>
               <div className="post-head">
-                <Avatar agent={m.agent} size={36} />
+                <PixelAvatar role={m.agent.role} size={36} />
                 <div>
                   <div className="name">{m.agent.name}</div>
                   <div className="muted small">{m.title}</div>
