@@ -89,6 +89,7 @@ Cocher dans ce fichier au fil des PR.
 - [x] CI macOS / Windows / Linux.
 
 **v0.2 — Jouable de bout en bout avec de vrais agents**
+- [x] Premier lancement « le seuil » (app et `narthex init`) : porte traversée, Margaux qui parle mot à mot, clé du fournisseur demandée en version open source, premier coup d'œil sourcé, équipe, nom, puis le Fil. Conception : `docs/superpowers/specs/2026-10-19-onboarding-seuil-design.md`.
 - [ ] Livrables : rendu Markdown (tableaux) dans l'app ; export `.md` / `.pdf` depuis le CLI et l'app.
 - [ ] Budget : plafond de crédits par jour et par tâche (réglage), arrêt propre quand il est atteint, affiché dans le Fil.
 - [ ] Escalade : après `MAX_ATTEMPTS` échecs, Margaux prévient le fondateur dans le Fil (une seule fois).
