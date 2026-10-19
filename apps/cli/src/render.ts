@@ -13,7 +13,7 @@ import {
   type StoredEvent,
   type Task,
 } from "@narthex/core";
-import { bold, dim, green, red, rule, violet, wrapText, yellow } from "./style.ts";
+import { bold, clean, dim, green, red, rule, violet, wrapText, yellow } from "./style.ts";
 
 /** Pure renderers: state in, text out. Every screen of the app has its terminal twin here. */
 
@@ -29,7 +29,7 @@ export function header(s: CompanyState, status: EngineStatus): string {
   const c = s.company!;
   const mode = status.runtime === "simulation" ? yellow("simulation") : "Claude";
   const run = c.paused ? yellow("en pause") : status.passive ? dim("équipe à l'arrêt · narthex lancer") : green("l'équipe travaille");
-  return `${bold(c.name)}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· ${fmt.credits(s.usage.credits)} crédits`)}`;
+  return `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· ${fmt.credits(s.usage.credits)} crédits`)}`;
 }
 
 /** The founder's own to-do: only what the law reserves to them, plus what they can still cancel. */
@@ -38,13 +38,13 @@ export function forYou(s: CompanyState, now: number): string {
   for (const o of forFounder(s)) {
     const due = o.due ? dim(` · avant le ${fmt.day(o.due)}`) : "";
     lines.push(`${violet("!")} ${bold(o.title)}${due}`);
-    lines.push(wrapText(dim(o.why), 4));
+    lines.push(dim(wrapText(o.why, 4)));
     const extra = o.code === "A3-forme" ? " --forme SASU" : "";
     lines.push(`    ${dim("→")} narthex valider ${o.id}${extra}`);
   }
   for (const t of cancellable(s, now)) {
     const who = s.agents[t.agentId]?.name ?? "?";
-    lines.push(`${yellow("◷")} ${who} · ${t.title} ${dim(`· annulable jusqu'à ${fmt.day(t.cancellableUntil!)} ${fmt.hour(t.cancellableUntil!)}`)}`);
+    lines.push(`${yellow("◷")} ${who} · ${clean(t.title)} ${dim(`· annulable jusqu'à ${fmt.day(t.cancellableUntil!)} ${fmt.hour(t.cancellableUntil!)}`)}`);
     lines.push(`    ${dim("→")} narthex annuler ${t.id}`);
   }
   return lines.length ? `${bold("Pour toi")}\n${lines.join("\n")}` : "";
@@ -64,16 +64,16 @@ export function postBlock(s: CompanyState, agentId: string, at: number, text: st
   const agent = s.agents[agentId];
   const who = agent ? `${bold(agent.name)} ${dim(`· ${role(agent.role).title}`)}` : bold("?");
   const lines = [`${who} ${dim(`· ${fmt.relative(at, now)}`)}`, wrapText(text)];
-  if (d) lines.push(`  ${violet("↳")} ${d.title} ${dim(`· narthex livrable ${d.id}`)}`);
+  if (d) lines.push(`  ${violet("↳")} ${clean(d.title)} ${dim(`· narthex livrable ${d.id}`)}`);
   return `${lines.join("\n")}\n`;
 }
 
 export function equipe(s: CompanyState, now: number): string {
   const rows = team(s).map((m) => {
     const state = m.current
-      ? `${green("●")} ${m.current.progress && m.current.progress !== "Au travail…" ? m.current.progress : m.current.title}`
+      ? `${green("●")} ${clean(m.current.progress && m.current.progress !== "Au travail…" ? m.current.progress : m.current.title)}`
       : m.next
-        ? `${dim("○")} ${dim(`ensuite : ${m.next.title} · ${fmt.relative(m.next.scheduledAt, now)}`)}`
+        ? `${dim("○")} ${dim(`ensuite : ${clean(m.next.title)} · ${fmt.relative(m.next.scheduledAt, now)}`)}`
         : `${dim("○ au repos")}`;
     const trust = dim(`${m.done} faite${m.done > 1 ? "s" : ""} · fiabilité ${Math.round(m.reliability * 100)} % · autonomie ${m.agent.autonomy}/4`);
     return `${bold(m.agent.name.padEnd(9))} ${m.title.padEnd(15)} ${state}\n${" ".repeat(26)}${trust}`;
@@ -115,7 +115,7 @@ export function calendrier(s: CompanyState, now: number, view: "jour" | "semaine
       out.push(`\n${bold(day)}`);
     }
     const who = s.agents[t.agentId]?.name ?? "?";
-    out.push(`  ${dim(fmt.hour(at).padStart(7))}  ${mark(t)} ${who.padEnd(8)} ${t.title}`);
+    out.push(`  ${dim(fmt.hour(at).padStart(7))}  ${mark(t)} ${who.padEnd(8)} ${clean(t.title)}`);
   }
   out.push(dim("\n✓ faite  ● en cours  ○ prévue  ◷ attend ton délai d'annulation"));
   return out.join("\n");
@@ -142,15 +142,15 @@ export function obligations(s: CompanyState): string {
 export function livrable(s: CompanyState, d: Deliverable): string {
   const agent = s.agents[d.agentId];
   const sources = d.sources.length
-    ? `\n${bold("Sources")}\n${d.sources.map((x) => `- ${x.title}${x.url ? ` ${dim(x.url)}` : ""}${x.checkedAt ? dim(` (vérifié le ${x.checkedAt})`) : ""}`).join("\n")}`
+    ? `\n${bold("Sources")}\n${d.sources.map((x) => `- ${clean(x.title)}${x.url ? ` ${dim(clean(x.url))}` : ""}${x.checkedAt ? dim(` (vérifié le ${clean(x.checkedAt)})`) : ""}`).join("\n")}`
     : "";
-  return `${bold(d.title)}\n${dim(`${agent?.name ?? "?"} · ${fmt.day(d.createdAt)} · ${d.summary}`)}\n${rule()}\n${d.body}\n${sources}`;
+  return `${bold(clean(d.title))}\n${dim(`${agent?.name ?? "?"} · ${fmt.day(d.createdAt)} · ${clean(d.summary)}`)}\n${rule()}\n${clean(d.body)}\n${sources}`;
 }
 
 /** The Journal: every action, with who did it. Built from the raw event log. */
 export function journal(s: CompanyState, events: StoredEvent[], last = Infinity): string {
   const name = (id?: string) => (id && s.agents[id]?.name) || "?";
-  const taskTitle = (id: string) => s.tasks[id]?.title ?? id;
+  const taskTitle = (id: string) => clean(s.tasks[id]?.title ?? id);
   const lines = events.flatMap((e) => {
     const when = dim(`${fmt.day(e.ts)} ${fmt.hour(e.ts)}`.padEnd(18));
     switch (e.type) {
@@ -165,7 +165,7 @@ export function journal(s: CompanyState, events: StoredEvent[], last = Infinity)
       case "task.completed":
         return [`${when} ${name(s.tasks[e.taskId]?.agentId)} termine « ${taskTitle(e.taskId)} »`];
       case "task.failed":
-        return [`${when} ${red("échec")} « ${taskTitle(e.taskId)} » : ${e.error}`];
+        return [`${when} ${red("échec")} « ${taskTitle(e.taskId)} » : ${clean(e.error)}`];
       case "task.cancelled":
         return [`${when} ${e.by === "founder" ? "Tu as annulé" : "L'équipe a annulé"} « ${taskTitle(e.taskId)} »`];
       case "obligation.fulfilled":

@@ -15,7 +15,7 @@ import {
   type Client,
   type Engine,
 } from "@narthex/engine";
-import { bold, colours, dim, streamWords, violet } from "./style.ts";
+import { bold, clean, colours, dim, streamWords, violet } from "./style.ts";
 
 export interface SeuilOptions {
   dir: string;
@@ -32,7 +32,7 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
   const engine: Engine | undefined = socket ? undefined : openEngine({ dir: options.dir, passive: true }).engine;
   const client: Client = socket ?? new InProcessClient(engine!);
   const rl = options.interactive ? createInterface({ input: process.stdin, output: process.stdout }) : null;
-  const say = (text: string) => (options.interactive ? streamWords(text) : Promise.resolve(print(`  ${text}`)));
+  const say = (text: string) => (options.interactive ? streamWords(text) : Promise.resolve(print(`  ${clean(text)}`)));
 
   const ask = async (given: string | undefined, flag: string): Promise<string> => {
     if (given?.trim()) return given.trim();
@@ -90,7 +90,7 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
     await say(look.reaction);
     for (const f of look.findings) {
       await sleep(300);
-      print(`    ${violet("·")} ${f.text}  ${dim(f.source)}`);
+      print(`    ${violet("·")} ${clean(f.text)}  ${dim(clean(f.source))}`);
     }
 
     print();

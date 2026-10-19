@@ -17,7 +17,7 @@ import {
 } from "@narthex/engine";
 import * as render from "./render.ts";
 import { runSeuil } from "./seuil.ts";
-import { bold, dim, red, rule } from "./style.ts";
+import { bold, clean, dim, red, rule } from "./style.ts";
 
 const HELP = `${bold("narthex")} — une équipe d'agents IA qui crée et fait tourner ton entreprise.
 
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
       case "annuler": {
         const t = byPrefix(Object.values(state.tasks), args[0], "tâche");
         await client.call("task.cancel", { taskId: t.id });
-        return print(`Annulé : ${t.title}.`);
+        return print(`Annulé : ${clean(t.title)}.`);
       }
       case "pause":
         await client.call("company.pause", {});
@@ -212,7 +212,7 @@ async function lancer(): Promise<void> {
       print(render.postBlock(s, e.post.agentId, e.post.at, e.post.text, engine.now(), d));
     } else if (e.type === "task.started") {
       const t = s.tasks[e.taskId];
-      if (t) print(dim(`  ${s.agents[t.agentId]?.name} commence : ${t.title}`));
+      if (t) print(dim(`  ${s.agents[t.agentId]?.name} commence : ${clean(t.title)}`));
     }
   });
   engine.start();
