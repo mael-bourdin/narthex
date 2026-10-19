@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeLinkCheck } from "../src/index.ts";
+import { isPublicAddress, makeLinkCheck, pinnedLookup } from "../src/index.ts";
 
 const PUBLIC = "93.184.215.14";
 
@@ -34,6 +34,12 @@ describe("link check stays on the public web", () => {
     "http://[::1]/",
     "http://0.0.0.0/",
     "http://router.lan/",
+    "http://[64:ff9b::7f00:1]/",
+    "http://[2002:7f00:1::]/",
+    "http://[::7f00:1]/",
+    "http://[fd00::1]/",
+    "http://[2001:db8::1]/",
+    "http://[::ffff:192.168.0.1]/",
   ])("never calls %s", async (url) => {
     const { check, fetched } = checker({ "router.lan": "192.168.1.1", localhost: "127.0.0.1" }, {});
     expect(await check(url, signal())).toBe(false);
@@ -57,5 +63,30 @@ describe("link check stays on the public web", () => {
     expect(await check("https://a.fr/", signal())).toBe(true);
     const loop = checker({ "a.fr": PUBLIC }, { "https://a.fr/": { status: 302, location: "https://a.fr/" } });
     expect(await loop.check("https://a.fr/", signal())).toBe(false);
+  });
+});
+
+describe("addresses", () => {
+  it("lets only global unicast IPv6 through", () => {
+    expect(isPublicAddress("2606:4700:4700::1111")).toBe(true);
+    expect(isPublicAddress("2a00:1450:4007:80e::200e")).toBe(true);
+    for (const a of ["64:ff9b::7f00:1", "2002:c0a8:101::", "2001:0:4136:e378::1", "::7f00:1", "fe80::1", "ff02::1"]) expect(isPublicAddress(a)).toBe(false);
+  });
+});
+
+describe("pinnedLookup", () => {
+  const resolve = (addresses: string[]) => async () => addresses;
+  const ask = (lookup: ReturnType<typeof pinnedLookup>, host: string) =>
+    new Promise<{ err: Error | null; address?: unknown }>((done) => lookup(host, { all: true }, (err, address) => done({ err, address })));
+
+  it("connects only to the addresses it checked", async () => {
+    const r = await ask(pinnedLookup(resolve(["93.184.215.14"])), "example.org");
+    expect(r.err).toBeNull();
+    expect(r.address).toEqual([{ address: "93.184.215.14", family: 4 }]);
+  });
+
+  it("refuses the connection if the name now points inside (rebinding)", async () => {
+    const r = await ask(pinnedLookup(resolve(["93.184.215.14", "127.0.0.1"])), "example.org");
+    expect(r.err?.message).toMatch(/réseau local/);
   });
 });
