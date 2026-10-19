@@ -64,8 +64,11 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
   switch (event.type) {
     case "company.founded":
       return { ...state, company: event.company, settings: { ...DEFAULT_SETTINGS, ...event.settings } };
-    case "company.updated":
-      return state.company ? { ...state, company: { ...state.company, ...event.patch } } : state;
+    case "company.updated": {
+      if (!state.company) return state;
+      const { founderName, ...patch } = event.patch;
+      return { ...state, company: { ...state.company, ...patch, ...(founderName ? { founder: { ...state.company.founder, name: founderName } } : {}) } };
+    }
     case "company.paused":
       return state.company ? { ...state, company: { ...state.company, paused: true } } : state;
     case "company.resumed":

@@ -17,6 +17,23 @@ const api = {
     submitKey: (key: string): Promise<{ ok: true; applied: boolean } | { ok: false; message: string }> =>
       ipcRenderer.invoke("narthex:onboarding:submitKey", key) as Promise<{ ok: true; applied: boolean } | { ok: false; message: string }>,
   },
+  config: {
+    get: (): Promise<{
+      dir: string;
+      hasKey: boolean;
+      keyHint: string | null;
+      runtime: "simulation" | "anthropic" | "none";
+      models: Partial<Record<string, string>>;
+      notifications: { legal: boolean; leaving: boolean; budget: boolean; deliverables: boolean };
+      ownsEngine: boolean;
+    }> => ipcRenderer.invoke("narthex:config:get"),
+    setModels: (models: Record<string, string>): Promise<void> => ipcRenderer.invoke("narthex:config:setModels", models),
+    setNotifications: (n: Record<string, boolean>): Promise<void> => ipcRenderer.invoke("narthex:config:setNotifications", n),
+  },
+  data: {
+    export: (): Promise<string> => ipcRenderer.invoke("narthex:data:export"),
+    restart: (): Promise<string | null> => ipcRenderer.invoke("narthex:data:restart"),
+  },
   platform: process.platform,
 };
 

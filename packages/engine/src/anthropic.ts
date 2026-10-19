@@ -9,6 +9,8 @@ type ToolResult = Anthropic.Beta.BetaToolResultBlockParam;
 export interface AnthropicRuntimeOptions {
   apiKey?: string;
   model?: string;
+  /** A model per role (Réglages · API et modèles); `model` for the others. */
+  models?: Partial<Record<RoleId, string>>;
   /** Hard cap on model turns per task, so a confused agent cannot loop forever. */
   maxTurns?: number;
   client?: Anthropic;
@@ -32,11 +34,13 @@ export class AnthropicRuntime implements AgentRuntime {
   readonly name = "anthropic" as const;
   private readonly client: Anthropic;
   private readonly model: string;
+  private readonly models: Partial<Record<RoleId, string>>;
   private readonly maxTurns: number;
 
   constructor(options: AnthropicRuntimeOptions = {}) {
     this.client = options.client ?? new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {});
     this.model = options.model ?? DEFAULT_MODEL;
+    this.models = options.models ?? {};
     this.maxTurns = options.maxTurns ?? 12;
   }
 
@@ -74,6 +78,7 @@ export class AnthropicRuntime implements AgentRuntime {
 
   async run(ctx: WorkContext): Promise<WorkResult> {
     const def = role(ctx.agent.role);
+    const model = this.models[ctx.agent.role] ?? this.model;
     const tools = toolsFor(def);
     const system: Anthropic.Beta.BetaTextBlockParam[] = [
       { type: "text", text: identity(def, ctx.agent.name) },
@@ -87,7 +92,7 @@ export class AnthropicRuntime implements AgentRuntime {
       if (ctx.signal.aborted) throw new Error("Annulée");
       const stream = this.client.beta.messages.stream(
         {
-          model: this.model,
+          model,
           max_tokens: 64000,
           betas: ["server-side-fallback-2026-07-01"],
           fallbacks: "default",
@@ -104,7 +109,7 @@ export class AnthropicRuntime implements AgentRuntime {
       const response = await stream.finalMessage();
       // Counted at once by the engine, which stops the task past its budget.
       const turn = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
-      addUsage(turn, response.usage, this.model);
+      addUsage(turn, response.usage, model);
       ctx.spend(turn);
       if (ctx.signal.aborted) throw new Error("Budget atteint.");
 

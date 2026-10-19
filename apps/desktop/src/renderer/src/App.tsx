@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { fmt } from "@narthex/core";
 import { Entreprise } from "./Entreprise.tsx";
+import { Reglages, type ReglagesView } from "./Reglages.tsx";
 import { Equipe, type EquipeView } from "./Equipe.tsx";
 import { Fil } from "./Fil.tsx";
 import { Seuil } from "./seuil/Seuil.tsx";
@@ -9,7 +10,7 @@ import { PixelAvatar } from "./PixelAvatar.tsx";
 import { Logo } from "./ui.tsx";
 import { useCompany } from "./useCompany.ts";
 
-type Tab = "Fil" | "Bureau" | "Équipe" | "Entreprise";
+type Tab = "Fil" | "Bureau" | "Équipe" | "Entreprise" | "Réglages";
 const TABS: Tab[] = ["Fil", "Bureau", "Équipe", "Entreprise"];
 
 export function App() {
@@ -17,6 +18,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>("Fil");
   const [equipeView, setEquipeView] = useState<EquipeView>("Organigramme");
   const [agentId, setAgentId] = useState<string>();
+  const [reglages, setReglages] = useState<ReglagesView>("Profil");
   const [entreprise, setEntreprise] = useState<{ section: string; page?: string }>({ section: "Vue d'ensemble" });
   const openAgent = (id?: string) => {
     setAgentId(id);
@@ -66,7 +68,9 @@ export function App() {
           <span className="pill credits" title="Dépense IA sur ton compte Anthropic, depuis le début">
             <Bolt /> Dépense IA · {fmt.dollars(state.usage.credits)}
           </span>
-          <PixelAvatar founder size={30} />
+          <button className={tab === "Réglages" ? "avatar-btn on" : "avatar-btn"} onClick={() => setTab("Réglages")} aria-label="Réglages" title="Réglages">
+            <PixelAvatar founder size={30} />
+          </button>
         </div>
       </header>
       <main className="page">
@@ -85,6 +89,7 @@ export function App() {
             onChange={refresh}
           />
         )}
+        {tab === "Réglages" && <Reglages state={state} status={status} view={reglages} onView={setReglages} onChange={refresh} />}
         {tab === "Bureau" && (
           <div className="columns">
             <div className="main">

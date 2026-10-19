@@ -49,6 +49,13 @@ describe("narthex CLI", () => {
     expect(narthex("tableaux")).toBeTruthy();
   });
 
+  it("edits the profile, reserved topics and exports", () => {
+    expect(narthex("profil", "--ville", "Lille")).toContain("Lille");
+    expect(narthex("config", "demander", "presse")).toContain("te demandera");
+    const file = join(dir, "export.json");
+    expect(narthex("exporter", "--fichier", file)).toContain("Exporté");
+  });
+
   it("explains itself", () => {
     expect(narthex("--aide")).toContain("narthex lancer");
   });

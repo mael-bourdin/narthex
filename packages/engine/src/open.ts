@@ -23,7 +23,7 @@ export function openEngine(options: OpenOptions = {}): { engine: Engine; dir: st
 
   if (runtimeName === "anthropic") {
     const key = apiKey(config, env);
-    const runtime = new AnthropicRuntime({ ...(key ? { apiKey: key } : {}), ...(config.model ? { model: config.model } : {}) });
+    const runtime = new AnthropicRuntime({ ...(key ? { apiKey: key } : {}), ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) });
     return { engine: new Engine({ store, runtime, clock: systemClock, passive: options.passive ?? false }), dir, config };
   }
 

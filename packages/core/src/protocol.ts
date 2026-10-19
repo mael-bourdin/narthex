@@ -10,6 +10,7 @@ export interface Methods {
   "engine.status": { params: Record<string, never>; result: EngineStatus };
   "company.found": { params: FoundParams; result: CompanyState };
   "company.pause": { params: Record<string, never>; result: CompanyState };
+  "company.update": { params: { name?: string; city?: string; founderName?: string }; result: CompanyState };
   "company.resume": { params: Record<string, never>; result: CompanyState };
   "state.get": { params: Record<string, never>; result: CompanyState | null };
   "events.read": { params: { afterSeq?: number; limit?: number }; result: StoredEvent[] };
