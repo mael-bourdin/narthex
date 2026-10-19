@@ -250,7 +250,7 @@ export function guardTask(state: CompanyState, draft: TaskDraft, now: Timestamp)
   const queued = Object.values(state.tasks).filter((t) => t.agentId === agent.id && t.status === "planned").length;
   if (queued >= MAX_PLANNED_PER_AGENT) return { ok: false, reason: `${agent.name} a déjà ${queued} tâches prévues.` };
 
-  const sensitive = draft.tag !== undefined && state.settings.alwaysAsk.includes(draft.tag);
+  const sensitive = (draft.tag !== undefined && state.settings.alwaysAsk.includes(draft.tag)) || reservedTopic(state, draft.title) !== undefined;
   const kind: TaskKind = sensitive ? "external" : draft.kind;
   const scheduledAt = Math.max(draft.scheduledAt ?? now, now);
   const windowMs = state.settings.cancelWindowHours * HOUR * autonomyFactor(agent.autonomy);
@@ -267,6 +267,20 @@ export function guardTask(state: CompanyState, draft: TaskDraft, now: Timestamp)
     ...(kind === "external" ? { cancellableUntil: Math.max(scheduledAt, now + (sensitive ? state.settings.cancelWindowHours * HOUR : windowMs)) } : {}),
   };
   return { ok: true, task };
+}
+
+/** Topics the founder can keep for themself (Réglages · Autonomie). Recognised from the task's words. */
+export const ALWAYS_ASK: readonly { tag: string; label: string; words: RegExp }[] = [
+  // Actions, not mentions: studying prices is research, changing them is the founder's call.
+  { tag: "prix", label: "Changer les prix", words: /\b(changer|baisser|augmenter|modifier|fixer|appliquer|réduire)\b.{0,30}\b(prix|tarifs?)\b|\b(remise|code promo|promotion de)\b/i },
+  { tag: "publicite-payante", label: "Publicité payante", words: /\b(lancer|acheter|payer|financer|créer)\b.{0,30}\b(publicités?|annonces? sponsorisées?)\b|campagne (payante|sponsorisée)|\bsponsoriser\b/i },
+  { tag: "presse", label: "Parler à la presse", words: /\b(contacter|écrire|répondre|envoyer)\b.{0,30}\b(presse|journalistes?)\b|communiqué de presse|\binterview\b/i },
+  { tag: "contrat-client", label: "Signer un contrat client", words: /\bsigner\b.{0,30}\b(contrat|devis|bon de commande)\b|\benvoyer\b.{0,30}\b(contrat|devis)\b/i },
+];
+
+/** The reserved topic a task touches, if the founder asked to be asked about it. */
+export function reservedTopic(state: CompanyState, title: string): string | undefined {
+  return ALWAYS_ASK.find((t) => state.settings.alwaysAsk.includes(t.tag) && t.words.test(title))?.tag;
 }
 
 /** Trust shortens the window; the founder's setting stays the ceiling. */

@@ -1,5 +1,6 @@
+import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { fmt, type CompanyState, type LegalForm } from "@narthex/core";
+import { ALWAYS_ASK, fmt, ROLES, type CompanyState, type LegalForm } from "@narthex/core";
 import {
   archiveCompany,
   chooseRuntime,
@@ -51,6 +52,10 @@ ${bold("Réglages")}
   narthex config mode <auto|simulation|anthropic>
   narthex config modele <id>        Modèle Claude (défaut : claude-opus-5-5)
   narthex config delai <heures>     Délai pour annuler une action externe
+  narthex config modele <rôle> <id> Modèle d'un agent (ex. : video claude-haiku-5-5)
+  narthex config demander <sujet>   Réserver ou libérer un sujet (prix, publicite-payante, presse, contrat-client)
+  narthex profil [--nom] [--prenom] [--ville]  Voir ou changer le profil
+  narthex exporter                  Écrire l'entreprise dans un fichier JSON
   narthex config budget <dollars>   Dépense IA maximale par jour (défaut 3 $)
   narthex config budget-tache <dollars>  Dépense IA maximale par tâche (défaut 1,50 $)
   narthex avancer <heures>          Simulation : avancer l'horloge
@@ -69,6 +74,7 @@ const { values: opts, positionals } = parseArgs({
     idee: { type: "string" },
     prenom: { type: "string" },
     ville: { type: "string" },
+    fichier: { type: "string" },
     "sans-lancer": { type: "boolean" },
     semaine: { type: "boolean" },
     agent: { type: "string" },
@@ -123,6 +129,20 @@ async function main(): Promise<void> {
         return print(render.depense(state, await client.call("events.read", {})));
       case "tableaux":
         return print(render.tableaux(state));
+      case "profil": {
+        if (opts.nom || opts.prenom || opts.ville) {
+          const next = await client.call("company.update", { ...(opts.nom ? { name: opts.nom } : {}), ...(opts.prenom ? { founderName: opts.prenom } : {}), ...(opts.ville ? { city: opts.ville } : {}) });
+          return print(`Enregistré : ${next.company!.name}, ${next.company!.founder.name}${next.company!.city ? `, ${next.company!.city}` : ""}.`);
+        }
+        const c = state.company!;
+        return print(`${bold(c.name)}\n${c.founder.name}${c.city ? ` · ${c.city}` : ""} · ${c.legalForm ?? "forme à choisir"}`);
+      }
+      case "exporter": {
+        const events = await client.call("events.read", {});
+        const file = opts.fichier ?? `${state.company!.name.replace(/[^\p{L}\p{N}-]+/gu, "-")}-${new Date().toISOString().slice(0, 10)}.json`;
+        writeFileSync(file, JSON.stringify({ exportedAt: new Date().toISOString(), company: state.company, events }, null, 2));
+        return print(`Exporté : ${file}`);
+      }
       case "recrutements":
         return print(render.recrutementsView(state));
       case "agent": {
@@ -299,10 +319,29 @@ async function config(): Promise<void> {
       else if (value === "simulation" || value === "anthropic") next.runtime = value;
       else throw new Error("Mode : auto, simulation ou anthropic.");
       break;
-    case "modele":
+    case "modele": {
       if (!value) throw new Error("Donne un identifiant de modèle, par exemple claude-opus-5-5.");
+      const perRole = args[2];
+      if (perRole) {
+        if (!ROLES.some((r) => r.id === value)) throw new Error(`Rôle inconnu : ${value}. Choix : ${ROLES.map((r) => r.id).join(", ")}.`);
+        next.models = { ...next.models, [value]: perRole };
+        break;
+      }
       next.model = value;
       break;
+    }
+    case "demander": {
+      const topic = ALWAYS_ASK.find((t) => t.tag === value);
+      if (!topic) throw new Error(`Sujet inconnu. Choix : ${ALWAYS_ASK.map((t) => t.tag).join(", ")}.`);
+      let now: string[] = [];
+      await withClient(async (client) => {
+        const state = await client.call("state.get", {});
+        const current = state?.settings.alwaysAsk ?? [];
+        now = current.includes(topic.tag) ? current.filter((t) => t !== topic.tag) : [...current, topic.tag];
+        await client.call("settings.update", { patch: { alwaysAsk: now } });
+      });
+      return print(`${topic.label} : ${now.includes(topic.tag) ? "l'équipe te demandera avant" : "l'équipe décide seule"}.`);
+    }
     case "vitesse":
       next.simulationSpeed = Number(value);
       break;

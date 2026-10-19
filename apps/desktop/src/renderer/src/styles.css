@@ -361,3 +361,20 @@ button.agent-item.clickable:not(:disabled):hover { background: var(--bg-surface)
 .table-card th { font-weight: 500; color: var(--text-secondary); }
 .table-card .card-head .btn { white-space: nowrap; flex: none; }
 .table-card .card-head { gap: 12px; align-items: flex-start; }
+
+/* ---------- Réglages ---------- */
+.avatar-btn { background: none; border: 0; padding: 0; cursor: pointer; border-radius: 9px; -webkit-app-region: no-drag; }
+.avatar-btn.on { box-shadow: 0 0 0 2px var(--accent); }
+.form-box { margin-top: 12px; background: var(--bg-app); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 4px 14px; }
+.form-title { font-weight: 500; padding: 10px 0 4px; }
+.form-box > .muted.small { margin: 0 0 8px; }
+.form-box .chips { padding-bottom: 12px; }
+.form-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 0; border-top: 1px solid var(--border-subtle); }
+.form-box > .form-row:first-child, .form-title + .form-row { border-top: 0; }
+.form-row input:not([type="checkbox"]), .form-row select { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 8px; padding: 7px 10px; outline: none; min-width: 200px; }
+.form-row input:focus, .form-row select:focus { border-color: var(--accent); }
+.form-row.toggle { cursor: pointer; }
+.form-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: #cfc8ff; }
+.row-actions { display: flex; align-items: center; gap: 10px; }
+.with-avatar { display: inline-flex; align-items: center; gap: 8px; }
+.status-ok { color: var(--status-working); }

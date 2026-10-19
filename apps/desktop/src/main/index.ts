@@ -1,9 +1,14 @@
 import { writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
-import type { Method, Params } from "@narthex/core";
+import { app, BrowserWindow, ipcMain, nativeTheme, Notification, shell } from "electron";
+import { overBudget, type Method, type Params, type RoleId, type StoredEvent } from "@narthex/core";
 import {
   AnthropicRuntime,
+  apiKey,
+  archiveCompany,
+  chooseRuntime,
+  saveConfig,
   dataDir,
   InProcessClient,
   loadConfig,
@@ -25,6 +30,7 @@ import {
 let client: Client | undefined;
 let engine: Engine | undefined;
 let closeServer: (() => void) | undefined;
+let unsubscribe: (() => void) | undefined;
 let window: BrowserWindow | undefined;
 
 const dir = dataDir();
@@ -90,14 +96,99 @@ ipcMain.handle("narthex:onboarding:submitKey", async (_event, key: string) => {
   if (!check.ok) return check;
   const config = saveKey(dir, check.key);
   // When we run the engine, the team starts working with Claude right away.
-  engine?.useRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}) }));
+  engine?.useRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) }));
   return { ok: true, applied: Boolean(engine) };
 });
+
+// ---------- Réglages ----------
+
+ipcMain.handle("narthex:config:get", () => {
+  const config = loadConfig(dir);
+  const key = config.anthropicApiKey;
+  return {
+    dir,
+    hasKey: Boolean(key),
+    keyHint: key ? `${key.slice(0, 7)}…${key.slice(-4)}` : null,
+    runtime: chooseRuntime(config),
+    models: config.models ?? {},
+    notifications: { legal: true, leaving: true, budget: true, deliverables: false, ...config.notifications },
+    ownsEngine: Boolean(engine),
+  };
+});
+
+ipcMain.handle("narthex:config:setModels", (_e, models: Partial<Record<RoleId, string>>) => {
+  const config = { ...loadConfig(dir), models };
+  saveConfig(dir, config);
+  const key = apiKey(config, {});
+  // The team picks the new models from its next turn on.
+  if (engine && key && chooseRuntime(config) === "anthropic") engine.useRuntime(new AnthropicRuntime({ apiKey: key, models, ...(config.model ? { model: config.model } : {}) }));
+});
+
+ipcMain.handle("narthex:config:setNotifications", (_e, notifications: Record<string, boolean>) => {
+  saveConfig(dir, { ...loadConfig(dir), notifications });
+});
+
+ipcMain.handle("narthex:data:export", async () => {
+  if (!client) throw new Error("Le moteur démarre…");
+  const events = await client.call("events.read", {});
+  const state = await client.call("state.get", {});
+  const name = (state?.company?.name ?? "narthex").replace(/[^\p{L}\p{N}-]+/gu, "-");
+  const file = join(app.getPath("downloads") || join(homedir(), "Downloads"), `${name}-${new Date().toISOString().slice(0, 10)}.json`);
+  writeFileSync(file, JSON.stringify({ exportedAt: new Date().toISOString(), company: state?.company, events }, null, 2));
+  shell.showItemInFolder(file);
+  return file;
+});
+
+ipcMain.handle("narthex:data:restart", async () => {
+  if (!engine) throw new Error("L'équipe tourne dans un terminal (« narthex lancer ») : arrête-la d'abord.");
+  unsubscribe?.();
+  closeServer?.();
+  await engine.close();
+  engine = undefined;
+  const archived = archiveCompany(dir);
+  client = await connect();
+  unsubscribe = client.subscribe(forward);
+  window?.webContents.reload();
+  return archived;
+});
+
+// ---------- Notifications ----------
+
+const notifiedBudgetDays = new Set<string>();
+
+function notify(event: StoredEvent): void {
+  const prefs = { legal: true, leaving: true, budget: true, deliverables: false, ...loadConfig(dir).notifications };
+  if (!Notification.isSupported() || window?.isFocused()) return;
+  const show = (title: string, body: string) => {
+    const n = new Notification({ title, body, silent: false });
+    n.on("click", () => window?.show());
+    n.show();
+  };
+  const state = engine?.getState();
+  if (event.type === "obligation.opened" && event.obligation.owner === "founder" && prefs.legal) show("À faire par toi", event.obligation.title);
+  if (event.type === "task.planned" && event.task.kind === "external" && prefs.leaving) {
+    const who = state?.agents[event.task.agentId]?.name ?? "L'équipe";
+    show(`${who} prévoit une action`, `${event.task.title}. Tu peux l'annuler avant son départ.`);
+  }
+  if (event.type === "post.published" && event.post.kind === "deliverable" && prefs.deliverables) show(state?.agents[event.post.agentId]?.name ?? "Narthex", event.post.text.slice(0, 140));
+  if (event.type === "usage.recorded" && prefs.budget && state && overBudget(state, event.ts)) {
+    const day = new Date(event.ts).toDateString();
+    if (!notifiedBudgetDays.has(day)) {
+      notifiedBudgetDays.add(day);
+      show("Budget du jour atteint", "L'équipe s'arrête pour aujourd'hui. Tu peux l'augmenter dans Réglages.");
+    }
+  }
+}
+
+function forward(event: StoredEvent): void {
+  window?.webContents.send("narthex:event", event);
+  notify(event);
+}
 
 app.whenReady().then(async () => {
   nativeTheme.themeSource = "dark";
   client = await connect();
-  client.subscribe((event) => window?.webContents.send("narthex:event", event));
+  unsubscribe = client.subscribe(forward);
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

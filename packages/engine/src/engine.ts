@@ -149,6 +149,19 @@ export class Engine {
         return this.found(params as Params<"company.found">);
       case "onboarding.firstLook":
         return this.firstLook(params as Params<"onboarding.firstLook">);
+      case "company.update": {
+        this.requireCompany();
+        const p = params as Params<"company.update">;
+        const patch: { name?: string; city?: string; founderName?: string } = {};
+        for (const k of ["name", "city", "founderName"] as const) {
+          const v = p[k];
+          if (v === undefined) continue;
+          if (k !== "city" && !v.trim()) throw new Error(k === "name" ? "Il faut un nom pour l'entreprise." : "Il faut un prénom.");
+          patch[k] = v.trim();
+        }
+        this.emit({ type: "company.updated", patch, at: this.now() });
+        return this.state;
+      }
       case "company.pause":
         this.requireCompany();
         if (!this.state.company?.paused) this.emit({ type: "company.paused", at: this.now() });

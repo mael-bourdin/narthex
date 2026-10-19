@@ -12,6 +12,10 @@ export interface Config {
   model?: string;
   /** Prefer the ANTHROPIC_API_KEY environment variable; this is for players who want it saved. */
   anthropicApiKey?: string;
+  /** A Claude model per role, chosen in Réglages · API et modèles. */
+  models?: Partial<Record<import("@narthex/core").RoleId, string>>;
+  /** Desktop notifications the player wants. */
+  notifications?: { legal?: boolean; leaving?: boolean; budget?: boolean; deliverables?: boolean };
   /** Simulation only: simulated minutes per real second. */
   simulationSpeed?: number;
 }

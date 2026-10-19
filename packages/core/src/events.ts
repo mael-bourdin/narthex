@@ -18,7 +18,7 @@ import type {
  */
 export type DomainEvent =
   | { type: "company.founded"; company: Company; settings: Settings }
-  | { type: "company.updated"; patch: Partial<Pick<Company, "name" | "city" | "legalForm">>; at: Timestamp }
+  | { type: "company.updated"; patch: Partial<Pick<Company, "name" | "city" | "legalForm">> & { founderName?: string }; at: Timestamp }
   | { type: "company.paused"; at: Timestamp }
   | { type: "company.resumed"; at: Timestamp }
   | { type: "stage.changed"; stage: Stage; at: Timestamp }
