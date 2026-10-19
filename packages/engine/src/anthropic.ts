@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { fmt, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
-import type { AgentRuntime, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
+import { fmt, recallFacts, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
+import type { AgentRuntime, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 type Tool = Anthropic.Beta.BetaToolUnion;
 type MessageParam = Anthropic.Beta.BetaMessageParam;
@@ -68,6 +68,24 @@ export class AnthropicRuntime implements AgentRuntime {
     const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
     addUsage(usage, response.usage, this.model);
     return { ...parseFirstLook(response.content), simulated: false, usage };
+  }
+
+  async extractFacts(input: FactsInput): Promise<FactsResult> {
+    const response = await this.client.beta.messages.create(
+      {
+        model: MEMORY_MODEL,
+        max_tokens: 4000,
+        system: FACTS_SYSTEM,
+        tools: [RECORD_FACTS],
+        tool_choice: { type: "tool", name: "record_facts" },
+        messages: [{ role: "user", content: factsPrompt(input) }],
+      },
+      { signal: input.signal },
+    );
+    const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
+    addUsage(usage, response.usage, MEMORY_MODEL);
+    const call = response.content.find((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === "record_facts");
+    return { ...factsFrom(call?.input), usage };
   }
 
   async run(ctx: WorkContext): Promise<WorkResult> {
@@ -263,6 +281,10 @@ export function brief(ctx: WorkContext): string {
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, 8)
     .map((d) => `- ${d.title} (${ctx.state.agents[d.agentId]?.name ?? "?"}) : ${d.summary}`);
+  // L2 memory: the next piece of work starts from what is already known (research: « la recherche suivante part du connu »).
+  const known = recallFacts(ctx.state, `${ctx.task.title} ${ctx.task.why}`, { role: ctx.agent.role, now: ctx.now, k: 8 }).map(
+    (f) => `- ${f.text} (appris le ${fmt.day(f.validFrom)})`,
+  );
   const open = Object.values(ctx.state.obligations)
     .filter((o) => o.status === "open")
     .map((o) => `- ${o.title} (${o.owner === "founder" ? "le fondateur" : o.owner})`);
@@ -274,6 +296,7 @@ export function brief(ctx: WorkContext): string {
     ctx.task.kind === "external" ? "Le délai d'annulation est passé : tu peux agir." : "",
     "",
     recent.length ? `Derniers livrables de l'équipe :\n${recent.join("\n")}` : "",
+    known.length ? `Ce que l'équipe sait déjà sur ce sujet (vérifie ce qui a pu changer, ne refais pas ce qui est acquis) :\n${known.join("\n")}` : "",
     open.length ? `Obligations ouvertes :\n${open.join("\n")}` : "",
   ]
     .filter(Boolean)
@@ -309,6 +332,62 @@ export function firstLookFrom(value: unknown): Pick<FirstLook, "reaction" | "fin
       : [];
   const extra = parsed as { team?: unknown; later?: unknown };
   return { reaction: parsed.reaction, findings: findings.slice(0, 5), team: picks(extra.team), later: picks(extra.later) };
+}
+
+// ---------- Memory (L2) ----------
+
+/** Extraction is a small, frequent job: the lightest model (research: extraction by a small model). */
+export const MEMORY_MODEL = "claude-haiku-5-5";
+
+export const FACTS_SYSTEM = [
+  "Tu tiens la mémoire d'une petite entreprise française. On te donne un livrable que l'équipe vient de finir et des faits déjà connus, chacun avec son identifiant entre crochets.",
+  "facts : 0 à 8 faits durables et utiles plus tard (chiffres, prix, noms de clients, concurrents ou fournisseurs, règles, décisions prises). Une phrase autonome chacun, en français, avec son chiffre, sa date et son lieu quand il y en a. Rien d'inventé, rien qui ne soit pas dans le livrable.",
+  "subject : de quoi il s'agit, en deux ou trois mots. importance : 1 (détail) à 10 (change les décisions). sensitive : vrai pour l'argent de l'entreprise ou des personnes, les salaires et les données personnelles.",
+  "invalidated : les identifiants des faits connus que ce livrable contredit ou met à jour. Ne répète pas un fait déjà connu et toujours vrai.",
+].join("\n");
+
+export function factsPrompt(input: FactsInput): string {
+  const known = input.known.length ? input.known.map((f) => `[${f.id}] ${f.text}`).join("\n") : "(aucun)";
+  return `Faits déjà connus :\n${known}\n\nLivrable du ${fmt.day(input.now)} : ${input.deliverable.title}\n${input.deliverable.summary}\n\n${input.deliverable.body}`;
+}
+
+export const FACTS_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["facts", "invalidated"],
+  properties: {
+    facts: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["text", "subject", "importance", "sensitive"],
+        properties: { text: { type: "string" }, subject: { type: "string" }, importance: { type: "integer" }, sensitive: { type: "boolean" } },
+      },
+    },
+    invalidated: { type: "array", items: { type: "string" } },
+  },
+} as const;
+
+const RECORD_FACTS: Tool = {
+  name: "record_facts",
+  description: "Enregistre ce que l'équipe a appris de ce livrable, et les faits connus qu'il rend faux.",
+  strict: true,
+  input_schema: FACTS_SCHEMA as unknown as Anthropic.Beta.BetaTool.InputSchema,
+};
+
+/** Never trust model output blindly, even from a strict tool. */
+export function factsFrom(value: unknown): Omit<FactsResult, "usage"> {
+  const v = (value ?? {}) as { facts?: unknown; invalidated?: unknown };
+  const added = Array.isArray(v.facts)
+    ? v.facts.flatMap((f) => {
+        const o = (f ?? {}) as Record<string, unknown>;
+        if (typeof o.text !== "string" || !o.text.trim()) return [];
+        return [{ text: o.text, subject: typeof o.subject === "string" ? o.subject : "", importance: typeof o.importance === "number" ? o.importance : 5, sensitive: o.sensitive === true }];
+      })
+    : [];
+  const invalidated = Array.isArray(v.invalidated) ? v.invalidated.filter((x): x is string => typeof x === "string") : [];
+  return { added, invalidated };
 }
 
 // ---------- Tools ----------

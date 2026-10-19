@@ -185,6 +185,25 @@ export interface Usage {
   byDay: Record<string, number>;
 }
 
+/**
+ * L2 memory: one thing the team learnt, from one deliverable. Bi-temporal (Zep/Graphiti):
+ * a contradicted fact is not erased, it gets an `invalidAt`, so « what did we know then » stays answerable.
+ */
+export interface Fact {
+  id: Id;
+  /** One self-contained sentence, with its figure and place when it has one. */
+  text: string;
+  /** What it is about: a client, a competitor, a supplier, a rule, a price… */
+  subject: string;
+  /** 1 (detail) to 10 (changes decisions), rated at extraction. */
+  importance: number;
+  deliverableId: Id;
+  validFrom: Timestamp;
+  invalidAt?: Timestamp;
+  /** Money, pay, personal data: only the co-founder, accounting and legal see it. */
+  sensitive?: boolean;
+}
+
 export interface CompanyState {
   company?: Company;
   agents: Record<Id, Agent>;
@@ -198,5 +217,7 @@ export interface CompanyState {
   staffing?: StaffingEntry[];
   /** L1 core memory: the shared company sheet every agent reads (kept short). */
   memory: string;
+  /** L2 memory: facts extracted from deliverables. */
+  facts: Record<Id, Fact>;
   lastSeq: number;
 }

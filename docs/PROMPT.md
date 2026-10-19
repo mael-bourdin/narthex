@@ -94,7 +94,8 @@ Cocher dans ce fichier au fil des PR.
 - [x] Livrables : page plein écran à sections, export `.md` depuis le CLI (`livrable --fichier`) et l'app. Reste : `.pdf`.
 - [x] Budget : dépense IA comptée à chaque appel au modèle ; plafond par tâche (1,50 $ par défaut, la tâche s'arrête et l'agent le dit) et par jour (3 $ par défaut, plus rien ne démarre, la pancarte le dit et permet de l'ajuster). Le joueur voit toujours la dépense IA en dollars, jamais en « crédits » (unité interne : le centime).
 - [x] Escalade : après `MAX_ATTEMPTS` échecs, l'obligation est « bloquée », Margaux prévient une seule fois, la pancarte propose « Réessayer » (`narthex reessayer`).
-- [ ] Mémoire L2/L3 : faits extraits des livrables (asynchrone, petit modèle), recherche dans le journal (« pourquoi a-t-on décidé X ? »).
+- [x] Mémoire L2/L3 (recherche, section « Mémoire ») : faits extraits de chaque livrable par Haiku, asynchrone ; faits contredits datés (`invalidAt`), jamais effacés ; rappel BM25 + importance + récence fusionnés par RRF, faits encore valides seulement ; faits sensibles réservés à la co-fondatrice, la compta et le juridique ; le brief de chaque tâche part du connu ; « pourquoi a-t-on décidé X ? » sans modèle (app : Équipe · Mémoire ; CLI : `memoire`, `pourquoi`).
+- [ ] Mémoire, suite : consolidation de fin de journée (dédoublonnage, entités, réflexions), playbooks par rôle (L4, deltas ACE), oubli à la demande (suppression effective malgré le journal append-only), vecteurs quand un modèle d'embedding local sera retenu.
 - [x] Vérificateur, liens : après chaque livrable, Narthex vérifie lui-même que chaque lien cité répond (sans modèle, sans coût) ; la page du livrable et le CLI montrent les liens morts.
 - [ ] Vérificateur, contenu : seconde passe par un modèle sur les livrables juridiques et chiffrés.
 - [x] Calendrier jour / semaine / mois dans l'app ; Organigramme ; Recrutements prévus ; Journal.

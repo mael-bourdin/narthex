@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { role, ROLES, type FirstLook, type RoleId } from "@narthex/core";
-import { brief, companySheet, DEFAULT_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
-import type { AgentRuntime, WorkContext, WorkResult } from "./runtime.ts";
+import { brief, companySheet, DEFAULT_MODEL, FACTS_SCHEMA, FACTS_SYSTEM, factsFrom, factsPrompt, MEMORY_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
+import type { AgentRuntime, FactsInput, FactsResult, WorkContext, WorkResult } from "./runtime.ts";
 
 /**
  * DEVELOPMENT ONLY. The developer's own Claude Code (`claude -p`), on their own claude.ai subscription,
@@ -50,6 +50,15 @@ export class ClaudeCodeRuntime implements AgentRuntime {
       () => {},
     );
     return { ...firstLookFrom(out.value), simulated: false, usage: out.usage };
+  }
+
+  async extractFacts(input: FactsInput): Promise<FactsResult> {
+    const out = await this.ask(
+      { system: FACTS_SYSTEM, prompt: factsPrompt(input), schema: FACTS_SCHEMA, model: MEMORY_MODEL, effort: "low", web: false },
+      input.signal,
+      () => {},
+    );
+    return { ...factsFrom(out.value), usage: out.usage };
   }
 
   async run(ctx: WorkContext): Promise<WorkResult> {

@@ -17,11 +17,12 @@ import {
 import { ActionModal } from "./ActionModal.tsx";
 import { DeliverableView } from "./Deliverable.tsx";
 import { Chevron } from "./icons.tsx";
+import { Memoire } from "./Memoire.tsx";
 import { PixelAvatar } from "./PixelAvatar.tsx";
 import { SectionTabs } from "./SectionTabs.tsx";
 
-export type EquipeView = "Organigramme" | "Calendrier" | "Recrutements prévus" | "Journal";
-const VIEWS: EquipeView[] = ["Organigramme", "Calendrier", "Recrutements prévus", "Journal"];
+export type EquipeView = "Organigramme" | "Calendrier" | "Recrutements prévus" | "Journal" | "Mémoire";
+const VIEWS: EquipeView[] = ["Organigramme", "Calendrier", "Recrutements prévus", "Journal", "Mémoire"];
 
 /** The Équipe tab (Figma section 4): who works, when, who comes next, and everything they did. */
 export function Equipe({
@@ -50,6 +51,7 @@ export function Equipe({
         {view === "Calendrier" && <Calendrier state={state} status={status} onChange={onChange} />}
         {view === "Recrutements prévus" && <Recrutements state={state} />}
         {view === "Journal" && <Journal state={state} onAgent={onAgent} />}
+        {view === "Mémoire" && <Memoire state={state} status={status} onAgent={onAgent} onChange={onChange} />}
       </div>
       <aside className="side">
         <TeamNumbers state={state} status={status} />

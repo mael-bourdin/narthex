@@ -12,6 +12,7 @@ export function emptyState(): CompanyState {
     settings: { ...DEFAULT_SETTINGS },
     usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0, byDay: {} },
     memory: "",
+    facts: {},
     lastSeq: 0,
   };
 }
@@ -115,6 +116,12 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       const o = state.obligations[event.obligationId];
       if (!o) return state;
       return { ...state, obligations: { ...state.obligations, [o.id]: { ...o, status: "done", doneAt: event.at } } };
+    }
+    case "facts.extracted": {
+      const facts = { ...state.facts };
+      for (const id of event.invalidated) if (facts[id] && !facts[id]!.invalidAt) facts[id] = { ...facts[id]!, invalidAt: event.at };
+      for (const f of event.added) facts[f.id] = f;
+      return { ...state, facts };
     }
     case "sources.checked": {
       const d = state.deliverables[event.deliverableId];

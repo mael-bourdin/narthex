@@ -2,6 +2,7 @@ import type {
   Agent,
   Company,
   Deliverable,
+  Fact,
   Id,
   Obligation,
   Post,
@@ -33,6 +34,7 @@ export type DomainEvent =
   | { type: "post.published"; post: Post }
   | { type: "obligation.opened"; obligation: Obligation }
   | { type: "obligation.fulfilled"; obligationId: Id; at: Timestamp; by: "founder" | Id }
+  | { type: "facts.extracted"; deliverableId: Id; at: Timestamp; added: Fact[]; invalidated: Id[] }
   | { type: "sources.checked"; deliverableId: Id; at: Timestamp; results: { url: string; ok: boolean }[] }
   | { type: "obligation.stuck"; obligationId: Id; at: Timestamp; error: string }
   | { type: "obligation.retried"; obligationId: Id; at: Timestamp }

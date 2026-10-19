@@ -38,6 +38,8 @@ ${bold("Regarder")}
   narthex entreprise [section] [page]  Vue d'ensemble, finances, ventes, marketing, juridique
   narthex depense                   La dépense IA, par coéquipier et par jour
   narthex tableaux                  Tous les tableaux produits par l'équipe
+  narthex memoire                   Ce que l'équipe sait (faits datés, tirés des livrables)
+  narthex pourquoi "<question>"     Retrouver une décision et sa raison dans le journal
   narthex livrable <id|dernier>     Lire un livrable (--fichier x.md pour l'enregistrer)
 
 ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
@@ -155,6 +157,13 @@ async function main(): Promise<void> {
         const events = await client.call("events.read", {});
         const n = Number(opts.nombre ?? 40);
         return print(opts.json ? JSON.stringify(events, null, 2) : render.journal(state, events, n));
+      }
+      case "memoire":
+        return print(opts.json ? JSON.stringify(Object.values(state.facts), null, 2) : render.memoire(state, status.now));
+      case "pourquoi": {
+        const question = args.join(" ").trim();
+        if (!question) throw new Error("Pose ta question : narthex pourquoi \"le dépôt-vente\"");
+        return print(render.pourquoi(state, question));
       }
       case "livrable": {
         const all = Object.values(state.deliverables).sort((a, b) => b.createdAt - a.createdAt);
