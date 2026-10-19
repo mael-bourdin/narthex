@@ -50,7 +50,7 @@ export function Fil({ state, status, onChange, onAgent }: { state: CompanyState;
         <TeamCard view={view} onAgent={onAgent} />
         {view.quest && <QuestCard quest={view.quest} />}
       </aside>
-      {open && <DeliverableView d={open} state={state} onClose={() => setOpen(undefined)} />}
+      {open && <DeliverableView d={open} state={state} status={status} onClose={() => setOpen(undefined)} onChange={onChange} />}
       {acting && <ActionModal mission={acting} state={state} now={status.now} onClose={() => setActing(undefined)} onDone={onChange} />}
     </div>
   );

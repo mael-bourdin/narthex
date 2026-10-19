@@ -30,6 +30,10 @@ const api = {
     setModels: (models: Record<string, string>): Promise<void> => ipcRenderer.invoke("narthex:config:setModels", models),
     setNotifications: (n: Record<string, boolean>): Promise<void> => ipcRenderer.invoke("narthex:config:setNotifications", n),
   },
+  deliverable: {
+    /** Asks where to save it; resolves to the file path, or null if the founder cancelled. */
+    save: (id: string): Promise<string | null> => ipcRenderer.invoke("narthex:deliverable:save", id),
+  },
   data: {
     export: (): Promise<string> => ipcRenderer.invoke("narthex:data:export"),
     restart: (): Promise<string | null> => ipcRenderer.invoke("narthex:data:restart"),

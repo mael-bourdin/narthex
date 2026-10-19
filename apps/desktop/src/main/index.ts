@@ -1,8 +1,8 @@
 import { writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { app, BrowserWindow, ipcMain, nativeTheme, Notification, shell } from "electron";
-import { overBudget, type Method, type Params, type RoleId, type StoredEvent } from "@narthex/core";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, Notification, shell } from "electron";
+import { deliverableMarkdown, overBudget, type Method, type Params, type RoleId, type StoredEvent } from "@narthex/core";
 import {
   AnthropicRuntime,
   apiKey,
@@ -137,6 +137,20 @@ ipcMain.handle("narthex:data:export", async () => {
   writeFileSync(file, JSON.stringify({ exportedAt: new Date().toISOString(), company: state?.company, events }, null, 2));
   shell.showItemInFolder(file);
   return file;
+});
+
+ipcMain.handle("narthex:deliverable:save", async (e, id: string) => {
+  if (!client) throw new Error("Le moteur démarre…");
+  const state = await client.call("state.get", {});
+  const d = state?.deliverables[id];
+  if (!state || !d) throw new Error("Livrable introuvable.");
+  const name = d.title.replace(/[^\p{L}\p{N}-]+/gu, "-").replace(/^-|-$/g, "") || "livrable";
+  const window = BrowserWindow.fromWebContents(e.sender);
+  const options = { defaultPath: join(app.getPath("documents") || homedir(), `${name}.md`), filters: [{ name: "Markdown", extensions: ["md"] }] };
+  const { canceled, filePath } = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options);
+  if (canceled || !filePath) return null;
+  writeFileSync(filePath, deliverableMarkdown(state, d));
+  return filePath;
 });
 
 ipcMain.handle("narthex:data:restart", async () => {

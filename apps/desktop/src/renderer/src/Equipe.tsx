@@ -588,7 +588,7 @@ function AgentPage({ state, status, agentId, onBack, onChange }: { state: Compan
           </button>
         ))}
       </div>
-      {open && <DeliverableView d={open} state={state} onClose={() => setOpen(undefined)} />}
+      {open && <DeliverableView d={open} state={state} status={status} onClose={() => setOpen(undefined)} onChange={onChange} />}
       {cancelling && (
         <ActionModal
           mission={{

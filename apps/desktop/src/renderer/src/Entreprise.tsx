@@ -71,7 +71,7 @@ export function Entreprise({
       <aside className="side">
         {section === "Vue d'ensemble" ? <OverviewSide state={state} status={status} events={events} /> : <SpendCard state={state} events={events} compact />}
       </aside>
-      {open && <DeliverableView d={open} state={state} onClose={() => setOpen(undefined)} />}
+      {open && <DeliverableView d={open} state={state} status={status} onClose={() => setOpen(undefined)} onChange={onChange} />}
       {acting && <ActionModal mission={acting} state={state} now={status.now} onClose={() => setActing(undefined)} onDone={onChange} />}
     </div>
   );
