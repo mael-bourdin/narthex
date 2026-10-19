@@ -1,4 +1,6 @@
 import {
+  overBudget,
+  spentOn,
   filView,
   type FilItem,
   calendar,
@@ -42,6 +44,10 @@ export function forYou(s: CompanyState, now: number): string {
     lines.push(dim(wrapText(o.why, 4)));
     const extra = o.code === "A3-forme" ? " --forme SASU" : "";
     lines.push(`    ${dim("→")} narthex valider ${o.id}${extra}`);
+  }
+  if (overBudget(s, now)) {
+    lines.push(`${yellow("!")} ${bold("Budget du jour atteint")} ${dim(`· ${spentOn(s, now)} crédits sur ${s.settings.dailyBudgetCredits}, l'équipe reprend demain`)}`);
+    lines.push(`    ${dim("→")} narthex config budget <crédits>`);
   }
   for (const t of cancellable(s, now)) {
     const who = s.agents[t.agentId]?.name ?? "?";

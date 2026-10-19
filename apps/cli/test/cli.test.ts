@@ -71,3 +71,16 @@ describe("narthex fil without a key", () => {
     expect(Object.keys(state.deliverables)).toHaveLength(0);
   });
 });
+
+describe("narthex config budget", () => {
+  it("sets the daily budget of the company", () => {
+    const home = mkdtempSync(join(tmpdir(), "narthex-cli-"));
+    const e = { ...process.env, NARTHEX_HOME: home, NARTHEX_RUNTIME: "simulation", NO_COLOR: "1" };
+    const run = (...a: string[]) => execFileSync(process.execPath, ["--import", "tsx", "apps/cli/src/bin.ts", ...a], { env: e, encoding: "utf8" });
+    run("init", "--idee", "Des bougies", "--prenom", "Inès", "--nom", "Lumen", "--sans-lancer");
+    expect(run("config", "budget", "500")).toContain("500 crédits");
+    const s = JSON.parse(run("fil", "--json")) as { settings: { dailyBudgetCredits: number } };
+    expect(s.settings.dailyBudgetCredits).toBe(500);
+    rmSync(home, { recursive: true, force: true });
+  });
+});

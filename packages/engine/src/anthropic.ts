@@ -80,7 +80,6 @@ export class AnthropicRuntime implements AgentRuntime {
       { type: "text", text: companySheet(ctx), cache_control: { type: "ephemeral", ttl: "1h" } },
     ];
     const messages: MessageParam[] = [{ role: "user", content: brief(ctx) }];
-    const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
     let deliverable: WorkResult["deliverable"];
     let memory: string | undefined;
 
@@ -100,7 +99,11 @@ export class AnthropicRuntime implements AgentRuntime {
         { signal: ctx.signal },
       );
       const response = await stream.finalMessage();
-      addUsage(usage, response.usage, this.model);
+      // Counted at once by the engine, which stops the task past its budget.
+      const turn = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
+      addUsage(turn, response.usage, this.model);
+      ctx.spend(turn);
+      if (ctx.signal.aborted) throw new Error("Budget atteint.");
 
       if (response.stop_reason === "refusal") throw new Error("Claude a refusé cette tâche.");
       if (response.stop_reason === "max_tokens") throw new Error("Réponse trop longue, interrompue.");
@@ -113,7 +116,7 @@ export class AnthropicRuntime implements AgentRuntime {
           .flatMap((b) => (b.type === "text" ? [b.text] : []))
           .join("\n")
           .trim();
-        return { post: post || `C'est fait : ${ctx.task.title}.`, deliverable, memory, usage };
+        return { post: post || `C'est fait : ${ctx.task.title}.`, deliverable, memory };
       }
 
       // All results go back in a single user message, so parallel tool use keeps working.

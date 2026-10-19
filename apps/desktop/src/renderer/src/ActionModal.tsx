@@ -20,6 +20,8 @@ const cleanError = (e: unknown) => (e instanceof Error ? e.message.replace(/^Err
 export function ActionModal({ mission, state, now, onClose, onDone }: { mission: Mission; state: CompanyState; now: number; onClose(): void; onDone(): void }) {
   const [key, setKey] = useState("");
   const [form, setForm] = useState<LegalForm>("SASU");
+  const [daily, setDaily] = useState(String(state.settings.dailyBudgetCredits));
+  const [perTask, setPerTask] = useState(String(state.settings.taskBudgetCredits));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const speaker = mission.speakerId ? state.agents[mission.speakerId] : undefined;
@@ -73,6 +75,22 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
           </div>
         )}
 
+        {mission.action === "budget" && (
+          <div className="modal-body budget">
+            <label>
+              <span>Par jour</span>
+              <input type="number" min={0} step={50} value={daily} onChange={(e) => setDaily(e.target.value)} />
+              <span className="muted small">crédits · {euros(Number(daily))}</span>
+            </label>
+            <label>
+              <span>Par tâche</span>
+              <input type="number" min={0} step={25} value={perTask} onChange={(e) => setPerTask(e.target.value)} />
+              <span className="muted small">crédits · {euros(Number(perTask))}</span>
+            </label>
+            <p className="muted small">1 crédit = 0,01 $ sur ton compte Anthropic. Une tâche qui dépasse son budget s'arrête et l'agent le dit dans le Fil.</p>
+          </div>
+        )}
+
         {mission.action === "form" && (
           <div className="modal-body forms">
             {FORMS.map((f) => (
@@ -116,6 +134,11 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
               {busy ? "Vérification…" : "Ajouter ma clé"}
             </button>
           )}
+          {mission.action === "budget" && (
+            <button className="btn btn-primary" disabled={busy || !(Number(daily) >= 0) || !(Number(perTask) > 0)} onClick={() => run(() => setBudget(Number(daily), Number(perTask)))}>
+              Enregistrer
+            </button>
+          )}
           {mission.action === "form" && (
             <button className="btn btn-primary" disabled={busy} onClick={() => run(() => fulfill(mission.obligationId!, form))}>
               Choisir {form}
@@ -145,6 +168,14 @@ async function submitKey(key: string): Promise<string | void> {
 
 async function fulfill(obligationId: string, legalForm?: LegalForm): Promise<void> {
   await window.narthex.call("obligation.fulfill", { obligationId, ...(legalForm ? { legalForm } : {}) });
+}
+
+async function setBudget(dailyBudgetCredits: number, taskBudgetCredits: number): Promise<void> {
+  await window.narthex.call("settings.update", { patch: { dailyBudgetCredits, taskBudgetCredits } });
+}
+
+function euros(credits: number): string {
+  return Number.isFinite(credits) ? `${(credits / 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} $` : "";
 }
 
 async function cancel(taskId: string): Promise<void> {

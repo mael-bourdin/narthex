@@ -152,6 +152,10 @@ export interface Settings {
   alwaysAsk: string[];
   /** How many agents may work at the same time. */
   concurrency: number;
+  /** No new work starts once this many credits were spent today (1 credit = 0,01 $). */
+  dailyBudgetCredits: number;
+  /** A single task is stopped past this many credits. */
+  taskBudgetCredits: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -160,6 +164,8 @@ export const DEFAULT_SETTINGS: Settings = {
   monthlyCapEur: 300,
   alwaysAsk: ["prix", "publicite-payante"],
   concurrency: 3,
+  dailyBudgetCredits: 300,
+  taskBudgetCredits: 150,
 };
 
 export interface Usage {
@@ -167,6 +173,8 @@ export interface Usage {
   outputTokens: number;
   cacheReadTokens: number;
   credits: number;
+  /** Credits per day (YYYY-MM-DD, Paris time), for the daily budget. */
+  byDay: Record<string, number>;
 }
 
 export interface CompanyState {

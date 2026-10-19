@@ -46,6 +46,8 @@ ${bold("Réglages")}
   narthex config mode <auto|simulation|anthropic>
   narthex config modele <id>        Modèle Claude (défaut : claude-opus-5-5)
   narthex config delai <heures>     Délai pour annuler une action externe
+  narthex config budget <crédits>   Budget par jour (1 crédit = 0,01 $ ; défaut 300)
+  narthex config budget-tache <crédits>  Budget par tâche (défaut 150)
   narthex avancer <heures>          Simulation : avancer l'horloge
 
 ${bold("Options")}  --dossier <chemin>  --json  --aide
@@ -285,6 +287,16 @@ async function config(): Promise<void> {
     case "vitesse":
       next.simulationSpeed = Number(value);
       break;
+    case "budget":
+    case "budget-tache": {
+      const credits = Number(value);
+      if (!Number.isFinite(credits) || credits < 0) throw new Error("Donne un nombre de crédits (1 crédit = 0,01 $).");
+      const patch = key === "budget" ? { dailyBudgetCredits: credits } : { taskBudgetCredits: credits };
+      await withClient(async (client) => {
+        await client.call("settings.update", { patch });
+      });
+      return print(`${key === "budget" ? "Budget par jour" : "Budget par tâche"} : ${credits} crédits (${credits / 100} $).`);
+    }
     case "delai": {
       const hours = Number(value);
       if (!Number.isFinite(hours) || hours < 0) throw new Error("Donne un nombre d'heures.");
