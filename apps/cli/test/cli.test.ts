@@ -78,7 +78,7 @@ describe("narthex config budget", () => {
     const e = { ...process.env, NARTHEX_HOME: home, NARTHEX_RUNTIME: "simulation", NO_COLOR: "1" };
     const run = (...a: string[]) => execFileSync(process.execPath, ["--import", "tsx", "apps/cli/src/bin.ts", ...a], { env: e, encoding: "utf8" });
     run("init", "--idee", "Des bougies", "--prenom", "Inès", "--nom", "Lumen", "--sans-lancer");
-    expect(run("config", "budget", "500")).toContain("500 crédits");
+    expect(run("config", "budget", "5")).toContain("5,00 $");
     const s = JSON.parse(run("fil", "--json")) as { settings: { dailyBudgetCredits: number } };
     expect(s.settings.dailyBudgetCredits).toBe(500);
     rmSync(home, { recursive: true, force: true });

@@ -48,8 +48,8 @@ export function App() {
         </nav>
         <div className="top-right">
           {status.runtime === "simulation" && <span className="pill muted" title="Agents simulés, pour le développement">Simulation</span>}
-          <span className="pill credits" title="Crédits utilisés">
-            <Bolt /> {fmt.credits(state.usage.credits)}
+          <span className="pill credits" title="Dépense IA sur ton compte Anthropic, depuis le début">
+            <Bolt /> Dépense IA · {fmt.dollars(state.usage.credits)}
           </span>
           <PixelAvatar founder size={30} />
         </div>

@@ -32,7 +32,7 @@ export function header(s: CompanyState, status: EngineStatus): string {
   const c = s.company!;
   const mode = status.runtime === "simulation" ? yellow("simulation") : status.runtime === "none" ? yellow("sans clé") : "Claude";
   const run = c.paused ? yellow("en pause") : status.passive ? dim("équipe à l'arrêt · narthex lancer") : green("l'équipe travaille");
-  return `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· ${fmt.credits(s.usage.credits)} crédits`)}`;
+  return `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· dépense IA ${fmt.dollars(s.usage.credits)}`)}`;
 }
 
 /** The founder's own to-do: only what the law reserves to them, plus what they can still cancel. */
@@ -46,8 +46,8 @@ export function forYou(s: CompanyState, now: number): string {
     lines.push(`    ${dim("→")} narthex valider ${o.id}${extra}`);
   }
   if (overBudget(s, now)) {
-    lines.push(`${yellow("!")} ${bold("Budget du jour atteint")} ${dim(`· ${spentOn(s, now)} crédits sur ${s.settings.dailyBudgetCredits}, l'équipe reprend demain`)}`);
-    lines.push(`    ${dim("→")} narthex config budget <crédits>`);
+    lines.push(`${yellow("!")} ${bold("Budget du jour atteint")} ${dim(`· ${fmt.dollars(spentOn(s, now))} sur ${fmt.dollars(s.settings.dailyBudgetCredits)}, l'équipe reprend demain`)}`);
+    lines.push(`    ${dim("→")} narthex config budget <dollars>`);
   }
   for (const t of cancellable(s, now)) {
     const who = s.agents[t.agentId]?.name ?? "?";

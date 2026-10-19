@@ -21,7 +21,7 @@ npm run narthex -- init        # Margaux t'accueille, te demande ta clé et ton 
 
 Au premier lancement, Margaux te demande ta clé API Anthropic : c'est ce qui lui permet de penser. Elle reste sur ton ordinateur. Sans clé, l'équipe prépare tout et attend : rien n'est inventé, le Fil reste vide. Tu peux ajouter ta clé plus tard, dans le Fil ou avec `npm run narthex -- config cle`.
 
-Avec ta clé, l'équipe dépense par défaut au plus 3 $ par jour et 1,50 $ par tâche ; une tâche qui dépasse s'arrête, et au-delà du budget du jour plus rien ne démarre avant le lendemain. Ajuste-les dans l'app (pancarte) ou avec `narthex config budget <crédits>` et `narthex config budget-tache <crédits>` (1 crédit = 0,01 $).
+Avec ta clé, l'équipe dépense par défaut au plus 3 $ par jour et 1,50 $ par tâche ; une tâche qui dépasse s'arrête, et au-delà du budget du jour plus rien ne démarre avant le lendemain. La dépense IA s'affiche en dollars en haut de l'app et du Fil. Ajuste les plafonds dans l'app (pancarte) ou avec `narthex config budget <dollars>` et `narthex config budget-tache <dollars>`.
 
 Narthex n'utilise jamais une clé `ANTHROPIC_API_KEY` exportée sans que tu l'aies choisi (`narthex config mode anthropic`) : pas de dépense surprise. Pour développer sans clé, `NARTHEX_RUNTIME=simulation` fait tourner des agents d'exemple hors ligne.
 

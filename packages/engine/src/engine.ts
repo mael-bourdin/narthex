@@ -423,8 +423,8 @@ export class Engine {
     } catch (e) {
       if (overBudget && this.state.tasks[taskId]?.status === "running") {
         const limit = this.state.settings.taskBudgetCredits;
-        this.emit({ type: "task.failed", taskId, at: this.now(), error: `Budget de la tâche atteint (${spent} crédits sur ${limit}).` });
-        this.post(agent.id, "update", `Je m'arrête sur « ${task.title} » : la tâche a dépassé son budget de ${limit} crédits. Je reprendrai en plus court.`, { taskId });
+        this.emit({ type: "task.failed", taskId, at: this.now(), error: `Budget de la tâche atteint (${fmt.dollars(spent)} sur ${fmt.dollars(limit)}).` });
+        this.post(agent.id, "update", `Je m'arrête sur « ${task.title} » : la tâche a dépassé son budget de ${fmt.dollars(limit)}. Je reprendrai en plus court.`, { taskId });
         return;
       }
       if (controller.signal.aborted || this.state.tasks[taskId]?.status !== "running") return;

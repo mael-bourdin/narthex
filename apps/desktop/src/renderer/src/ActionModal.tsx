@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { fmt, role, type CompanyState, type LegalForm, type Mission } from "@narthex/core";
+
+const asDollars = (cents: number) => (cents / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 import { PixelAvatar } from "./PixelAvatar.tsx";
 
 const FORMS: { form: LegalForm; hint: string }[] = [
@@ -20,8 +22,10 @@ const cleanError = (e: unknown) => (e instanceof Error ? e.message.replace(/^Err
 export function ActionModal({ mission, state, now, onClose, onDone }: { mission: Mission; state: CompanyState; now: number; onClose(): void; onDone(): void }) {
   const [key, setKey] = useState("");
   const [form, setForm] = useState<LegalForm>("SASU");
-  const [daily, setDaily] = useState(String(state.settings.dailyBudgetCredits));
-  const [perTask, setPerTask] = useState(String(state.settings.taskBudgetCredits));
+  const [daily, setDaily] = useState(asDollars(state.settings.dailyBudgetCredits));
+  const [perTask, setPerTask] = useState(asDollars(state.settings.taskBudgetCredits));
+  const dailyCents = fmt.parseDollars(daily);
+  const taskCents = fmt.parseDollars(perTask);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const speaker = mission.speakerId ? state.agents[mission.speakerId] : undefined;
@@ -71,7 +75,7 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
               onChange={(e) => setKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && key.trim() && run(() => submitKey(key))}
             />
-            <p className="muted small">Elle reste sur ton ordinateur. Chaque mission consomme des crédits sur ton compte Anthropic.</p>
+            <p className="muted small">Elle reste sur ton ordinateur. Chaque mission a un coût en dollars sur ton compte Anthropic, plafonné par ton budget.</p>
           </div>
         )}
 
@@ -79,15 +83,15 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
           <div className="modal-body budget">
             <label>
               <span>Par jour</span>
-              <input type="number" min={0} step={50} value={daily} onChange={(e) => setDaily(e.target.value)} />
-              <span className="muted small">crédits · {euros(Number(daily))}</span>
+              <input inputMode="decimal" value={daily} onChange={(e) => setDaily(e.target.value)} aria-label="Dépense IA maximale par jour, en dollars" />
+              <span className="muted small">$ de dépense IA</span>
             </label>
             <label>
               <span>Par tâche</span>
-              <input type="number" min={0} step={25} value={perTask} onChange={(e) => setPerTask(e.target.value)} />
-              <span className="muted small">crédits · {euros(Number(perTask))}</span>
+              <input inputMode="decimal" value={perTask} onChange={(e) => setPerTask(e.target.value)} aria-label="Dépense IA maximale par tâche, en dollars" />
+              <span className="muted small">$ de dépense IA</span>
             </label>
-            <p className="muted small">1 crédit = 0,01 $ sur ton compte Anthropic. Une tâche qui dépasse son budget s'arrête et l'agent le dit dans le Fil.</p>
+            <p className="muted small">Facturé par Anthropic sur ton compte. Une tâche qui dépasse son budget s'arrête et l'agent le dit dans le Fil.</p>
           </div>
         )}
 
@@ -135,7 +139,7 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
             </button>
           )}
           {mission.action === "budget" && (
-            <button className="btn btn-primary" disabled={busy || !(Number(daily) >= 0) || !(Number(perTask) > 0)} onClick={() => run(() => setBudget(Number(daily), Number(perTask)))}>
+            <button className="btn btn-primary" disabled={busy || !(dailyCents >= 0) || !(taskCents > 0)} onClick={() => run(() => setBudget(dailyCents, taskCents))}>
               Enregistrer
             </button>
           )}
@@ -172,10 +176,6 @@ async function fulfill(obligationId: string, legalForm?: LegalForm): Promise<voi
 
 async function setBudget(dailyBudgetCredits: number, taskBudgetCredits: number): Promise<void> {
   await window.narthex.call("settings.update", { patch: { dailyBudgetCredits, taskBudgetCredits } });
-}
-
-function euros(credits: number): string {
-  return Number.isFinite(credits) ? `${(credits / 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} $` : "";
 }
 
 async function cancel(taskId: string): Promise<void> {
