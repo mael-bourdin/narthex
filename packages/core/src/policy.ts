@@ -25,7 +25,8 @@ export type Intent =
   | { type: "open-obligation"; rule: ObligationRule; due?: Timestamp }
   | { type: "fulfill-obligation"; obligationId: string; by: string }
   | { type: "plan-task"; draft: TaskDraft }
-  | { type: "start-task"; taskId: string };
+  | { type: "start-task"; taskId: string }
+  | { type: "escalate"; obligationId: string; error: string };
 
 /** What an agent (or a policy) asks for; `guardTask` turns it into a safe Task. */
 export interface TaskDraft {
@@ -173,8 +174,12 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
     }
     const attempts = Object.values(state.tasks).filter((t) => t.tag === o.code);
     const covered = attempts.some((t) => t.status === "planned" || t.status === "running");
-    const failures = attempts.filter((t) => t.status === "failed");
+    // After the founder asks to try again, earlier failures no longer count.
+    const failures = attempts.filter((t) => t.status === "failed" && (t.endedAt ?? 0) >= (o.retriedAt ?? 0)).sort((a, b) => (a.endedAt ?? 0) - (b.endedAt ?? 0));
     const owner = agentsWith(state, o.owner)[0];
+    if (!covered && owner && failures.length >= MAX_ATTEMPTS && !o.stuck) {
+      intents.push({ type: "escalate", obligationId: o.id, error: failures.at(-1)?.error ?? "Erreur inconnue." });
+    }
     if (!covered && owner && failures.length < MAX_ATTEMPTS) {
       const lastFailure = Math.max(0, ...failures.map((t) => t.endedAt ?? 0));
       intents.push({

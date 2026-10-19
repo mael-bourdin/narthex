@@ -43,6 +43,7 @@ ${bold("Regarder")}
 ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
   narthex valider <id> [--forme SASU]   Dire que tu as fait une obligation
   narthex annuler <id>                  Annuler une action prévue
+  narthex reessayer <id>                Relancer une obligation bloquée après plusieurs échecs
   narthex pause | reprendre             Mettre l'équipe en pause
   narthex recommencer [--oui]           Archiver l'entreprise et revoir le premier lancement
 
@@ -169,6 +170,12 @@ async function main(): Promise<void> {
         const o = byPrefix(Object.values(state.obligations), args[0], "obligation");
         const next = await client.call("obligation.fulfill", { obligationId: o.id, ...(opts.forme ? { legalForm: legalForm(opts.forme) } : {}) });
         print(`${bold("C'est noté.")} ${o.title}.`);
+        return afterAction(next, status.passive);
+      }
+      case "reessayer": {
+        const o = byPrefix(Object.values(state.obligations), args[0], "obligation");
+        const next = await client.call("obligation.retry", { obligationId: o.id });
+        print(`${bold("C'est reparti.")} L'équipe reprend « ${clean(o.title)} ».`);
         return afterAction(next, status.passive);
       }
       case "annuler": {

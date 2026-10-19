@@ -153,6 +153,11 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
               C'est fait
             </button>
           )}
+          {mission.action === "retry" && (
+            <button className="btn btn-primary" disabled={busy} onClick={() => run(() => retry(mission.obligationId!))}>
+              Réessayer
+            </button>
+          )}
           {mission.action === "cancel" && (
             <button className="btn btn-danger" disabled={busy} onClick={() => run(() => cancel(mission.taskId!))}>
               Annuler l'action
@@ -176,6 +181,10 @@ async function fulfill(obligationId: string, legalForm?: LegalForm): Promise<voi
 
 async function setBudget(dailyBudgetCredits: number, taskBudgetCredits: number): Promise<void> {
   await window.narthex.call("settings.update", { patch: { dailyBudgetCredits, taskBudgetCredits } });
+}
+
+async function retry(obligationId: string): Promise<void> {
+  await window.narthex.call("obligation.retry", { obligationId });
 }
 
 async function cancel(taskId: string): Promise<void> {

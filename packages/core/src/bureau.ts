@@ -15,13 +15,15 @@ export interface BureauDialogue {
 export function bureauDialogue(state: CompanyState, agentId: Id, now: Timestamp, runtime: RuntimeName): BureauDialogue {
   const agent = state.agents[agentId]!;
   const signs = missions(state, now, runtime);
-  const mine = signs.find((m) => (m.kind === "legal" || m.kind === "key" || m.kind === "budget" || m.kind === "cancel") && m.speakerId === agentId);
+  const mine = signs.find((m) => (m.kind === "legal" || m.kind === "stuck" || m.kind === "key" || m.kind === "budget" || m.kind === "cancel") && m.speakerId === agentId);
   const later = { label: "Plus tard" };
   if (mine) {
     const text =
       mine.kind === "legal"
         ? `Il me faut ta main pour « ${mine.title} ». ${mine.why}`
-        : mine.kind === "key"
+        : mine.kind === "stuck"
+          ? `Je bloque sur « ${mine.title} » malgré plusieurs essais. ${mine.why}`
+          : mine.kind === "key"
           ? "Pour qu'on travaille vraiment, j'ai besoin de ta clé API. Elle reste sur ton ordinateur."
           : mine.kind === "budget"
             ? `On a atteint le budget du jour. ${mine.why}`

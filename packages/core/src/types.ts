@@ -141,6 +141,10 @@ export interface Obligation {
   due?: Timestamp;
   doneAt?: Timestamp;
   legalBasis?: string;
+  /** Its owner failed MAX_ATTEMPTS times: the team stops retrying and asks the founder. */
+  stuck?: { at: Timestamp; error: string };
+  /** The founder asked to try again: earlier failures no longer count. */
+  retriedAt?: Timestamp;
 }
 
 export interface Settings {

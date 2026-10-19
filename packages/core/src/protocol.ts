@@ -15,6 +15,7 @@ export interface Methods {
   "state.get": { params: Record<string, never>; result: CompanyState | null };
   "events.read": { params: { afterSeq?: number; limit?: number }; result: StoredEvent[] };
   "task.cancel": { params: { taskId: Id }; result: CompanyState };
+  "obligation.retry": { params: { obligationId: Id }; result: CompanyState };
   "obligation.fulfill": { params: { obligationId: Id; legalForm?: LegalForm }; result: CompanyState };
   "settings.update": { params: { patch: Partial<Settings> }; result: CompanyState };
   "clock.advance": { params: { hours: number }; result: EngineStatus };

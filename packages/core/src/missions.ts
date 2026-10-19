@@ -1,7 +1,7 @@
 import type { RuntimeName } from "./protocol.ts";
 import { dollars, relative } from "./format.ts";
 import { filView } from "./fil.ts";
-import { overBudget, spentOn } from "./policy.ts";
+import { MAX_ATTEMPTS, overBudget, spentOn } from "./policy.ts";
 import { forFounder } from "./views.ts";
 import type { CompanyState, Timestamp } from "./types.ts";
 
@@ -11,13 +11,13 @@ import type { CompanyState, Timestamp } from "./types.ts";
  */
 export interface Mission {
   id: string;
-  kind: "key" | "budget" | "legal" | "cancel" | "mission" | "rest";
+  kind: "key" | "budget" | "legal" | "stuck" | "cancel" | "mission" | "rest";
   eyebrow: string;
   title: string;
   why: string;
   speakerId?: string;
   /** What the popup offers. */
-  action: "key" | "budget" | "form" | "fulfill" | "cancel" | "open" | "none";
+  action: "key" | "budget" | "form" | "fulfill" | "retry" | "cancel" | "open" | "none";
   label: string;
   taskId?: string;
   obligationId?: string;
@@ -67,6 +67,22 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
       ...(legalSpeaker ? { speakerId: legalSpeaker.id } : {}),
       action: o.code === "A3-forme" ? "form" : "fulfill",
       label: o.code === "A3-forme" ? "Choisir" : "Voir",
+      obligationId: o.id,
+    });
+  }
+
+  for (const o of Object.values(state.obligations)) {
+    if (o.status !== "open" || !o.stuck) continue;
+    const owner = o.owner === "founder" ? undefined : agents.find((a) => a.role === o.owner);
+    out.push({
+      id: `stuck-${o.id}`,
+      kind: "stuck",
+      eyebrow: `Bloqué après ${MAX_ATTEMPTS} essais · il faut ton avis`,
+      title: o.title,
+      why: `Dernière erreur : ${o.stuck.error} L'équipe a arrêté d'essayer et attend que tu lui dises de reprendre.`,
+      ...(owner ? { speakerId: owner.id } : margaux ? { speakerId: margaux.id } : {}),
+      action: "retry",
+      label: "Voir",
       obligationId: o.id,
     });
   }
