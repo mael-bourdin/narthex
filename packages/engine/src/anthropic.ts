@@ -54,9 +54,10 @@ export class AnthropicRuntime implements AgentRuntime {
           "Tu fais un tout premier coup d'œil, rapide et vérifié, sur une idée. Tu ne donnes aucun conseil juridique personnalisé.",
           'Ta réponse finale est uniquement un objet JSON : {"reaction": string, "findings": [{"text": string, "source": string}]}.',
           "reaction : une seule phrase courte et chaleureuse qui réagit à l'idée, sans annoncer que tu vas chercher.",
-          "findings : 3 à 5 constats vérifiés sur le web, en France, chacun avec sa source courte (nom du site ou de l'organisme).",
+          "findings : 3 à 5 constats vérifiés sur le web, en France, chacun avec sa source courte (nom du site ou de l'organisme). Trois recherches au plus suffisent.",
         ].join("\n"),
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+        // Searches launched from the tool's own code each count as a use: leave room, ask for few.
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 10 }],
         messages: [{ role: "user", content: `Nous sommes le ${fmt.day(input.now)}. ${input.founderName} vient de te confier son idée : « ${input.idea} »` }],
       },
       { signal: input.signal },
@@ -251,8 +252,9 @@ export function parseFirstLook(content: readonly Anthropic.Beta.BetaContentBlock
 
 function toolsFor(def: RoleDef): Tool[] {
   const tools: Tool[] = [];
-  if (def.tools.includes("web_search")) tools.push({ type: "web_search_20260209", name: "web_search", max_uses: 8 });
-  if (def.tools.includes("web_fetch")) tools.push({ type: "web_fetch_20260209", name: "web_fetch", max_uses: 8 });
+  // Searches launched from the tool's own code each count as a use.
+  if (def.tools.includes("web_search")) tools.push({ type: "web_search_20260209", name: "web_search", max_uses: 20 });
+  if (def.tools.includes("web_fetch")) tools.push({ type: "web_fetch_20260209", name: "web_fetch", max_uses: 12 });
   if (def.tools.includes("publish_deliverable")) tools.push(PUBLISH);
   if (def.tools.includes("plan_task")) tools.push(PLAN);
   if (def.tools.includes("post_update")) tools.push(PROGRESS);

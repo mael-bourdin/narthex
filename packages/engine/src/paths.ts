@@ -1,4 +1,5 @@
-import { homedir, platform, userInfo } from "node:os";
+import { createHash } from "node:crypto";
+import { homedir, platform, tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 
 /**
@@ -26,7 +27,11 @@ export function socketPath(dir: string = dataDir()): string {
     const scope = Buffer.from(`${userInfo().username}:${dir}`).toString("base64url").slice(0, 24);
     return `\\\\.\\pipe\\narthex-${scope}`;
   }
-  return join(dir, "narthex.sock");
+  const inside = join(dir, "narthex.sock");
+  // Unix socket paths are limited (~104 bytes on macOS): a deep data folder gets a short, stable one in /tmp.
+  if (Buffer.byteLength(inside) < 100) return inside;
+  const id = createHash("sha256").update(`${userInfo().username}:${dir}`).digest("hex").slice(0, 16);
+  return join(platform() === "darwin" ? "/tmp" : tmpdir(), `narthex-${id}.sock`);
 }
 
 export function databasePath(dir: string = dataDir()): string {
