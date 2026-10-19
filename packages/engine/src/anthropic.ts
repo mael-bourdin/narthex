@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { fmt, role, ROLES, type RoleDef, type RoleId, type Source, type TaskKind } from "@narthex/core";
+import { fmt, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind } from "@narthex/core";
 import type { AgentRuntime, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 type Tool = Anthropic.Beta.BetaToolUnion;
@@ -38,6 +38,44 @@ export class AnthropicRuntime implements AgentRuntime {
     this.client = options.client ?? new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {});
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTurns = options.maxTurns ?? 12;
+  }
+
+  async firstLook(input: { idea: string; founderName: string; now: number; signal: AbortSignal }): Promise<FirstLook> {
+    const response = await this.client.beta.messages.create(
+      {
+        model: this.model,
+        max_tokens: 4000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low", format: { type: "json_schema", schema: FIRST_LOOK_SCHEMA } },
+        system: identity(role("cofondateur"), "Margaux"),
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+        messages: [
+          {
+            role: "user",
+            content: [
+              `Nous sommes le ${fmt.day(input.now)}. ${input.founderName} vient de te confier son idée : « ${input.idea} »`,
+              "Fais un tout premier coup d'œil rapide, en France : 3 à 5 constats vérifiés sur le web, chacun avec sa source courte (nom du site ou de l'organisme).",
+              "reaction : une seule phrase courte et chaleureuse qui réagit à l'idée, sans annoncer que tu vas chercher.",
+            ].join("\n"),
+          },
+        ],
+      },
+      { signal: input.signal },
+    );
+    if (response.stop_reason === "refusal") throw new Error("refus");
+    const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
+    addUsage(usage, response.usage, this.model);
+    const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).at(-1) ?? "";
+    const parsed = JSON.parse(text) as { reaction?: unknown; findings?: unknown };
+    const findings: Finding[] = Array.isArray(parsed.findings)
+      ? parsed.findings.flatMap((f) => {
+          const o = f as Record<string, unknown>;
+          return typeof o.text === "string" && typeof o.source === "string" ? [{ text: o.text, source: o.source }] : [];
+        })
+      : [];
+    if (typeof parsed.reaction !== "string" || findings.length === 0) throw new Error("Réponse inattendue.");
+    return { reaction: parsed.reaction, findings: findings.slice(0, 5), simulated: false, usage };
   }
 
   async run(ctx: WorkContext): Promise<WorkResult> {
@@ -199,6 +237,24 @@ function brief(ctx: WorkContext): string {
     .filter(Boolean)
     .join("\n");
 }
+
+const FIRST_LOOK_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["reaction", "findings"],
+  properties: {
+    reaction: { type: "string" },
+    findings: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["text", "source"],
+        properties: { text: { type: "string" }, source: { type: "string" } },
+      },
+    },
+  },
+};
 
 // ---------- Tools ----------
 

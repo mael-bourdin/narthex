@@ -9,6 +9,7 @@ import {
   type Agent,
   type CompanyState,
   type DomainEvent,
+  type FirstLook,
   type EngineStatus,
   type Intent,
   type Method,
@@ -18,6 +19,7 @@ import {
   type RoleId,
   type StoredEvent,
   type TaskDraft,
+  SEUIL,
 } from "@narthex/core";
 import { SimulatedClock, systemClock, type Clock } from "./clock.ts";
 import { newId } from "./ids.ts";
@@ -140,6 +142,8 @@ export class Engine {
       }
       case "company.found":
         return this.found(params as Params<"company.found">);
+      case "onboarding.firstLook":
+        return this.firstLook(params as Params<"onboarding.firstLook">);
       case "company.pause":
         this.requireCompany();
         if (!this.state.company?.paused) this.emit({ type: "company.paused", at: this.now() });
@@ -192,8 +196,49 @@ export class Engine {
       },
       settings: this.state.settings,
     });
+    // Margaux is there from the first second, even when nobody runs the company yet.
+    this.hire("cofondateur", "Je suis là dès la première idée.");
+    if (p.firstLook && p.firstLook.findings.length > 0) this.recordFirstLook(p.firstLook);
     this.tick();
     return this.state;
+  }
+
+  private async firstLook(p: Params<"onboarding.firstLook">): Promise<FirstLook> {
+    const fallback: FirstLook = { reaction: SEUIL.noLook, findings: [], simulated: this.runtime.name === "simulation" };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45_000);
+    try {
+      return await this.runtime.firstLook({ idea: p.idea, founderName: p.founderName, now: this.now(), signal: controller.signal });
+    } catch {
+      return fallback;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** Margaux's first look becomes her first deliverable. It is not the market study: Léa still does hers. */
+  private recordFirstLook(look: FirstLook): void {
+    const margaux = this.agentWith("cofondateur");
+    if (!margaux) return;
+    const now = this.now();
+    const taskId = newId("t");
+    this.emit({
+      type: "task.planned",
+      task: { id: taskId, agentId: margaux.id, title: "Premier coup d'œil sur le marché", why: "Pour savoir tout de suite s'il y a de la place.", kind: "internal", status: "planned", tag: "first-look", createdAt: now, scheduledAt: now },
+    });
+    const deliverable = {
+      id: newId("dl"),
+      taskId,
+      agentId: margaux.id,
+      title: "Premier coup d'œil sur le marché",
+      summary: look.simulated ? "Constats d'exemple (mode simulation)." : `${look.findings.length} constats sourcés, avant l'étude complète de Léa.`,
+      body: look.findings.map((f) => `- ${f.text} (${f.source})`).join("\n"),
+      sources: look.findings.map((f) => ({ title: f.source })),
+      createdAt: now,
+    };
+    this.emit({ type: "task.completed", taskId, at: now, deliverable });
+    if (look.usage) this.emit({ type: "usage.recorded", agentId: margaux.id, taskId, ...look.usage });
+    this.post(margaux.id, "deliverable", look.reaction, { taskId, deliverableId: deliverable.id });
   }
 
   private cancel(taskId: string): CompanyState {

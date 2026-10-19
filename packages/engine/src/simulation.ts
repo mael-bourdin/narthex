@@ -1,4 +1,4 @@
-import { role } from "@narthex/core";
+import { role, type FirstLook } from "@narthex/core";
 import type { AgentRuntime, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 /**
@@ -13,6 +13,19 @@ export class SimulationRuntime implements AgentRuntime {
 
   constructor(delayMs = 0) {
     this.delayMs = delayMs;
+  }
+
+  async firstLook(): Promise<FirstLook> {
+    return {
+      reaction: "J'aime beaucoup l'idée.",
+      findings: [
+        { text: "Des centaines d'artisans vendent déjà quelque chose de proche en France", source: "Registre des entreprises (exemple)" },
+        { text: "Les clients achètent surtout pour offrir", source: "Avis clients (exemple)" },
+        { text: "Les prix se tiennent dans une fourchette resserrée", source: "Boutiques en ligne (exemple)" },
+        { text: "Pour démarrer : micro-entreprise ou SASU", source: "Légifrance (exemple)" },
+      ],
+      simulated: true,
+    };
   }
 
   async run(ctx: WorkContext): Promise<WorkResult> {
