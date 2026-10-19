@@ -223,3 +223,7 @@ a { color: var(--accent); }
 .main-split > .pancarte { flex: none; }
 .main-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 0 4px 80px; margin: 0 -4px; scrollbar-width: thin; scrollbar-color: var(--border-default) transparent; }
 @media (max-width: 1100px) { .main.main-split, .main-scroll { overflow: visible; } }
+
+.modal-body.budget label { display: grid; grid-template-columns: 80px 120px 1fr; align-items: center; gap: 10px; }
+.modal-body.budget input { background: var(--bg-app); border: 1px solid var(--border-default); border-radius: 10px; padding: 8px 10px; outline: none; }
+.modal-body.budget input:focus { border-color: var(--accent); }

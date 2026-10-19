@@ -1,3 +1,4 @@
+import { dayKey } from "./format.ts";
 import { OBLIGATIONS, type ObligationRule } from "./obligations.ts";
 import { role } from "./roles.ts";
 import {
@@ -197,6 +198,8 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
     }
   }
 
+  // Past today's budget, nothing new starts; work resumes the next day or when the budget is raised.
+  if (overBudget(state, now)) return intents;
   let slots = state.settings.concurrency - running(state).length;
   const busy = new Set(running(state).map((t) => t.agentId));
   for (const task of startable(state, now)) {
@@ -207,6 +210,15 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
     slots -= 1;
   }
   return intents;
+}
+
+/** Credits spent on the day of `at` (Paris time). */
+export function spentOn(state: CompanyState, at: Timestamp): number {
+  return state.usage.byDay?.[dayKey(at)] ?? 0;
+}
+
+export function overBudget(state: CompanyState, now: Timestamp): boolean {
+  return spentOn(state, now) >= state.settings.dailyBudgetCredits;
 }
 
 function obligationKind(o: Obligation): TaskKind {

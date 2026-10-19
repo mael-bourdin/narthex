@@ -92,7 +92,7 @@ Cocher dans ce fichier au fil des PR.
 - [x] Premier lancement « le seuil » (app et `narthex init`) : porte traversée, Margaux qui parle mot à mot, clé du fournisseur demandée en version open source, premier coup d'œil sourcé, équipe, nom, puis le Fil. Conception : `docs/superpowers/specs/2026-10-19-onboarding-seuil-design.md`.
 - [x] Fil au format Figma, nourri par les vraies données : durées réelles, XP (règle `xpFor`), sources, équipe et heures de la semaine, quête de l'étape, livrables en Markdown (tableaux), clé ajoutable depuis le Fil.
 - [ ] Livrables : export `.md` / `.pdf` depuis le CLI et l'app.
-- [ ] Budget : plafond de crédits par jour et par tâche (réglage), arrêt propre quand il est atteint, affiché dans le Fil.
+- [x] Budget : crédits comptés à chaque appel au modèle ; plafond par tâche (150 par défaut, la tâche s'arrête et l'agent le dit) et par jour (300 par défaut, plus rien ne démarre, la pancarte le dit et permet de l'ajuster).
 - [ ] Escalade : après `MAX_ATTEMPTS` échecs, Margaux prévient le fondateur dans le Fil (une seule fois).
 - [ ] Mémoire L2/L3 : faits extraits des livrables (asynchrone, petit modèle), recherche dans le journal (« pourquoi a-t-on décidé X ? »).
 - [ ] Vérificateur : seconde passe sur les livrables juridiques et chiffrés (sources vérifiées, liens vivants).

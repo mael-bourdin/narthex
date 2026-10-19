@@ -1,5 +1,6 @@
 import { relative } from "./format.ts";
 import { filView } from "./fil.ts";
+import { overBudget, spentOn } from "./policy.ts";
 import { forFounder } from "./views.ts";
 import type { CompanyState, Timestamp } from "./types.ts";
 
@@ -9,13 +10,13 @@ import type { CompanyState, Timestamp } from "./types.ts";
  */
 export interface Mission {
   id: string;
-  kind: "key" | "legal" | "cancel" | "mission" | "rest";
+  kind: "key" | "budget" | "legal" | "cancel" | "mission" | "rest";
   eyebrow: string;
   title: string;
   why: string;
   speakerId?: string;
   /** What the popup offers. */
-  action: "key" | "form" | "fulfill" | "cancel" | "open" | "none";
+  action: "key" | "budget" | "form" | "fulfill" | "cancel" | "open" | "none";
   label: string;
   taskId?: string;
   obligationId?: string;
@@ -39,6 +40,19 @@ export function missions(state: CompanyState, now: Timestamp, runtime: "simulati
       ...(margaux ? { speakerId: margaux.id } : {}),
       action: "key",
       label: "Ajouter ma clé",
+    });
+  }
+
+  if (overBudget(state, now)) {
+    out.push({
+      id: "budget",
+      kind: "budget",
+      eyebrow: "L'équipe s'arrête pour aujourd'hui",
+      title: "Budget du jour atteint",
+      why: `${spentOn(state, now)} crédits dépensés sur ${state.settings.dailyBudgetCredits}. L'équipe reprend demain, ou tout de suite si tu augmentes le budget.`,
+      ...(margaux ? { speakerId: margaux.id } : {}),
+      action: "budget",
+      label: "Ajuster",
     });
   }
 

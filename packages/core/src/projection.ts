@@ -1,4 +1,5 @@
 import type { DomainEvent, StoredEvent } from "./events.ts";
+import { dayKey } from "./format.ts";
 import { DEFAULT_SETTINGS, type CompanyState, type Task } from "./types.ts";
 
 export function emptyState(): CompanyState {
@@ -9,7 +10,7 @@ export function emptyState(): CompanyState {
     posts: [],
     obligations: {},
     settings: { ...DEFAULT_SETTINGS },
-    usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 },
+    usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0, byDay: {} },
     memory: "",
     lastSeq: 0,
   };
@@ -62,7 +63,7 @@ function scoreAgent(state: CompanyState, taskId: string, ok: boolean): CompanySt
 function reduce(state: CompanyState, event: DomainEvent): CompanyState {
   switch (event.type) {
     case "company.founded":
-      return { ...state, company: event.company, settings: { ...event.settings } };
+      return { ...state, company: event.company, settings: { ...DEFAULT_SETTINGS, ...event.settings } };
     case "company.updated":
       return state.company ? { ...state, company: { ...state.company, ...event.patch } } : state;
     case "company.paused":
@@ -124,6 +125,10 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
           outputTokens: state.usage.outputTokens + event.outputTokens,
           cacheReadTokens: state.usage.cacheReadTokens + event.cacheReadTokens,
           credits: state.usage.credits + event.credits,
+          byDay:
+            event.at === undefined
+              ? state.usage.byDay
+              : { ...state.usage.byDay, [dayKey(event.at)]: (state.usage.byDay?.[dayKey(event.at)] ?? 0) + event.credits },
         },
       };
   }

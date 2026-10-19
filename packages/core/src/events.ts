@@ -43,6 +43,8 @@ export type DomainEvent =
       outputTokens: number;
       cacheReadTokens: number;
       credits: number;
+      /** When it was spent (counts toward that day's budget). */
+      at?: Timestamp;
     };
 
 export type EventType = DomainEvent["type"];

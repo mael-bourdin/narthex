@@ -386,6 +386,8 @@ export class Engine {
   private async runTask(taskId: string, agent: Agent, controller: AbortController): Promise<void> {
     const task = this.state.tasks[taskId]!;
     const runtime = this.runtime;
+    let spent = 0;
+    let overBudget = false;
     try {
       if (!runtime) throw new Error("Personne ne peut travailler sans clé.");
       const result = await runtime.run({
@@ -399,9 +401,19 @@ export class Engine {
         },
         plan: (f) => this.planFollowUp(agent, task.id, f),
         recruit: (r, why) => this.recruit(agent, r, why),
+        spend: (usage) => {
+          if (usage.credits <= 0 && usage.inputTokens <= 0) return;
+          spent += usage.credits;
+          this.emit({ type: "usage.recorded", agentId: agent.id, taskId, ...usage, at: this.now() });
+          if (spent > this.state.settings.taskBudgetCredits && !overBudget) {
+            overBudget = true;
+            controller.abort();
+          }
+        },
       });
+      if (overBudget) throw new Error("budget");
       if (controller.signal.aborted || this.state.tasks[taskId]?.status !== "running") return;
-      if (result.usage) this.emit({ type: "usage.recorded", agentId: agent.id, taskId, ...result.usage });
+      if (result.usage) this.emit({ type: "usage.recorded", agentId: agent.id, taskId, ...result.usage, at: this.now() });
       if (result.memory) this.emit({ type: "memory.updated", memory: result.memory, at: this.now() });
       const deliverable = result.deliverable
         ? { id: newId("dl"), taskId, agentId: agent.id, createdAt: this.now(), ...result.deliverable }
@@ -409,6 +421,12 @@ export class Engine {
       this.emit({ type: "task.completed", taskId, at: this.now(), ...(deliverable ? { deliverable } : {}) });
       this.post(agent.id, deliverable ? "deliverable" : "update", result.post, { taskId, ...(deliverable ? { deliverableId: deliverable.id } : {}) });
     } catch (e) {
+      if (overBudget && this.state.tasks[taskId]?.status === "running") {
+        const limit = this.state.settings.taskBudgetCredits;
+        this.emit({ type: "task.failed", taskId, at: this.now(), error: `Budget de la tâche atteint (${spent} crédits sur ${limit}).` });
+        this.post(agent.id, "update", `Je m'arrête sur « ${task.title} » : la tâche a dépassé son budget de ${limit} crédits. Je reprendrai en plus court.`, { taskId });
+        return;
+      }
       if (controller.signal.aborted || this.state.tasks[taskId]?.status !== "running") return;
       const message = e instanceof Error ? e.message : String(e);
       this.emit({ type: "task.failed", taskId, at: this.now(), error: message });

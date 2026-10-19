@@ -22,6 +22,8 @@ export interface WorkContext {
   progress(note: string): void;
   /** Plans a follow-up right away and returns why it was refused, if it was. */
   plan(followUp: FollowUp): string | null;
+  /** Reports what a model call just cost. The engine counts it at once and stops the task past its budget. */
+  spend(usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number }): void;
   /** Co-founder only: brings a teammate now. Returns why it was refused, if it was. */
   recruit(role: RoleId, why: string): string | null;
 }
