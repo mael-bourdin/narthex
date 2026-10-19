@@ -9,3 +9,4 @@ export * from "./paths.ts";
 export * from "./server.ts";
 export * from "./client.ts";
 export * from "./open.ts";
+export * from "./keys.ts";

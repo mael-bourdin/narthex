@@ -49,3 +49,8 @@ export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.e
   }
   return config.anthropicApiKey ? "anthropic" : "simulation";
 }
+
+/** The first launch asks for a key unless the player already chose: a saved key, or a mode. */
+export function needsKey(config: Config): boolean {
+  return !(config.anthropicApiKey || config.runtime === "anthropic" || config.runtime === "simulation");
+}

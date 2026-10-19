@@ -47,8 +47,8 @@ type Listener = (event: StoredEvent) => void;
  */
 export class Engine {
   private readonly store: EventStore;
-  private readonly runtime: AgentRuntime;
-  private readonly clock: Clock;
+  private runtime: AgentRuntime;
+  private clock: Clock;
   private readonly tickMs: number;
   private readonly passive: boolean;
   private readonly listeners = new Set<Listener>();
@@ -84,6 +84,13 @@ export class Engine {
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
     await this.idle();
+  }
+
+  /** Changes who does the work (e.g. a key was just given during the first launch). Only before founding. */
+  switchRuntime(runtime: AgentRuntime, clock: Clock): void {
+    if (this.state.company) throw new Error("L'entreprise existe déjà : relance Narthex pour changer de mode.");
+    this.runtime = runtime;
+    this.clock = clock;
   }
 
   /** Stops and releases the event store. */
