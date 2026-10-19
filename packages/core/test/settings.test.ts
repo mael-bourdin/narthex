@@ -32,3 +32,23 @@ describe("profile", () => {
     expect(s.company).toMatchObject({ name: "Lumen", city: "Lille", founder: { name: "Inès Martin" } });
   });
 });
+
+describe("reserved topics with accents", () => {
+  const reserved = (title: string, why = "") => {
+    const s = apply(base, { type: "settings.changed", patch: { alwaysAsk: ["prix", "publicite-payante", "presse", "contrat-client"] }, at: NOW });
+    const r = guardTask(s, { agentId: "a", title, why, kind: "internal" }, NOW);
+    return r.ok && r.task.kind === "external";
+  };
+  it("recognises accented verbs and capitals", () => {
+    expect(reserved("Écrire à la presse locale")).toBe(true);
+    expect(reserved("Réduire les prix de 10 %")).toBe(true);
+    expect(reserved("Créer une publicité Instagram")).toBe(true);
+    expect(reserved("Répondre au journaliste de La Voix du Nord")).toBe(true);
+  });
+  it("also reads the reason given for the task", () => {
+    expect(reserved("Préparer l'offre de Noël", "Pour baisser les prix pendant les fêtes")).toBe(true);
+  });
+  it("still lets research about these topics through", () => {
+    expect(reserved("Étude des prix des concurrents")).toBe(false);
+  });
+});
