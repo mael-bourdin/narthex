@@ -36,7 +36,8 @@ export function Seuil({ onDone }: { onDone: () => void }) {
   const looked = useRef<() => void>(() => {});
   const started = useRef(false);
   const lines = useRef(0);
-  const team = onboardingTeam();
+  // The team shown is the one Margaux chose for this idea (from her first look).
+  const [team, setTeam] = useState(() => onboardingTeam());
 
   useEffect(() => {
     if (started.current) return;
@@ -107,6 +108,8 @@ export function Seuil({ onDone }: { onDone: () => void }) {
       set({ ambiance: "calm" });
       await say(SEUIL.searching, { raised: true });
       const result = await look;
+      const chosen = onboardingTeam(result);
+      setTeam(chosen);
       if (result.findings.length > 0) {
         await say(result.reaction, { raised: true });
         await new Promise<void>((resolve) => {
@@ -121,7 +124,7 @@ export function Seuil({ onDone }: { onDone: () => void }) {
       set({ findings: undefined, ambiance: "on" });
       await say(SEUIL.team, { raised: true });
       set({ team: { dimmed: false } });
-      await wait(1300 * (team.now.length + team.later.length) + 600);
+      await wait(1300 * (chosen.now.length + chosen.later.length) + 600);
 
       set({ team: { dimmed: true } });
       await say(SEUIL.askCompany, { raised: true });
@@ -144,7 +147,9 @@ export function Seuil({ onDone }: { onDone: () => void }) {
     script().catch((e: unknown) => {
       set({ input: undefined, status: undefined, findings: undefined, say: { id: ++lines.current, text: `Quelque chose s'est mal passé : ${e instanceof Error ? e.message : String(e)}. Relance Narthex.` } });
     });
-  }, [team.now.length, team.later.length]);
+    // The script runs once; `team` only feeds the render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="seuil">
