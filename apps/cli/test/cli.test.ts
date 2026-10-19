@@ -29,6 +29,13 @@ describe("narthex CLI", () => {
     expect(() => narthex("init", "--idee", "X", "--prenom", "Y", "--nom", "Z", "--sans-lancer")).toThrow();
   });
 
+  it("starts over on request, keeping the old company in the archives", () => {
+    expect(() => narthex("recommencer")).toThrow();
+    expect(narthex("recommencer", "--oui")).toContain("archives");
+    expect(narthex("fil")).toContain("Pas encore d'entreprise");
+    narthex("init", "--idee", "Des bougies", "--prenom", "Inès", "--nom", "Maison Lumen", "--sans-lancer");
+  });
+
   it("explains itself", () => {
     expect(narthex("--aide")).toContain("narthex lancer");
   });

@@ -10,3 +10,4 @@ export * from "./server.ts";
 export * from "./client.ts";
 export * from "./open.ts";
 export * from "./keys.ts";
+export * from "./restart.ts";
