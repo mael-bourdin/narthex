@@ -21,13 +21,13 @@ import { needsKey } from "../src/index.ts";
 
 describe("needsKey", () => {
   it("asks for a key on a fresh install", () => {
-    expect(needsKey({})).toBe(true);
+    expect(needsKey({}, {})).toBe(true);
   });
   it("does not ask once the player chose the simulation", () => {
-    expect(needsKey({ runtime: "simulation" })).toBe(false);
+    expect(needsKey({ runtime: "simulation" }, {})).toBe(false);
   });
   it("does not ask when a key is saved for Narthex", () => {
-    expect(needsKey({ anthropicApiKey: "sk-ant-x" })).toBe(false);
+    expect(needsKey({ anthropicApiKey: "sk-ant-x" }, {})).toBe(false);
   });
 });
 

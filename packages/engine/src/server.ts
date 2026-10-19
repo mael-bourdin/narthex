@@ -1,4 +1,4 @@
-import { existsSync, unlinkSync } from "node:fs";
+import { chmodSync, existsSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { platform } from "node:os";
 import type { RpcRequest, RpcResponse } from "@narthex/core";
@@ -22,6 +22,8 @@ export async function serve(engine: Engine, path: string): Promise<Server> {
       resolve();
     });
   });
+  // Only the player's own account may talk to their company.
+  if (platform() !== "win32") chmodSync(path, 0o600);
   return server;
 }
 
