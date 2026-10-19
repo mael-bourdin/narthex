@@ -100,6 +100,8 @@ export interface Source {
   url?: string;
   /** ISO date the source was checked (R-SOURCE). */
   checkedAt?: string;
+  /** Whether the link answered when Narthex checked it after delivery; unknown before. */
+  reachable?: boolean;
 }
 
 export interface Deliverable {
@@ -112,6 +114,8 @@ export interface Deliverable {
   body: string;
   sources: Source[];
   createdAt: Timestamp;
+  /** When Narthex checked that the cited links answer. */
+  linksCheckedAt?: Timestamp;
 }
 
 export type PostKind = "update" | "deliverable" | "hire" | "plan" | "legal";

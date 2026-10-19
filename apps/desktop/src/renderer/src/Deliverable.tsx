@@ -24,6 +24,8 @@ export function DeliverableView({ d, state, status, onClose, onChange }: { d: De
   const agent = state.agents[d.agentId];
   const task = state.tasks[d.taskId];
   const sheet = deliverableSheet(state, d, events, status.now, status.runtime);
+  // Links that no longer answer come first, so they are never hidden behind « voir les autres ».
+  const sources = [...d.sources].sort((a, b) => Number(a.reachable !== false) - Number(b.reachable !== false));
 
   useEffect(() => {
     void window.narthex.call("events.read", {}).then(setEvents);
@@ -101,6 +103,16 @@ export function DeliverableView({ d, state, status, onClose, onChange }: { d: De
                   <dd>{fmt.dollars(sheet.spend)}</dd>
                 </>
               )}
+              {sheet.links && (
+                <>
+                  <dt>Liens</dt>
+                  <dd className={sheet.links.dead.length ? "warn" : ""}>
+                    {sheet.links.dead.length === 0
+                      ? `${sheet.links.checked} vérifiés, tous répondent`
+                      : `${sheet.links.checked - sheet.links.dead.length} sur ${sheet.links.checked} répondent`}
+                  </dd>
+                </>
+              )}
               <dt>Rendu le</dt>
               <dd>
                 {fmt.day(d.createdAt)} à {fmt.hour(d.createdAt)}
@@ -129,7 +141,7 @@ export function DeliverableView({ d, state, status, onClose, onChange }: { d: De
             <div className="aside-card">
               <p className="aside-label">Sources · {d.sources.length}</p>
               <ul className="sources">
-                {(allSources ? d.sources : d.sources.slice(0, 5)).map((s, i) => (
+                {(allSources ? sources : sources.slice(0, 5)).map((s, i) => (
                   <li key={i}>
                     {s.url ? (
                       <a href={s.url} target="_blank" rel="noreferrer">
@@ -139,6 +151,7 @@ export function DeliverableView({ d, state, status, onClose, onChange }: { d: De
                       s.title
                     )}
                     {s.checkedAt && <span className="muted"> · vérifié le {s.checkedAt}</span>}
+                    {s.reachable === false && <span className="dead"> · ne répond plus</span>}
                   </li>
                 ))}
               </ul>

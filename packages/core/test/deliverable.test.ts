@@ -99,3 +99,29 @@ describe("deliverableMarkdown", () => {
     expect(md).toContain("## Sources\n\n- [Légifrance](https://www.legifrance.gouv.fr/x)\n- [INPI](https://www.inpi.fr/y)");
   });
 });
+
+describe("checked sources", () => {
+  const checked = (results: { url: string; ok: boolean }[]): DomainEvent => ({ type: "sources.checked", deliverableId: "d", at: NOW + 3 * HOUR, results });
+
+  it("keeps which links answered on the deliverable", () => {
+    const s = replay([...events, checked([{ url: "https://www.legifrance.gouv.fr/x", ok: true }, { url: "https://www.inpi.fr/y", ok: false }])]);
+    const d = s.deliverables["d"]!;
+    expect(d.sources.map((x) => x.reachable)).toEqual([true, false, undefined]);
+    expect(d.linksCheckedAt).toBe(NOW + 3 * HOUR);
+  });
+
+  it("says it on the page: how many links answer, and which do not", () => {
+    const s = replay([...events, checked([
+      { url: "https://www.legifrance.gouv.fr/x", ok: true },
+      { url: "https://www.inpi.fr/y", ok: false },
+      { url: "https://legifrance.gouv.fr/z", ok: true },
+    ])]);
+    const sheet = deliverableSheet(s, s.deliverables["d"]!, [], NOW, "anthropic");
+    expect(sheet.links).toEqual({ checked: 3, dead: ["INPI"] });
+  });
+
+  it("claims nothing before the check", () => {
+    const s = replay(events);
+    expect(deliverableSheet(s, s.deliverables["d"]!, [], NOW, "anthropic").links).toBeUndefined();
+  });
+});

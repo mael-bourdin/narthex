@@ -188,7 +188,7 @@ export function obligations(s: CompanyState): string {
 export function livrable(s: CompanyState, d: Deliverable): string {
   const agent = s.agents[d.agentId];
   const sources = d.sources.length
-    ? `\n${bold("Sources")}\n${d.sources.map((x) => `- ${clean(x.title)}${x.url ? ` ${dim(clean(x.url))}` : ""}${x.checkedAt ? dim(` (vérifié le ${clean(x.checkedAt)})`) : ""}`).join("\n")}`
+    ? `\n${bold("Sources")}\n${d.sources.map((x) => `- ${clean(x.title)}${x.url ? ` ${dim(clean(x.url))}` : ""}${x.checkedAt ? dim(` (vérifié le ${clean(x.checkedAt)})`) : ""}${x.reachable === false ? ` ${red("· ne répond plus")}` : ""}`).join("\n")}`
     : "";
   return `${bold(clean(d.title))}\n${dim(`${agent?.name ?? "?"} · ${fmt.day(d.createdAt)} · ${clean(d.summary)}`)}\n${rule()}\n${clean(d.body)}\n${sources}`;
 }

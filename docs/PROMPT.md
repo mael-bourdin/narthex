@@ -95,7 +95,8 @@ Cocher dans ce fichier au fil des PR.
 - [x] Budget : dépense IA comptée à chaque appel au modèle ; plafond par tâche (1,50 $ par défaut, la tâche s'arrête et l'agent le dit) et par jour (3 $ par défaut, plus rien ne démarre, la pancarte le dit et permet de l'ajuster). Le joueur voit toujours la dépense IA en dollars, jamais en « crédits » (unité interne : le centime).
 - [x] Escalade : après `MAX_ATTEMPTS` échecs, l'obligation est « bloquée », Margaux prévient une seule fois, la pancarte propose « Réessayer » (`narthex reessayer`).
 - [ ] Mémoire L2/L3 : faits extraits des livrables (asynchrone, petit modèle), recherche dans le journal (« pourquoi a-t-on décidé X ? »).
-- [ ] Vérificateur : seconde passe sur les livrables juridiques et chiffrés (sources vérifiées, liens vivants).
+- [x] Vérificateur, liens : après chaque livrable, Narthex vérifie lui-même que chaque lien cité répond (sans modèle, sans coût) ; la page du livrable et le CLI montrent les liens morts.
+- [ ] Vérificateur, contenu : seconde passe par un modèle sur les livrables juridiques et chiffrés.
 - [x] Calendrier jour / semaine / mois dans l'app ; Organigramme ; Recrutements prévus ; Journal.
 - [x] Modèle par rôle (Opus où l'erreur coûte cher, Sonnet ou Haiku ailleurs) ; mode développement `NARTHEX_RUNTIME=claude-code` (abonnement du développeur, jamais proposé aux joueurs).
 
