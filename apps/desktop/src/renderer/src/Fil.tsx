@@ -233,7 +233,7 @@ function Attachment({ d, onOpen }: { d: Deliverable; onOpen(): void }) {
           {rows.map((cells, i) => (
             <span key={i} className="attachment-row">
               <span>{cells[0]}</span>
-              <span className="muted">{cells.slice(1).join(" · ")}</span>
+              <span className="muted">{cells[1] ?? ""}</span>
             </span>
           ))}
         </span>
@@ -355,9 +355,13 @@ export function firstTableRows(markdown: string, limit: number): string[][] {
   return rows;
 }
 
+/** Short source names: « noel-a-lille.com, INSEE +3 ». Long page titles are cut to their first words. */
 function sourcesLabel(sources: string[]): string {
-  const unique = [...new Set(sources)];
-  return unique.length <= 2 ? unique.join(", ") : `${unique.slice(0, 2).join(", ")} +${unique.length - 2}`;
+  const short = [...new Set(sources)].map((s) => {
+    const name = s.split(/\s[:(|–—-]\s|\s\(/)[0]!.trim();
+    return name.length > 28 ? `${name.slice(0, 27).trimEnd()}…` : name;
+  });
+  return short.length <= 2 ? short.join(", ") : `${short.slice(0, 2).join(", ")} +${short.length - 2}`;
 }
 
 function hours(h: number): string {
