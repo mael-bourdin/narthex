@@ -1,4 +1,5 @@
 import type { StoredEvent } from "./events.ts";
+import type { FirstLook } from "./onboarding.ts";
 import type { CompanyState, Id, LegalForm, Settings } from "./types.ts";
 
 /**
@@ -16,6 +17,8 @@ export interface Methods {
   "obligation.fulfill": { params: { obligationId: Id; legalForm?: LegalForm }; result: CompanyState };
   "settings.update": { params: { patch: Partial<Settings> }; result: CompanyState };
   "clock.advance": { params: { hours: number }; result: EngineStatus };
+  /** Margaux's quick, sourced look at an idea, before the company exists. Never throws. */
+  "onboarding.firstLook": { params: { idea: string; founderName: string }; result: FirstLook };
 }
 
 export type Method = keyof Methods;
@@ -27,6 +30,8 @@ export interface FoundParams {
   idea: string;
   founderName: string;
   city?: string;
+  /** Recorded at founding as Margaux's first deliverable, with its credits. */
+  firstLook?: FirstLook;
 }
 
 export interface EngineStatus {

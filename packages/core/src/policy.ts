@@ -177,7 +177,7 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
 
   for (const agent of Object.values(state.agents)) {
     const kickoff = KICKOFF[agent.role];
-    if (kickoff && !Object.values(state.tasks).some((t) => t.agentId === agent.id)) {
+    if (kickoff && !Object.values(state.tasks).some((t) => t.agentId === agent.id && t.tag === kickoff.tag)) {
       intents.push({ type: "plan-task", draft: { agentId: agent.id, kind: "internal", ...kickoff } });
     }
   }

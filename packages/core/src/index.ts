@@ -6,4 +6,5 @@ export * from "./obligations.ts";
 export * from "./policy.ts";
 export * from "./protocol.ts";
 export * from "./views.ts";
+export * from "./onboarding.ts";
 export * as fmt from "./format.ts";

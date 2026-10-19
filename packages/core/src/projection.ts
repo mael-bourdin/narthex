@@ -41,6 +41,8 @@ function setAgentWork(state: CompanyState, taskId: string, working: boolean): Co
   const task = state.tasks[taskId];
   const agent = task && state.agents[task.agentId];
   if (!task || !agent) return state;
+  // Finishing some other task (e.g. one recorded at founding) never frees an agent at work.
+  if (!working && agent.currentTaskId && agent.currentTaskId !== taskId) return state;
   const updated = working
     ? { ...agent, status: "working" as const, currentTaskId: taskId }
     : { ...agent, status: "idle" as const, currentTaskId: undefined };
