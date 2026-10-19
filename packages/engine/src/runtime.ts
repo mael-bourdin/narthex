@@ -22,6 +22,8 @@ export interface WorkContext {
   progress(note: string): void;
   /** Plans a follow-up right away and returns why it was refused, if it was. */
   plan(followUp: FollowUp): string | null;
+  /** Co-founder only: brings a teammate now. Returns why it was refused, if it was. */
+  recruit(role: RoleId, why: string): string | null;
 }
 
 export interface WorkResult {

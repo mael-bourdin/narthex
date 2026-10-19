@@ -8,4 +8,5 @@ export * from "./protocol.ts";
 export * from "./views.ts";
 export * from "./onboarding.ts";
 export * from "./fil.ts";
+export * from "./missions.ts";
 export * as fmt from "./format.ts";

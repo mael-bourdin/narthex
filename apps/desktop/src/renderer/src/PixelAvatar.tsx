@@ -9,6 +9,7 @@ type Palette = { hair: string; skin: string; shirt: string };
 const BY_ROLE: Record<RoleId, Palette> = {
   cofondateur: { hair: "#2B2B33", skin: "#F1C9A5", shirt: "#E9E6F0" }, // Margaux
   recherche: { hair: "#C9A66B", skin: "#F3D0B0", shirt: "#5C7C8A" }, // Léa
+  technique: { hair: "#8B5A3C", skin: "#E9BC97", shirt: "#3F6E5E" }, // Nina
   juridique: { hair: "#6B4A2E", skin: "#E8B892", shirt: "#2F3554" }, // Hugo
   prospection: { hair: "#1D1D22", skin: "#B9825C", shirt: "#8A5A6E" }, // Samir
   redaction: { hair: "#A0522D", skin: "#F0C4A0", shirt: "#7A8F5A" }, // Jeanne

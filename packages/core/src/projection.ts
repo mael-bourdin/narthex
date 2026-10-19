@@ -71,6 +71,8 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       return state.company ? { ...state, company: { ...state.company, paused: false } } : state;
     case "stage.changed":
       return state.company ? { ...state, company: { ...state.company, stage: event.stage } } : state;
+    case "staffing.planned":
+      return { ...state, staffing: event.staffing };
     case "agent.hired":
       return { ...state, agents: { ...state.agents, [event.agent.id]: event.agent } };
     case "task.planned":

@@ -73,3 +73,36 @@ describe("first look", () => {
     expect(e.getState().company?.stage).toBe("research");
   });
 });
+
+describe("the team Margaux chose", () => {
+  it("is the team that joins at founding", async () => {
+    const e = engine({ ...new SimulationRuntime(), name: "simulation", run: () => new Promise(() => {}), firstLook: async () => LOOK });
+    await e.handle("company.found", {
+      name: "Capteur",
+      idea: "Un capteur de qualité de l'air",
+      founderName: "Inès",
+      firstLook: { ...LOOK, team: [{ role: "recherche", why: "Le marché" }, { role: "technique", why: "La faisabilité" }], later: [{ role: "juridique", why: "La création" }] },
+    });
+    e.tick();
+    const roles = Object.values(e.getState().agents).map((a) => a.role).sort();
+    expect(roles).toEqual(["cofondateur", "recherche", "technique"]);
+  });
+
+  it("lets Margaux bring someone during her work", async () => {
+    let asked: string | null = "unset";
+    const recruiter: AgentRuntime = {
+      ...new SimulationRuntime(),
+      name: "simulation",
+      firstLook: async () => LOOK,
+      run: async (ctx) => {
+        if (ctx.agent.role === "cofondateur") asked = ctx.recruit("technique", "Il faut vérifier la fabrication.");
+        return { post: "ok" };
+      },
+    };
+    const e = engine(recruiter);
+    await e.handle("company.found", { name: "M", idea: "I", founderName: "F" });
+    await settle(e);
+    expect(asked).toBeNull();
+    expect(Object.values(e.getState().agents).some((a) => a.role === "technique")).toBe(true);
+  });
+});

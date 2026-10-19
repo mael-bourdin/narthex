@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { fmt, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind } from "@narthex/core";
+import { fmt, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
 import type { AgentRuntime, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 type Tool = Anthropic.Beta.BetaToolUnion;
@@ -55,6 +55,9 @@ export class AnthropicRuntime implements AgentRuntime {
           'Ta réponse finale est uniquement un objet JSON : {"reaction": string, "findings": [{"text": string, "source": string}]}.',
           "reaction : une seule phrase courte et chaleureuse qui réagit à l'idée, sans annoncer que tu vas chercher.",
           "findings : 3 à 5 constats vérifiés sur le web, en France, chacun avec sa source courte (nom du site ou de l'organisme). Trois recherches au plus suffisent.",
+          `team : les 1 à 3 coéquipiers dont CETTE idée a besoin maintenant, choisis parmi ${TEAM_CHOICES}. Ne prends pas le juridique si rien de légal ne presse ; une idée technique peut commencer par la recherche technique et de marché. why : une phrase.`,
+          "later : 0 à 3 coéquipiers qui viendront quand on créera la société, mêmes postes possibles, sans répéter team.",
+          'Format complet : {"reaction": string, "findings": [{"text", "source"}], "team": [{"role", "why"}], "later": [{"role", "why"}]}.',
         ].join("\n"),
         // Searches launched from the tool's own code each count as a use: leave room, ask for few.
         tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 10 }],
@@ -129,6 +132,10 @@ export class AnthropicRuntime implements AgentRuntime {
             case "post_progress":
               ctx.progress(requireString(input, "note"));
               return ok(call.id, "Noté.");
+            case "recruit": {
+              const refused = ctx.recruit(requireString(input, "role") as RoleId, requireString(input, "why"));
+              return refused ? error(call.id, refused) : ok(call.id, "Recruté : il ou elle commence tout de suite.");
+            }
             case "update_memory":
               memory = requireString(input, "memory");
               return ok(call.id, "Fiche de l'entreprise mise à jour.");
@@ -230,7 +237,7 @@ function brief(ctx: WorkContext): string {
 }
 
 /** The answer comes after the last search, possibly split across several (cited) text blocks. */
-export function parseFirstLook(content: readonly Anthropic.Beta.BetaContentBlock[]): { reaction: string; findings: Finding[] } {
+export function parseFirstLook(content: readonly Anthropic.Beta.BetaContentBlock[]): Pick<FirstLook, "reaction" | "findings" | "team" | "later"> {
   const lastSearch = content.map((b) => b.type).lastIndexOf("web_search_tool_result");
   const text = content
     .slice(lastSearch + 1)
@@ -245,7 +252,15 @@ export function parseFirstLook(content: readonly Anthropic.Beta.BetaContentBlock
       })
     : [];
   if (typeof parsed.reaction !== "string" || findings.length === 0) throw new Error("Réponse inattendue.");
-  return { reaction: parsed.reaction, findings: findings.slice(0, 5) };
+  const picks = (v: unknown): TeamPick[] =>
+    Array.isArray(v)
+      ? v.flatMap((p) => {
+          const o = (p ?? {}) as Record<string, unknown>;
+          return typeof o.role === "string" && (ROLE_IDS as string[]).includes(o.role) ? [{ role: o.role as RoleId, why: typeof o.why === "string" ? o.why : "" }] : [];
+        })
+      : [];
+  const extra = parsed as { team?: unknown; later?: unknown };
+  return { reaction: parsed.reaction, findings: findings.slice(0, 5), team: picks(extra.team), later: picks(extra.later) };
 }
 
 // ---------- Tools ----------
@@ -259,6 +274,7 @@ function toolsFor(def: RoleDef): Tool[] {
   if (def.tools.includes("plan_task")) tools.push(PLAN);
   if (def.tools.includes("post_update")) tools.push(PROGRESS);
   if (def.tools.includes("update_memory")) tools.push(MEMORY);
+  if (def.tools.includes("recruit")) tools.push(RECRUIT);
   return tools;
 }
 
@@ -288,6 +304,7 @@ const PUBLISH: Tool = {
 };
 
 const ROLE_IDS = ROLES.map((r) => r.id);
+const TEAM_CHOICES = ROLES.filter((r) => r.id !== "cofondateur").map((r) => `${r.id} (${r.title})`).join(", ");
 
 const PLAN: Tool = {
   name: "plan_task",
@@ -313,6 +330,18 @@ const PROGRESS: Tool = {
   description: "Donne une nouvelle courte de l'avancement (ex. « 31 messages écrits sur 46 »).",
   strict: true,
   input_schema: { type: "object", additionalProperties: false, required: ["note"], properties: { note: { type: "string" } } },
+};
+
+const RECRUIT: Tool = {
+  name: "recruit",
+  description: "Fait venir un coéquipier maintenant, quand l'entreprise en a vraiment besoin. Un seul par poste.",
+  strict: true,
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["role", "why"],
+    properties: { role: { type: "string", enum: ROLE_IDS.filter((r) => r !== "cofondateur") }, why: { type: "string" } },
+  },
 };
 
 const MEMORY: Tool = {

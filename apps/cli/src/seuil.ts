@@ -94,7 +94,7 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
 
     print();
     await say(SEUIL.team);
-    const team = onboardingTeam();
+    const team = onboardingTeam(look);
     for (const r of team.now) {
       await sleep(400);
       print(`    ${violet("●")} ${bold(r.defaultName)} ${dim(`· ${r.title}`)}  ${ROLE_PROMISE[r.id]}`);

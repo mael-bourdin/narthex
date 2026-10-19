@@ -25,6 +25,14 @@ export class SimulationRuntime implements AgentRuntime {
         { text: "Pour démarrer : micro-entreprise ou SASU", source: "Légifrance (exemple)" },
       ],
       simulated: true,
+      team: [
+        { role: "recherche", why: "Avant de créer quoi que ce soit, il faut connaître le marché." },
+        { role: "juridique", why: "Il faut vérifier le nom et l'activité, puis créer la société." },
+      ],
+      later: [
+        { role: "prospection", why: "Pour trouver les premiers clients." },
+        { role: "redaction", why: "Pour le site et les posts." },
+      ],
     };
   }
 

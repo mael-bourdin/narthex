@@ -4,48 +4,39 @@ import remarkGfm from "remark-gfm";
 import {
   filView,
   fmt,
+  missions,
   role,
   type CompanyState,
   type Deliverable,
   type EngineStatus,
   type FilItem,
   type FilView,
-  type LegalForm,
+  type Mission,
+  type Task,
 } from "@narthex/core";
+import { ActionModal } from "./ActionModal.tsx";
 import { Chevron, Clock, Doc, Up } from "./icons.tsx";
 import { PixelAvatar } from "./PixelAvatar.tsx";
 
-const FORMS: LegalForm[] = ["SASU", "SAS", "EURL", "SARL", "EI", "micro"];
-
-const cleanError = (e: unknown) => (e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : String(e));
 
 /** The Fil, as in Figma (163:17001): only what really happened, newest first. */
 export function Fil({ state, status, onChange }: { state: CompanyState; status: EngineStatus; onChange(): void }) {
   const view = filView(state, status.now);
+  const signs = missions(state, status.now, status.runtime);
   const [open, setOpen] = useState<Deliverable>();
-  const [error, setError] = useState<string>();
-
-  const act = async (fn: () => Promise<unknown>) => {
-    setError(undefined);
-    try {
-      await fn();
-      onChange();
-    } catch (e) {
-      setError(cleanError(e));
-    }
-  };
+  const [acting, setActing] = useState<Mission>();
 
   return (
     <div className="columns">
-      <div className="main">
-        {view.legal.length > 0 && <Pancarte view={view} act={act} />}
+      <div className="main main-split">
+        {/* The sign never scrolls away: the most important thing stays in view. */}
+        {signs.length > 0 && <Sign signs={signs} state={state} onAct={setActing} />}
+        <div className="main-scroll">
         <Pilot state={state} status={status} view={view} />
-        {status.runtime === "none" && <KeyCard onDone={onChange} />}
-        {error && <p className="error">{error}</p>}
         {view.items.length > 0 ? (
           <section className="fil-list">
             {view.items.map((item) => (
-              <Publication key={item.post.id} item={item} now={status.now} onOpen={setOpen} onCancel={(taskId) => act(() => window.narthex.call("task.cancel", { taskId }))} />
+              <Publication key={item.post.id} item={item} now={status.now} onOpen={setOpen} onTask={(t) => setActing(taskMission(state, t, status.now))} />
             ))}
           </section>
         ) : (
@@ -54,27 +45,56 @@ export function Fil({ state, status, onChange }: { state: CompanyState; status: 
             <p className="muted">Chaque travail terminé par l'équipe arrivera ici, avec ses sources et le temps qu'il a pris.</p>
           </section>
         )}
+        </div>
       </div>
       <aside className="side">
         <TeamCard view={view} />
         {view.quest && <QuestCard quest={view.quest} />}
       </aside>
       {open && <DeliverableView d={open} state={state} onClose={() => setOpen(undefined)} />}
+      {acting && <ActionModal mission={acting} state={state} now={status.now} onClose={() => setActing(undefined)} onDone={onChange} />}
     </div>
   );
 }
 
-/** The gradient sign: only what the law reserves to the founder, one at a time. */
-function Pancarte({ view, act }: { view: FilView; act: (fn: () => Promise<unknown>) => Promise<void> }) {
+/** A task clicked in the Fil opens the same popup as the sign's missions. */
+function taskMission(state: CompanyState, t: Task, now: number): Mission {
+  const leaving = t.status === "planned" && t.kind === "external" && (t.cancellableUntil ?? 0) > now;
+  const label = { planned: "prévue", running: "en cours", done: "faite", failed: "pas aboutie", cancelled: "annulée" }[t.status];
+  return {
+    id: t.id,
+    kind: leaving ? "cancel" : "mission",
+    eyebrow: leaving ? `Part ${fmt.relative(t.cancellableUntil!, now)} · tu peux l'annuler` : `${state.agents[t.agentId]?.name ?? ""} · ${label}`,
+    title: t.title,
+    why: t.why,
+    speakerId: t.agentId,
+    action: leaving ? "cancel" : "open",
+    label: "Voir",
+    taskId: t.id,
+  };
+}
+
+/**
+ * The colored sign: always the most important thing right now (the key, a legal duty, an action
+ * about to leave, the team's main mission). Acting on it opens a popup, never a field in the Fil.
+ */
+function Sign({ signs, state, onAct }: { signs: Mission[]; state: CompanyState; onAct(m: Mission): void }) {
   const [index, setIndex] = useState(0);
-  const [form, setForm] = useState<LegalForm>("SASU");
-  const i = Math.min(index, view.legal.length - 1);
-  const { obligation: o, speaker } = view.legal[i]!;
-  const total = view.legal.length;
+  const i = Math.min(index, signs.length - 1);
+  const m = signs[i]!;
+  const total = signs.length;
+  const speaker = m.speakerId ? state.agents[m.speakerId] : undefined;
   return (
-    <section className="pancarte">
+    <section className={`pancarte kind-${m.kind}`}>
+      <div className="pancarte-light" aria-hidden>
+        <span className="l1" />
+        <span className="l2" />
+        <span className="l3" />
+        <span className="l4" />
+        <span className="l5" />
+      </div>
       <div className="pancarte-top">
-        <span>À faire par toi · la loi l'impose</span>
+        <span>{m.eyebrow}</span>
         {total > 1 && (
           <span className="pager">
             <button aria-label="Précédente" onClick={() => setIndex((i - 1 + total) % total)}>
@@ -82,7 +102,7 @@ function Pancarte({ view, act }: { view: FilView; act: (fn: () => Promise<unknow
             </button>
             {i + 1} / {total}
             <span className="dots">
-              {view.legal.map((_, j) => (
+              {signs.map((_, j) => (
                 <span key={j} className={j === i ? "dot on" : "dot"} />
               ))}
             </span>
@@ -92,29 +112,21 @@ function Pancarte({ view, act }: { view: FilView; act: (fn: () => Promise<unknow
           </span>
         )}
       </div>
-      <h2>{o.title}</h2>
-      <p>{o.why}</p>
+      <h2>{m.title}</h2>
+      <p>{m.why}</p>
       <div className="pancarte-bottom">
-        {speaker && (
+        {speaker ? (
           <span className="who">
             <PixelAvatar role={speaker.role} size={26} /> {speaker.name} · {role(speaker.role).title}
           </span>
+        ) : (
+          <span />
         )}
-        <span className="actions">
-          {o.code === "A3-forme" && (
-            <select value={form} onChange={(e) => setForm(e.target.value as LegalForm)} aria-label="Forme juridique">
-              {FORMS.map((f) => (
-                <option key={f}>{f}</option>
-              ))}
-            </select>
-          )}
-          <button
-            className="btn btn-primary"
-            onClick={() => act(() => window.narthex.call("obligation.fulfill", { obligationId: o.id, ...(o.code === "A3-forme" ? { legalForm: form } : {}) }))}
-          >
-            C'est fait
+        {m.action !== "none" && (
+          <button className="btn btn-inverse" onClick={() => onAct(m)}>
+            {m.label}
           </button>
-        </span>
+        )}
       </div>
     </section>
   );
@@ -143,44 +155,14 @@ function Pilot({ state, status, view }: { state: CompanyState; status: EngineSta
   );
 }
 
-function KeyCard({ onDone }: { onDone(): void }) {
-  const [key, setKey] = useState("");
-  const [message, setMessage] = useState<string>();
-  const [busy, setBusy] = useState(false);
-  const submit = async () => {
-    if (!key.trim() || busy) return;
-    setBusy(true);
-    setMessage(undefined);
-    const r = await window.narthex.onboarding.submitKey(key);
-    setBusy(false);
-    if (!r.ok) return setMessage(r.message);
-    setKey("");
-    setMessage(r.applied ? undefined : "Clé enregistrée. Elle servira au prochain lancement de l'équipe.");
-    onDone();
-  };
-  return (
-    <section className="keycard">
-      <div className="keycard-head">
-        <PixelAvatar role="cofondateur" size={30} />
-        <p>Pour que l'équipe travaille vraiment, j'ai besoin de ta clé API Anthropic. Elle reste sur ton ordinateur.</p>
-      </div>
-      <div className="keycard-row">
-        <input type="password" value={key} placeholder="sk-ant-…" onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} aria-label="Clé API Anthropic" />
-        <button className="btn btn-primary" disabled={!key.trim() || busy} onClick={submit}>
-          {busy ? "Vérification…" : "Ajouter"}
-        </button>
-      </div>
-      {message && <p className="small muted">{message}</p>}
-    </section>
-  );
-}
-
-function Publication({ item, now, onOpen, onCancel }: { item: FilItem; now: number; onOpen(d: Deliverable): void; onCancel(taskId: string): void }) {
+function Publication({ item, now, onOpen, onTask }: { item: FilItem; now: number; onOpen(d: Deliverable): void; onTask(t: Task): void }) {
   const { post, agent, deliverable, task } = item;
+  const clickable = Boolean(deliverable || task);
+  const open = () => (deliverable ? onOpen(deliverable) : task ? onTask(task) : undefined);
   const cancellable = task && task.status === "planned" && task.kind === "external" && (task.cancellableUntil ?? 0) > now;
   const meta = item.durationMs !== undefined || item.xp !== undefined || item.sources.length > 0;
   return (
-    <article className="publication">
+    <article className={clickable ? "publication clickable" : "publication"} onClick={open}>
       <header className="post-head">
         <PixelAvatar role={agent?.role} size={36} />
         <span className="name">{agent?.name}</span>
@@ -188,7 +170,7 @@ function Publication({ item, now, onOpen, onCancel }: { item: FilItem; now: numb
         <span className="muted time">{fmt.relative(post.at, now)}</span>
       </header>
       <p className="text">{post.text}</p>
-      {deliverable && <Attachment d={deliverable} onOpen={() => onOpen(deliverable)} />}
+      {deliverable && <Attachment d={deliverable} />}
       {meta && (
         <div className="meta">
           {item.durationMs !== undefined && (
@@ -213,7 +195,13 @@ function Publication({ item, now, onOpen, onCancel }: { item: FilItem; now: numb
           <span className="delay">
             <Clock /> Part {fmt.relative(task.cancellableUntil!, now)}
           </span>
-          <button className="btn btn-secondary" onClick={() => onCancel(task.id)}>
+          <button
+            className="btn btn-secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTask(task);
+            }}
+          >
             Annuler
           </button>
         </div>
@@ -223,10 +211,10 @@ function Publication({ item, now, onOpen, onCancel }: { item: FilItem; now: numb
 }
 
 /** A deliverable as a pièce jointe: a few rows of its first table when it has one, else its summary. */
-function Attachment({ d, onOpen }: { d: Deliverable; onOpen(): void }) {
+function Attachment({ d }: { d: Deliverable }) {
   const rows = firstTableRows(d.body, 3);
   return (
-    <button className="attachment" onClick={onOpen}>
+    <div className="attachment">
       <span className="attachment-title">{d.title}</span>
       {rows.length > 0 ? (
         <span className="attachment-table">
@@ -240,7 +228,7 @@ function Attachment({ d, onOpen }: { d: Deliverable; onOpen(): void }) {
       ) : (
         <span className="muted">{d.summary}</span>
       )}
-    </button>
+    </div>
   );
 }
 
