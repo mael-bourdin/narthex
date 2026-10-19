@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { fmt } from "@narthex/core";
+import { Entreprise } from "./Entreprise.tsx";
 import { Equipe, type EquipeView } from "./Equipe.tsx";
 import { Fil } from "./Fil.tsx";
 import { Seuil } from "./seuil/Seuil.tsx";
@@ -16,6 +17,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>("Fil");
   const [equipeView, setEquipeView] = useState<EquipeView>("Organigramme");
   const [agentId, setAgentId] = useState<string>();
+  const [entreprise, setEntreprise] = useState<{ section: string; page?: string }>({ section: "Vue d'ensemble" });
   const openAgent = (id?: string) => {
     setAgentId(id);
     if (id) setTab("Équipe");
@@ -72,7 +74,18 @@ export function App() {
         {tab === "Équipe" && (
           <Equipe state={state} status={status} view={equipeView} agentId={agentId} onView={setEquipeView} onAgent={openAgent} onChange={refresh} />
         )}
-        {(tab === "Bureau" || tab === "Entreprise") && (
+        {tab === "Entreprise" && (
+          <Entreprise
+            state={state}
+            status={status}
+            section={entreprise.section}
+            {...(entreprise.page ? { page: entreprise.page } : {})}
+            onNavigate={(section, page) => setEntreprise({ section, ...(page ? { page } : {}) })}
+            onAgent={openAgent}
+            onChange={refresh}
+          />
+        )}
+        {tab === "Bureau" && (
           <div className="columns">
             <div className="main">
               <h1>{tab}</h1>

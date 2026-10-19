@@ -34,6 +34,9 @@ ${bold("Regarder")}
   narthex journal                   Toutes les actions, dans l'ordre
   narthex recrutements              Qui est arrivé, qui viendra et quand
   narthex agent <nom>               La fiche d'un coéquipier
+  narthex entreprise [section] [page]  Vue d'ensemble, finances, ventes, marketing, juridique
+  narthex depense                   La dépense IA, par coéquipier et par jour
+  narthex tableaux                  Tous les tableaux produits par l'équipe
   narthex livrable <id|dernier>     Lire un livrable
 
 ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
@@ -113,6 +116,13 @@ async function main(): Promise<void> {
       }
       case "obligations":
         return print(render.obligations(state));
+      case "entreprise":
+        return print(render.entreprise(state, status.now, args[0], args[1]));
+      case "depense":
+      case "dépense":
+        return print(render.depense(state, await client.call("events.read", {})));
+      case "tableaux":
+        return print(render.tableaux(state));
       case "recrutements":
         return print(render.recrutementsView(state));
       case "agent": {
