@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 import type { CompanyState, LegalForm } from "@narthex/core";
 import {
+  archiveCompany,
   chooseRuntime,
   InProcessClient,
   isAlive,
@@ -37,6 +38,7 @@ ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque c
   narthex valider <id> [--forme SASU]   Dire que tu as fait une obligation
   narthex annuler <id>                  Annuler une action prévue
   narthex pause | reprendre             Mettre l'équipe en pause
+  narthex recommencer [--oui]           Archiver l'entreprise et revoir le premier lancement
 
 ${bold("Réglages")}
   narthex config                    Voir la configuration
@@ -65,6 +67,7 @@ const { values: opts, positionals } = parseArgs({
     agent: { type: "string" },
     forme: { type: "string" },
     nombre: { type: "string", short: "n" },
+    oui: { type: "boolean" },
   },
 });
 
@@ -81,6 +84,8 @@ async function main(): Promise<void> {
       return lancer();
     case "config":
       return config();
+    case "recommencer":
+      return recommencer();
   }
   await withClient(async (client) => {
     const state = await client.call("state.get", {});
@@ -182,6 +187,22 @@ async function init(): Promise<void> {
   if (opts["sans-lancer"] || (await isAlive(socketPath(dir)))) return print(`\n  Lance l'équipe quand tu veux : ${bold("narthex lancer")}`);
   print("");
   return lancer();
+}
+
+// ---------- recommencer ----------
+
+async function recommencer(): Promise<void> {
+  if (await isAlive(socketPath(dir))) throw new Error("L'équipe tourne (app ou « narthex lancer ») : ferme-la d'abord.");
+  if (!opts.oui) {
+    if (!process.stdin.isTTY) throw new Error("Ajoute --oui pour confirmer.");
+    const rl = (await import("node:readline/promises")).createInterface({ input: process.stdin, output: process.stdout });
+    const answer = (await rl.question("L'entreprise actuelle sera archivée (rien n'est supprimé) et le premier lancement recommencera. On y va ? (o/n) ")).trim().toLowerCase();
+    rl.close();
+    if (!answer.startsWith("o")) return print("D'accord, rien n'a changé.");
+  }
+  const archived = archiveCompany(dir);
+  print(archived ? `C'est fait. L'ancienne entreprise est rangée dans ${archived}.` : "Il n'y avait pas d'entreprise ici.");
+  print(`Le premier lancement t'attend : ouvre l'app ou tape ${bold("narthex init")}.`);
 }
 
 // ---------- lancer ----------
