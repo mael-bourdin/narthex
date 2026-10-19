@@ -99,3 +99,18 @@ describe("fmt.duration", () => {
     expect(fmt.duration(20_000)).toBe("1 min");
   });
 });
+
+describe("fmt.dollars", () => {
+  it("shows the AI spend in dollars, never in credits", () => {
+    expect(fmt.dollars(494)).toBe("4,94 $");
+    expect(fmt.dollars(0)).toBe("0,00 $");
+    expect(fmt.dollars(15_000)).toBe("150,00 $");
+    expect(fmt.dollars(123_456)).toBe("1 234,56 $");
+  });
+  it("reads dollars typed the French or English way", () => {
+    expect(fmt.parseDollars("3")).toBe(300);
+    expect(fmt.parseDollars("1,50")).toBe(150);
+    expect(fmt.parseDollars("2.5 $")).toBe(250);
+    expect(fmt.parseDollars("abc")).toBeNaN();
+  });
+});

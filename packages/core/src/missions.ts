@@ -1,4 +1,4 @@
-import { relative } from "./format.ts";
+import { dollars, relative } from "./format.ts";
 import { filView } from "./fil.ts";
 import { overBudget, spentOn } from "./policy.ts";
 import { forFounder } from "./views.ts";
@@ -49,7 +49,7 @@ export function missions(state: CompanyState, now: Timestamp, runtime: "simulati
       kind: "budget",
       eyebrow: "L'équipe s'arrête pour aujourd'hui",
       title: "Budget du jour atteint",
-      why: `${spentOn(state, now)} crédits dépensés sur ${state.settings.dailyBudgetCredits}. L'équipe reprend demain, ou tout de suite si tu augmentes le budget.`,
+      why: `${dollars(spentOn(state, now))} de dépense IA aujourd'hui, sur ${dollars(state.settings.dailyBudgetCredits)} prévus. L'équipe reprend demain, ou tout de suite si tu augmentes le budget.`,
       ...(margaux ? { speakerId: margaux.id } : {}),
       action: "budget",
       label: "Ajuster",

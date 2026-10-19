@@ -31,8 +31,16 @@ export function relative(ts: Timestamp, now: Timestamp): string {
   return diff < 0 ? `il y a ${span}` : `dans ${span}`;
 }
 
-export function credits(n: number): string {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n).replace(/ /g, " ");
+/** The AI spend, in dollars (the engine counts in cents): « 4,94 $ ». */
+export function dollars(cents: number): string {
+  return `${new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100).replace(/[\u202f\u00a0]/g, " ")} $`;
+}
+
+/** « 3 », « 1,50 », « 2.5 $ » → cents; NaN when it is not an amount. */
+export function parseDollars(text: string): number {
+  const cleaned = text.replace(/\$/g, "").replace(/\s/g, "").replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(cleaned)) return Number.NaN;
+  return Math.round(Number(cleaned) * 100);
 }
 
 /** "35 min", "2 h 10", "3 h". Never less than a minute: finished work always took some time. */

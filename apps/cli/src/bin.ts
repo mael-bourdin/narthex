@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import type { CompanyState, LegalForm } from "@narthex/core";
+import { fmt, type CompanyState, type LegalForm } from "@narthex/core";
 import {
   archiveCompany,
   chooseRuntime,
@@ -46,8 +46,8 @@ ${bold("Réglages")}
   narthex config mode <auto|simulation|anthropic>
   narthex config modele <id>        Modèle Claude (défaut : claude-opus-5-5)
   narthex config delai <heures>     Délai pour annuler une action externe
-  narthex config budget <crédits>   Budget par jour (1 crédit = 0,01 $ ; défaut 300)
-  narthex config budget-tache <crédits>  Budget par tâche (défaut 150)
+  narthex config budget <dollars>   Dépense IA maximale par jour (défaut 3 $)
+  narthex config budget-tache <dollars>  Dépense IA maximale par tâche (défaut 1,50 $)
   narthex avancer <heures>          Simulation : avancer l'horloge
 
 ${bold("Options")}  --dossier <chemin>  --json  --aide
@@ -223,7 +223,7 @@ async function lancer(): Promise<void> {
   const server = await serve(engine, socketPath(dir));
   print(render.fil(engine.getState(), engine.status(), 8));
   if (engine.status().runtime === "anthropic") {
-    print(dim(`Agents réels : Claude (${loadConfig(dir).model ?? DEFAULT_MODEL}) avec ta clé. Chaque tâche consomme des crédits API ; le total s'affiche en haut du Fil.`));
+    print(dim(`Agents réels : Claude (${loadConfig(dir).model ?? DEFAULT_MODEL}) avec ta clé. Chaque tâche a un coût en dollars sur ton compte Anthropic ; la dépense IA s'affiche en haut du Fil.`));
   }
   print(rule());
   print(dim("En direct. Ctrl+C pour arrêter (l'équipe termine ce qu'elle a commencé)."));
@@ -289,13 +289,13 @@ async function config(): Promise<void> {
       break;
     case "budget":
     case "budget-tache": {
-      const credits = Number(value);
-      if (!Number.isFinite(credits) || credits < 0) throw new Error("Donne un nombre de crédits (1 crédit = 0,01 $).");
+      const credits = fmt.parseDollars(value ?? "");
+      if (!Number.isFinite(credits)) throw new Error("Donne un montant en dollars, par exemple 3 ou 1,50.");
       const patch = key === "budget" ? { dailyBudgetCredits: credits } : { taskBudgetCredits: credits };
       await withClient(async (client) => {
         await client.call("settings.update", { patch });
       });
-      return print(`${key === "budget" ? "Budget par jour" : "Budget par tâche"} : ${credits} crédits (${credits / 100} $).`);
+      return print(`${key === "budget" ? "Dépense IA maximale par jour" : "Dépense IA maximale par tâche"} : ${fmt.dollars(credits)}.`);
     }
     case "delai": {
       const hours = Number(value);
