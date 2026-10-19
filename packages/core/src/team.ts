@@ -117,6 +117,10 @@ export function journalEntries(state: CompanyState, events: readonly StoredEvent
         return [{ at: e.ts, text: `${e.by === "founder" ? "Tu as annulé" : "L'équipe a annulé"} « ${title(e.taskId)} »`, kind: "founder" }];
       case "obligation.fulfilled":
         return [{ at: e.ts, text: `${e.by === "founder" ? "Tu as fait" : `${name(e.by)} a fait`} « ${state.obligations[e.obligationId]?.title ?? ""} »`, kind: e.by === "founder" ? "founder" : "work", ...(e.by !== "founder" ? { agentId: e.by } : {}) }];
+      case "obligation.stuck":
+        return [{ at: e.ts, text: `Bloqué sur « ${state.obligations[e.obligationId]?.title ?? ""} » : ${e.error}`, kind: "problem" }];
+      case "obligation.retried":
+        return [{ at: e.ts, text: `Tu as demandé de reprendre « ${state.obligations[e.obligationId]?.title ?? ""} »`, kind: "founder" }];
       case "company.paused":
         return [{ at: e.ts, text: "Équipe mise en pause", kind: "founder" }];
       case "company.resumed":

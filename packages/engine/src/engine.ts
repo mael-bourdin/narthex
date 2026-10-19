@@ -3,6 +3,7 @@ import {
   decide,
   emptyState,
   fmt,
+  MAX_ATTEMPTS,
   guardTask,
   replay,
   role,
@@ -175,6 +176,14 @@ export class Engine {
         return this.cancel((params as Params<"task.cancel">).taskId);
       case "obligation.fulfill":
         return this.fulfill(params as Params<"obligation.fulfill">);
+      case "obligation.retry": {
+        const o = this.state.obligations[(params as Params<"obligation.retry">).obligationId];
+        if (!o) throw new Error("Obligation inconnue.");
+        if (!o.stuck || o.status === "done") throw new Error("Cette obligation n'est pas bloquée.");
+        this.emit({ type: "obligation.retried", obligationId: o.id, at: this.now() });
+        this.tick();
+        return this.state;
+      }
       case "settings.update":
         this.requireCompany();
         this.emit({ type: "settings.changed", patch: (params as Params<"settings.update">).patch, at: this.now() });
@@ -357,6 +366,20 @@ export class Engine {
       case "start-task":
         if (this.runtime) this.startTask(intent.taskId);
         return;
+      case "escalate": {
+        const o = this.state.obligations[intent.obligationId];
+        this.emit({ type: "obligation.stuck", obligationId: intent.obligationId, at: now, error: intent.error });
+        const owner = o && o.owner !== "founder" ? Object.values(this.state.agents).find((a) => a.role === o.owner) : undefined;
+        const cofounder = Object.values(this.state.agents).find((a) => a.role === "cofondateur");
+        if (o && cofounder) {
+          this.post(
+            cofounder.id,
+            "update",
+            `${owner?.name ?? "L'équipe"} n'arrive pas à « ${o.title} » après ${MAX_ATTEMPTS} essais. Dernière erreur : ${intent.error} On arrête d'essayer jusqu'à ce que tu nous dises de reprendre.`,
+          );
+        }
+        return;
+      }
     }
   }
 
@@ -512,6 +535,8 @@ function key(intent: Intent): string {
       return `plan:${intent.draft.agentId}:${intent.draft.tag ?? intent.draft.title}`;
     case "start-task":
       return `start:${intent.taskId}`;
+    case "escalate":
+      return `escalate:${intent.obligationId}`;
   }
 }
 

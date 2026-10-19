@@ -116,6 +116,17 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       if (!o) return state;
       return { ...state, obligations: { ...state.obligations, [o.id]: { ...o, status: "done", doneAt: event.at } } };
     }
+    case "obligation.stuck": {
+      const o = state.obligations[event.obligationId];
+      if (!o) return state;
+      return { ...state, obligations: { ...state.obligations, [o.id]: { ...o, stuck: { at: event.at, error: event.error } } } };
+    }
+    case "obligation.retried": {
+      const o = state.obligations[event.obligationId];
+      if (!o) return state;
+      const { stuck: _stuck, ...rest } = o;
+      return { ...state, obligations: { ...state.obligations, [o.id]: { ...rest, retriedAt: event.at } } };
+    }
     case "settings.changed":
       return { ...state, settings: { ...state.settings, ...event.patch } };
     case "memory.updated":

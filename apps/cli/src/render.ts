@@ -14,6 +14,7 @@ import {
   calendar,
   cancellable,
   fmt,
+  MAX_ATTEMPTS,
   forFounder,
   role,
   team,
@@ -52,6 +53,12 @@ export function forYou(s: CompanyState, now: number): string {
     lines.push(dim(wrapText(o.why, 4)));
     const extra = o.code === "A3-forme" ? " --forme SASU" : "";
     lines.push(`    ${dim("→")} narthex valider ${o.id}${extra}`);
+  }
+  for (const o of Object.values(s.obligations)) {
+    if (o.status !== "open" || !o.stuck) continue;
+    lines.push(`${red("!")} ${bold(`Bloqué : ${clean(o.title)}`)} ${dim(`· après ${MAX_ATTEMPTS} essais`)}`);
+    lines.push(dim(wrapText(`Dernière erreur : ${o.stuck.error}`, 4)));
+    lines.push(`    ${dim("→")} narthex reessayer ${o.id}`);
   }
   if (overBudget(s, now)) {
     lines.push(`${yellow("!")} ${bold("Budget du jour atteint")} ${dim(`· ${fmt.dollars(spentOn(s, now))} sur ${fmt.dollars(s.settings.dailyBudgetCredits)}, l'équipe reprend demain`)}`);
@@ -172,7 +179,8 @@ export function obligations(s: CompanyState): string {
   for (const o of all) {
     const owner = o.owner === "founder" ? violet("toi") : role(o.owner).title;
     const due = o.due && o.status === "open" ? dim(` · avant le ${fmt.day(o.due)}`) : "";
-    out.push(`${o.status === "done" ? dim("✓") : "○"} ${o.status === "done" ? dim(o.title) : o.title} ${dim("·")} ${owner}${due}`);
+    const stuck = o.status === "open" && o.stuck ? ` ${red("· bloquée")} ${dim(`narthex reessayer ${o.id}`)}` : "";
+    out.push(`${o.status === "done" ? dim("✓") : "○"} ${o.status === "done" ? dim(o.title) : o.title} ${dim("·")} ${owner}${due}${stuck}`);
   }
   return out.join("\n");
 }

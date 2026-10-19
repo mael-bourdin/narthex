@@ -180,6 +180,7 @@ function notify(event: StoredEvent): void {
   };
   const state = engine?.getState();
   if (event.type === "obligation.opened" && event.obligation.owner === "founder" && prefs.legal) show("À faire par toi", event.obligation.title);
+  if (event.type === "obligation.stuck" && prefs.legal) show("L'équipe est bloquée", `${state?.obligations[event.obligationId]?.title ?? "Une obligation"} : il faut ton avis pour reprendre.`);
   if (event.type === "task.planned" && event.task.kind === "external" && prefs.leaving) {
     const who = state?.agents[event.task.agentId]?.name ?? "L'équipe";
     show(`${who} prévoit une action`, `${event.task.title}. Tu peux l'annuler avant son départ.`);
