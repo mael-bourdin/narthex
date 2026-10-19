@@ -1,0 +1,47 @@
+/* Bureau (Figma 157:7265): a top-down pixel office. Room units: 32 px tiles, scaled to fit. */
+@font-face { font-family: "Geist Pixel"; src: url("@geist-fonts/geist-pixel/GeistPixel-Square.woff2") format("woff2"); font-display: swap; }
+
+.bureau-page { height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; padding: 28px 24px 40px; max-width: 980px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.bureau-frame { position: relative; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px var(--border-subtle), 0 24px 60px rgba(0, 0, 0, .45); flex: none; }
+.bureau { position: absolute; left: 0; top: 0; transform-origin: 0 0; image-rendering: pixelated; font-family: "Geist Pixel", Geist, monospace; }
+.room-wall { position: absolute; inset: 0; background:
+  repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 2px, transparent 2px 32px),
+  repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 32px),
+  #2b3150; }
+.room-floor { position: absolute; background:
+  repeating-linear-gradient(0deg, rgba(90, 55, 25, .35) 0 2px, transparent 2px 16px),
+  repeating-linear-gradient(90deg, rgba(90, 55, 25, .25) 0 2px, transparent 2px 48px),
+  #d8a97a; box-shadow: inset 0 0 0 3px #b98a5c; }
+.window { position: absolute; width: 26px; height: 22px; background: #1d2240; border: 3px solid #cfd6ef; box-shadow: inset 11px 0 0 -9px #cfd6ef; }
+.door { position: absolute; height: 32px; background: repeating-linear-gradient(0deg, #a3774f 0 3px, #c79a6d 3px 8px); }
+.rug { position: absolute; background: #6e5aa0; box-shadow: inset 0 0 0 3px #8a76c0, inset 0 0 0 6px #6e5aa0; }
+.shelf { position: absolute; width: 30px; height: 30px; background:
+  linear-gradient(#5b3a22 0 2px, transparent 2px 13px, #5b3a22 13px 15px, transparent 15px 28px, #5b3a22 28px),
+  linear-gradient(90deg, #c0504d 0 5px, #4f81bd 5px 10px, #e2c044 10px 15px, #6aa84f 15px 20px, #c0504d 20px 25px, #8064a2 25px);
+  box-shadow: inset 0 0 0 2px #5b3a22; }
+.plant { position: absolute; width: 22px; height: 28px; margin: 2px 5px; background:
+  radial-gradient(circle at 50% 30%, #4caf50 0 9px, transparent 10px),
+  linear-gradient(transparent 0 16px, #b5651d 16px); }
+.desk { position: absolute; width: 64px; height: 30px; background: #8b5a2b; box-shadow: inset 0 -6px 0 #6b4220, 0 3px 0 rgba(0,0,0,.18); display: grid; place-items: center; }
+.desk .screen { width: 18px; height: 13px; background: #1e2238; border: 2px solid #d7dbe8; margin-bottom: 8px; }
+.desk .screen.on { background: #8fb7ff; box-shadow: 0 0 8px #8fb7ff; }
+.agent { position: absolute; width: 26px; display: flex; flex-direction: column; align-items: center; z-index: 2; transition: left .05s linear, top .05s linear; }
+.agent .pixel-sprite { display: block; filter: drop-shadow(0 2px 0 rgba(0,0,0,.25)); }
+.agent.working .pixel-sprite { animation: typing .5s steps(2) infinite; }
+.agent.idle { opacity: .85; }
+.agent.me { z-index: 3; }
+.agent.me.left .pixel-sprite { transform: scaleX(-1); }
+.nameplate { font-size: 9px; color: #fff; background: rgba(20, 20, 32, .7); padding: 0 3px; margin-top: 1px; white-space: nowrap; border-radius: 2px; }
+@keyframes typing { 50% { transform: translateY(-1px); } }
+.bang { position: absolute; top: -26px; width: 16px; height: 20px; background: #fff; color: #111; font-weight: 700; font-size: 15px; display: grid; place-items: center; border: 2px solid #111; animation: bob 1s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+.bubble { position: absolute; top: -30px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; font-size: 10px; color: #111; background: #fff; border: 2px solid #111; padding: 1px 6px; }
+.bubble.fresh { background: #cfc8ff; }
+.hint { position: absolute; z-index: 4; font-size: 10px; color: #fff; background: rgba(15, 16, 40, .85); padding: 2px 6px; white-space: nowrap; }
+.dialog { position: absolute; z-index: 5; left: 16px; right: 16px; bottom: 12px; min-height: 100px; background: #f6f3ea; color: #1a1a1a; border: 4px solid #2c2c3a; box-shadow: 0 0 0 3px #f6f3ea; padding: 16px 18px; }
+.dialog p { margin: 4px 0 0; font-size: 16px; line-height: 1.5; max-width: 470px; }
+.dialog-name { position: absolute; top: -22px; left: 10px; background: #2c2c3a; color: #f6f3ea; font-size: 11px; padding: 3px 8px; }
+.dialog-choices { position: absolute; right: 16px; bottom: 16px; margin: 0; padding: 8px 12px 8px 22px; list-style: none; background: #fff; border: 3px solid #2c2c3a; font-size: 13px; }
+.dialog-choices li { position: relative; padding: 3px 0; cursor: pointer; }
+.dialog-choices li.on::before { content: "▸"; position: absolute; left: -14px; }
+.bureau-help { margin-top: 14px; text-align: center; }
