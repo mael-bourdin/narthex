@@ -12,3 +12,4 @@ export * from "./open.ts";
 export * from "./keys.ts";
 export * from "./restart.ts";
 export * from "./claude-code.ts";
+export * from "./links.ts";

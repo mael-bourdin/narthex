@@ -14,6 +14,8 @@ export interface DeliverableSheet {
   spend: number;
   /** What its author waits on from the founder, if anything. */
   next?: Mission;
+  /** Once Narthex checked the cited links: how many, and the titles of those that did not answer. */
+  links?: { checked: number; dead: string[] };
 }
 
 export function deliverableSheet(
@@ -47,7 +49,9 @@ export function deliverableSheet(
 
   const spend = events.reduce((sum, e) => (e.type === "usage.recorded" && e.taskId === d.taskId ? sum + e.credits : sum), 0);
   const next = missions(state, now, runtime).find((m) => m.speakerId === d.agentId && (m.kind === "legal" || m.kind === "cancel"));
-  return { intro: tidy(intro), sections, meta, spend, ...(next ? { next } : {}) };
+  const checked = d.sources.filter((s) => s.reachable !== undefined);
+  const links = d.linksCheckedAt && checked.length ? { checked: checked.length, dead: checked.filter((s) => !s.reachable).map((s) => s.title) } : undefined;
+  return { intro: tidy(intro), sections, meta, spend, ...(next ? { next } : {}), ...(links ? { links } : {}) };
 }
 
 function hostOf(url: string): string {

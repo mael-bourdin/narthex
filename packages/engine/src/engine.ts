@@ -45,7 +45,12 @@ export interface EngineOptions {
    * Used by one-shot CLI commands when no `narthex lancer` is running.
    */
   passive?: boolean;
+  /** Checks that a cited link answers. Off in simulation and tests; `openEngine` gives the real one. */
+  checkLink?: LinkCheck;
 }
+
+/** Does this link answer? Never throws: an unreachable link is `false`. */
+export type LinkCheck = (url: string, signal: AbortSignal) => Promise<boolean>;
 
 type Listener = (event: StoredEvent) => void;
 
@@ -61,12 +66,16 @@ export class Engine {
   private readonly tickMs: number;
   private readonly passive: boolean;
   private readonly listeners = new Set<Listener>();
+  private readonly checkLink: LinkCheck | undefined;
+  /** Link checks in flight, so `idle` and `close` wait for them. */
+  private readonly checks = new Set<Promise<void>>();
   private readonly work = new Map<string, { controller: AbortController; done: Promise<void> }>();
   private state: CompanyState = emptyState();
   private companyId: string | null;
   private timer: NodeJS.Timeout | undefined;
 
   constructor(options: EngineOptions) {
+    this.checkLink = options.checkLink;
     this.store = options.store;
     this.runtime = options.runtime;
     this.clock = options.clock ?? systemClock;
@@ -114,7 +123,7 @@ export class Engine {
 
   /** Resolves when no agent is working (tests, graceful shutdown). */
   async idle(): Promise<void> {
-    while (this.work.size > 0) await Promise.all([...this.work.values()].map((w) => w.done));
+    while (this.work.size > 0 || this.checks.size > 0) await Promise.all([...[...this.work.values()].map((w) => w.done), ...this.checks]);
   }
 
   subscribe(listener: Listener): () => void {
@@ -455,6 +464,7 @@ export class Engine {
         ? { id: newId("dl"), taskId, agentId: agent.id, createdAt: this.now(), ...result.deliverable }
         : undefined;
       this.emit({ type: "task.completed", taskId, at: this.now(), ...(deliverable ? { deliverable } : {}) });
+      if (deliverable) this.checkSources(deliverable.id);
       this.post(agent.id, deliverable ? "deliverable" : "update", result.post, { taskId, ...(deliverable ? { deliverableId: deliverable.id } : {}) });
     } catch (e) {
       if (overBudget && this.state.tasks[taskId]?.status === "running") {
@@ -468,6 +478,21 @@ export class Engine {
       this.emit({ type: "task.failed", taskId, at: this.now(), error: message });
       this.post(agent.id, "update", `Je n'ai pas pu terminer « ${task.title} » : ${message}`, { taskId });
     }
+  }
+
+  /** After delivery, Narthex itself checks that every cited link answers (no model, no cost). */
+  private checkSources(deliverableId: string): void {
+    const check = this.checkLink;
+    const urls = [...new Set((this.state.deliverables[deliverableId]?.sources ?? []).flatMap((s) => (s.url ? [s.url] : [])))];
+    if (!check || urls.length === 0) return;
+    const run = (async () => {
+      const results = await Promise.all(
+        urls.map(async (url) => ({ url, ok: await check(url, AbortSignal.timeout(15_000)).catch(() => false) })),
+      );
+      if (this.state.deliverables[deliverableId]) this.emit({ type: "sources.checked", deliverableId, at: this.now(), results });
+    })();
+    this.checks.add(run);
+    void run.finally(() => this.checks.delete(run));
   }
 
   /** Margaux brings someone now: added to the plan and hired at once. */

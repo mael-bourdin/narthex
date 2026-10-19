@@ -3,6 +3,7 @@ import { ClaudeCodeRuntime } from "./claude-code.ts";
 import { SimulatedClock, systemClock } from "./clock.ts";
 import { apiKey, chooseRuntime, loadConfig, type Config } from "./config.ts";
 import { Engine } from "./engine.ts";
+import { httpLinkCheck } from "./links.ts";
 import { databasePath, dataDir } from "./paths.ts";
 import { SimulationRuntime } from "./simulation.ts";
 import { SqliteEventStore } from "./store.ts";
@@ -25,12 +26,12 @@ export function openEngine(options: OpenOptions = {}): { engine: Engine; dir: st
   if (runtimeName === "anthropic") {
     const key = apiKey(config, env);
     const runtime = new AnthropicRuntime({ ...(key ? { apiKey: key } : {}), ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) });
-    return { engine: new Engine({ store, runtime, clock: systemClock, passive: options.passive ?? false }), dir, config };
+    return { engine: new Engine({ store, runtime, clock: systemClock, passive: options.passive ?? false, checkLink: httpLinkCheck }), dir, config };
   }
 
   if (runtimeName === "claude-code") {
     const runtime = new ClaudeCodeRuntime({ ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) });
-    return { engine: new Engine({ store, runtime, clock: systemClock, passive: options.passive ?? false }), dir, config };
+    return { engine: new Engine({ store, runtime, clock: systemClock, passive: options.passive ?? false, checkLink: httpLinkCheck }), dir, config };
   }
 
   if (runtimeName === "none") {

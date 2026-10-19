@@ -145,6 +145,7 @@ a { color: var(--accent); }
 .facts dd { margin: 0; color: var(--text-secondary); }
 .aside-card .link.more { margin: 0; text-align: left; font-size: 12px; }
 .doc hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 16px 0; }
+.facts dd.warn, .aside-card .dead { color: var(--error); }
 .btn.wide { width: 100%; justify-content: center; }
 @media (max-width: 760px) { .deliverable-grid { grid-template-columns: minmax(0, 1fr); } .deliverable-aside { position: static; } }
 

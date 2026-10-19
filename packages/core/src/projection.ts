@@ -116,6 +116,13 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       if (!o) return state;
       return { ...state, obligations: { ...state.obligations, [o.id]: { ...o, status: "done", doneAt: event.at } } };
     }
+    case "sources.checked": {
+      const d = state.deliverables[event.deliverableId];
+      if (!d) return state;
+      const ok = new Map(event.results.map((r) => [r.url, r.ok]));
+      const sources = d.sources.map((s) => (s.url && ok.has(s.url) ? { ...s, reachable: ok.get(s.url)! } : s));
+      return { ...state, deliverables: { ...state.deliverables, [d.id]: { ...d, sources, linksCheckedAt: event.at } } };
+    }
     case "obligation.stuck": {
       const o = state.obligations[event.obligationId];
       if (!o) return state;
