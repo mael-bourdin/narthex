@@ -15,12 +15,20 @@ export const STAGES: readonly Stage[] = ["idea", "research", "creation", "launch
 export type RoleId =
   | "cofondateur"
   | "recherche"
+  | "technique"
   | "juridique"
   | "prospection"
   | "redaction"
   | "video"
   | "comptable"
   | "support";
+
+/** Who joins, and from which stage. Chosen by Margaux from the idea; a default when nobody could choose. */
+export interface StaffingEntry {
+  role: RoleId;
+  at: Stage;
+  why: string;
+}
 
 export interface Founder {
   name: string;
@@ -170,6 +178,8 @@ export interface CompanyState {
   obligations: Record<Id, Obligation>;
   settings: Settings;
   usage: Usage;
+  /** Margaux's staffing plan; the default plan applies when absent. */
+  staffing?: StaffingEntry[];
   /** L1 core memory: the shared company sheet every agent reads (kept short). */
   memory: string;
   lastSeq: number;

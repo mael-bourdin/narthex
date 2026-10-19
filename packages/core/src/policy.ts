@@ -7,6 +7,7 @@ import {
   type Obligation,
   type RoleId,
   type Stage,
+  type StaffingEntry,
   type Task,
   type TaskKind,
   type Timestamp,
@@ -67,17 +68,21 @@ function obligationOpened(state: CompanyState, code: string): boolean {
   return Object.values(state.obligations).some((o) => o.code === code);
 }
 
-/** When each role joins. Order matters: earlier roles are hired first. */
-export const HIRING: readonly { role: RoleId; when: (s: CompanyState) => boolean; reason: string }[] = [
-  { role: "cofondateur", when: () => true, reason: "Je suis là dès la première idée." },
-  { role: "recherche", when: (s) => reached(s, "research"), reason: "Avant de créer quoi que ce soit, il faut connaître le marché." },
-  { role: "juridique", when: (s) => reached(s, "research"), reason: "Il faut vérifier le nom et l'activité, puis créer la société." },
-  { role: "prospection", when: (s) => reached(s, "creation"), reason: "L'étude est bonne : il est temps de trouver les premiers clients." },
-  { role: "redaction", when: (s) => reached(s, "creation"), reason: "Il faut un site et une voix avant le lancement." },
-  { role: "video", when: (s) => reached(s, "launch"), reason: "La société existe : on la fait connaître." },
-  { role: "comptable", when: (s) => reached(s, "launch"), reason: "La première facture arrive : la comptabilité doit être prête avant." },
-  { role: "support", when: (s) => reached(s, "operating"), reason: "Les premiers clients ont besoin de réponses rapides." },
+/** The usual team, when nobody could choose one (no key yet, or no first look). */
+export const DEFAULT_STAFFING: readonly StaffingEntry[] = [
+  { role: "cofondateur", at: "idea", why: "Je suis là dès la première idée." },
+  { role: "recherche", at: "research", why: "Avant de créer quoi que ce soit, il faut connaître le marché." },
+  { role: "juridique", at: "research", why: "Il faut vérifier le nom et l'activité, puis créer la société." },
+  { role: "prospection", at: "creation", why: "L'étude est bonne : il est temps de trouver les premiers clients." },
+  { role: "redaction", at: "creation", why: "Il faut un site et une voix avant le lancement." },
+  { role: "video", at: "launch", why: "La société existe : on la fait connaître." },
+  { role: "comptable", at: "launch", why: "La première facture arrive : la comptabilité doit être prête avant." },
+  { role: "support", at: "operating", why: "Les premiers clients ont besoin de réponses rapides." },
 ];
+
+export function staffingOf(state: CompanyState): readonly StaffingEntry[] {
+  return state.staffing ?? DEFAULT_STAFFING;
+}
 
 /** First mission each role starts with, so the company moves even before any LLM plans. */
 export const KICKOFF: Partial<Record<RoleId, { title: string; why: string; tag: string }>> = {
@@ -138,8 +143,18 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
   const nextStage = STAGE_RULES.find((r) => stageIndex(r.to) === stageIndex(company.stage) + 1);
   if (nextStage?.when(state)) intents.push({ type: "advance-stage", stage: nextStage.to, reason: nextStage.reason });
 
-  for (const h of HIRING) {
-    if (agentsWith(state, h.role).length === 0 && h.when(state)) intents.push({ type: "hire", role: h.role, reason: h.reason });
+  const hiring = new Set<RoleId>();
+  for (const entry of staffingOf(state)) {
+    if (!hiring.has(entry.role) && agentsWith(state, entry.role).length === 0 && reached(state, entry.at)) {
+      hiring.add(entry.role);
+      intents.push({ type: "hire", role: entry.role, reason: entry.why });
+    }
+  }
+  // Whoever a legal duty needs comes when it opens, even if the plan did not foresee them.
+  for (const o of Object.values(state.obligations)) {
+    if (o.status !== "open" || o.owner === "founder" || hiring.has(o.owner) || agentsWith(state, o.owner).length > 0) continue;
+    hiring.add(o.owner);
+    intents.push({ type: "hire", role: o.owner, reason: `Il faut quelqu'un pour : ${o.title.charAt(0).toLowerCase()}${o.title.slice(1)}.` });
   }
 
   for (const rule of OBLIGATIONS) {

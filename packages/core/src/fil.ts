@@ -1,4 +1,4 @@
-import { HIRING } from "./policy.ts";
+import { staffingOf } from "./policy.ts";
 import { OBLIGATIONS } from "./obligations.ts";
 import { role, type RoleDef } from "./roles.ts";
 import { forFounder } from "./views.ts";
@@ -110,7 +110,7 @@ export function filView(state: CompanyState, now: Timestamp, limit = 60): FilVie
   });
 
   const hired = new Set(agents.map((a) => a.role));
-  const upcoming = HIRING.find((h) => !hired.has(h.role));
+  const upcoming = staffingOf(state).find((h) => !hired.has(h.role));
 
   return {
     legal: founderOpen.map((obligation) => ({ obligation, ...(legalSpeaker ? { speaker: legalSpeaker } : {}) })),

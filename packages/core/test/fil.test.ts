@@ -78,12 +78,14 @@ describe("filView", () => {
   });
 
   it("follows the quest of the current stage", () => {
+    expect(filView(company(), NOW).quest).toEqual({ title: "Valider ton idée", done: 0, total: 1, next: "Étude de marché" });
     const s = company(
+      { type: "stage.changed", stage: "creation", at: NOW },
       { type: "obligation.opened", obligation: { id: "o1", code: "A1-nom", title: "Nom", why: "", owner: "juridique", status: "open", openedAt: NOW } },
       { type: "obligation.opened", obligation: { id: "o2", code: "A2-activite-reglementee", title: "Activité", why: "", owner: "juridique", status: "open", openedAt: NOW } },
       { type: "obligation.fulfilled", obligationId: "o1", at: NOW, by: "hugo" },
     );
-    expect(filView(s, NOW).quest).toEqual({ title: "Valider ton idée", done: 1, total: 3, next: "Activité" });
+    expect(filView(s, NOW).quest).toEqual({ title: "Créer ta société", done: 1, total: 2, next: "Activité" });
   });
 });
 

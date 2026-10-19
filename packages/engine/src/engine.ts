@@ -21,6 +21,9 @@ import {
   type TaskDraft,
   SEUIL,
   ROLE_PROMISE,
+  ROLES,
+  staffingFrom,
+  staffingOf,
 } from "@narthex/core";
 import { SimulatedClock, systemClock, type Clock } from "./clock.ts";
 import { newId } from "./ids.ts";
@@ -198,6 +201,8 @@ export class Engine {
       },
       settings: this.state.settings,
     });
+    // The team Margaux chose for this idea; without a first look, the usual plan applies.
+    if (p.firstLook?.team?.length) this.emit({ type: "staffing.planned", staffing: staffingFrom(p.firstLook) });
     // Margaux is there from the first second, even when nobody runs the company yet.
     this.hire("cofondateur", "Je suis là dès la première idée.");
     if (p.firstLook && p.firstLook.findings.length > 0) this.recordFirstLook(p.firstLook);
@@ -393,6 +398,7 @@ export class Engine {
           if (!controller.signal.aborted) this.emit({ type: "task.progressed", taskId, note, at: this.now() });
         },
         plan: (f) => this.planFollowUp(agent, task.id, f),
+        recruit: (r, why) => this.recruit(agent, r, why),
       });
       if (controller.signal.aborted || this.state.tasks[taskId]?.status !== "running") return;
       if (result.usage) this.emit({ type: "usage.recorded", agentId: agent.id, taskId, ...result.usage });
@@ -408,6 +414,18 @@ export class Engine {
       this.emit({ type: "task.failed", taskId, at: this.now(), error: message });
       this.post(agent.id, "update", `Je n'ai pas pu terminer « ${task.title} » : ${message}`, { taskId });
     }
+  }
+
+  /** Margaux brings someone now: added to the plan and hired at once. */
+  private recruit(by: Agent, r: RoleId, why: string): string | null {
+    if (by.role !== "cofondateur") return "Seule Margaux fait venir de nouveaux coéquipiers.";
+    if (!ROLES.some((x) => x.id === r) || r === "cofondateur") return `Je ne connais pas ce poste : ${r}.`;
+    if (this.agentWith(r)) return `${this.agentWith(r)!.name} occupe déjà ce poste.`;
+    const stage = this.state.company?.stage ?? "research";
+    this.emit({ type: "staffing.planned", staffing: [...staffingOf(this.state), { role: r, at: stage, why }] });
+    this.hire(r, why);
+    this.announceHires();
+    return null;
   }
 
   private planFollowUp(agent: Agent, parentId: string, f: FollowUp): string | null {

@@ -1,7 +1,7 @@
 import type { RoleId } from "./types.ts";
 
 /** Tools an agent may be given. The engine maps each name to a real implementation. */
-export type ToolName = "web_search" | "web_fetch" | "plan_task" | "publish_deliverable" | "post_update" | "update_memory";
+export type ToolName = "web_search" | "web_fetch" | "plan_task" | "publish_deliverable" | "post_update" | "update_memory" | "recruit";
 
 /**
  * A job sheet, readable by machines (A2A-style agent card) and by the player (fiche agent).
@@ -35,7 +35,7 @@ export const ROLES: readonly RoleDef[] = [
     defaultName: "Margaux",
     mission:
       "Je tiens la vision, je décide des priorités de la semaine et je fais venir chaque coéquipier au moment où l'entreprise en a besoin, pas avant.",
-    tools: ["web_search", "plan_task", "post_update", "update_memory", "publish_deliverable"],
+    tools: ["web_search", "plan_task", "post_update", "update_memory", "publish_deliverable", "recruit"],
     guardrails: COMMON_GUARDRAILS,
     effort: "high",
   },
@@ -44,6 +44,15 @@ export const ROLES: readonly RoleDef[] = [
     title: "Recherche",
     defaultName: "Léa",
     mission: "J'étudie le marché, les clientes et les concurrents, et je ne retiens que ce que je peux sourcer.",
+    tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
+    guardrails: COMMON_GUARDRAILS,
+    effort: "high",
+  },
+  {
+    id: "technique",
+    title: "Recherche technique",
+    defaultName: "Nina",
+    mission: "Je vérifie que c'est faisable : matériaux, fabrication, outils, normes techniques et coûts réels.",
     tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
     effort: "high",

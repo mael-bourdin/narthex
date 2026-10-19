@@ -1,7 +1,6 @@
-import { HIRING } from "./policy.ts";
-import { emptyState } from "./projection.ts";
-import { role, type RoleDef } from "./roles.ts";
-import type { CompanyState, RoleId, Stage } from "./types.ts";
+import { DEFAULT_STAFFING } from "./policy.ts";
+import { role, ROLES, type RoleDef } from "./roles.ts";
+import type { RoleId, StaffingEntry } from "./types.ts";
 
 /** What the founder sees in the first minutes (« le seuil »). Shared by the app and the CLI. */
 
@@ -11,10 +10,18 @@ export interface Finding {
 }
 
 /** Margaux's first look at the idea, made before the company exists and recorded at founding. */
+export interface TeamPick {
+  role: RoleId;
+  why: string;
+}
+
 export interface FirstLook {
   reaction: string;
   findings: Finding[];
   simulated: boolean;
+  /** Who Margaux brings now for this idea, and who will come once the company is being created. */
+  team?: TeamPick[];
+  later?: TeamPick[];
   usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
 }
 
@@ -42,6 +49,7 @@ export const SEUIL = {
 export const ROLE_PROMISE: Record<RoleId, string> = {
   cofondateur: "Tient la vision et fait venir l'équipe",
   recherche: "Étudie ton marché et tes concurrents",
+  technique: "Vérifie que c'est faisable, techniquement et au bon coût",
   juridique: "Crée ta société, suit tes obligations",
   prospection: "Trouve tes premiers clients",
   redaction: "Écrit ton site et tes posts",
@@ -50,17 +58,39 @@ export const ROLE_PROMISE: Record<RoleId, string> = {
   support: "Répond à tes clients",
 };
 
-function hiredAt(stage: Stage): RoleId[] {
-  const s: CompanyState = {
-    ...emptyState(),
-    company: { id: "", name: "", idea: "", founder: { name: "" }, foundedAt: 0, stage, paused: false },
-  };
-  return HIRING.filter((h) => h.when(s)).map((h) => h.role);
+const KNOWN = new Set<string>(ROLES.map((r) => r.id));
+
+function clean(picks: TeamPick[] | undefined, exclude: Set<string>, max: number): TeamPick[] {
+  const out: TeamPick[] = [];
+  for (const p of picks ?? []) {
+    if (!KNOWN.has(p.role) || p.role === "cofondateur" || exclude.has(p.role)) continue;
+    exclude.add(p.role);
+    out.push(p);
+    if (out.length === max) break;
+  }
+  return out;
 }
 
-/** Who joins at the study stage, and who will come next — straight from the hiring rules. */
-export function onboardingTeam(): { now: RoleDef[]; later: RoleDef[] } {
-  const now = hiredAt("research").filter((r) => r !== "cofondateur");
-  const later = hiredAt("creation").filter((r) => r !== "cofondateur" && !now.includes(r));
-  return { now: now.map(role), later: later.map(role) };
+/** Margaux's choice turned into a staffing plan; the usual plan when she could not choose. */
+export function staffingFrom(look?: FirstLook): StaffingEntry[] {
+  const seen = new Set<string>();
+  const now = clean(look?.team, seen, 3);
+  if (now.length === 0) return [...DEFAULT_STAFFING];
+  const later = clean(look?.later, seen, 3);
+  return [
+    DEFAULT_STAFFING[0]!,
+    ...now.map((p) => ({ role: p.role, at: "research" as const, why: p.why })),
+    ...later.map((p) => ({ role: p.role, at: "creation" as const, why: p.why })),
+    // Later stages keep the usual roles, unless Margaux already brought them.
+    ...DEFAULT_STAFFING.filter((e) => (e.at === "launch" || e.at === "operating") && !seen.has(e.role)),
+  ];
+}
+
+/** Who joins now and who comes later, as shown during the first launch. */
+export function onboardingTeam(look?: FirstLook): { now: RoleDef[]; later: RoleDef[] } {
+  const plan = staffingFrom(look);
+  return {
+    now: plan.filter((e) => e.at === "research").map((e) => role(e.role)),
+    later: plan.filter((e) => e.at === "creation").map((e) => role(e.role)),
+  };
 }

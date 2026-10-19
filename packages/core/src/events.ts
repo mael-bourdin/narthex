@@ -7,6 +7,7 @@ import type {
   Post,
   Settings,
   Stage,
+  StaffingEntry,
   Task,
   Timestamp,
 } from "./types.ts";
@@ -21,6 +22,7 @@ export type DomainEvent =
   | { type: "company.paused"; at: Timestamp }
   | { type: "company.resumed"; at: Timestamp }
   | { type: "stage.changed"; stage: Stage; at: Timestamp }
+  | { type: "staffing.planned"; staffing: StaffingEntry[] }
   | { type: "agent.hired"; agent: Agent; reason: string }
   | { type: "task.planned"; task: Task }
   | { type: "task.started"; taskId: Id; at: Timestamp }

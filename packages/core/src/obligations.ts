@@ -30,7 +30,7 @@ export const OBLIGATIONS: readonly ObligationRule[] = [
     title: "Vérifier que le nom est libre",
     why: "Marques INPI, registre national des entreprises et nom de domaine, avant de tout imprimer.",
     owner: "juridique",
-    opensAt: "research",
+    opensAt: "creation",
     dueInDays: 7,
   },
   {
@@ -38,7 +38,7 @@ export const OBLIGATIONS: readonly ObligationRule[] = [
     title: "Vérifier si l'activité est réglementée",
     why: "Diplôme, carte pro ou assurance obligatoire : tant que ce n'est pas vérifié, on ne crée rien.",
     owner: "juridique",
-    opensAt: "research",
+    opensAt: "creation",
     dueInDays: 7,
   },
   {
