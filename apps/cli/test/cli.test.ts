@@ -42,6 +42,13 @@ describe("narthex CLI", () => {
     expect(narthex("journal")).toContain("a fondé");
   });
 
+  it("shows the company, its pages, the AI spend and tables", () => {
+    expect(narthex("entreprise")).toContain("Où en est ta société");
+    expect(narthex("entreprise", "finances", "factures")).toContain("Finances · Factures");
+    expect(narthex("depense")).toContain("Dépense IA");
+    expect(narthex("tableaux")).toBeTruthy();
+  });
+
   it("explains itself", () => {
     expect(narthex("--aide")).toContain("narthex lancer");
   });

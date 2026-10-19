@@ -10,4 +10,5 @@ export * from "./onboarding.ts";
 export * from "./fil.ts";
 export * from "./missions.ts";
 export * from "./team.ts";
+export * from "./enterprise.ts";
 export * as fmt from "./format.ts";

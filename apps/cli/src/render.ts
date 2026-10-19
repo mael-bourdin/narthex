@@ -1,4 +1,9 @@
 import {
+  ENTERPRISE,
+  overview,
+  pageView,
+  spendBreakdown,
+  tablesOf,
   agentSheet,
   journalEntries,
   recruitments,
@@ -218,4 +223,48 @@ export function agentView(s: CompanyState, agentId: string, now: number): string
     ...(sheet.finished.length ? sheet.finished.map((f) => `  ✓ ${clean(f.task.title)}${f.deliverableId ? dim(` · narthex livrable ${f.deliverableId}`) : ""}`) : [dim("  Pas encore.")]),
   ];
   return out.join("\n");
+}
+
+/** Entreprise: the overview, or one page of a section, from the team's real work. */
+export function entreprise(s: CompanyState, now: number, section?: string, page?: string): string {
+  if (!section || section === "vue") {
+    const o = overview(s, now);
+    const icon = { done: green("✓"), you: violet("!"), team: "•", later: dim("○") } as const;
+    return [
+      `${bold(clean(o.title))} ${dim(`· ${o.stage}`)}`,
+      dim(clean(o.subtitle)),
+      "",
+      bold("Où en est ta société"),
+      ...o.milestones.map((m) => `  ${icon[m.state]} ${m.state === "later" ? dim(m.title) : m.title} ${dim(`· ${m.who}${m.at ? ` · ${fmt.day(m.at)}` : ""}`)}`),
+      "",
+      dim("Sections : finances, ventes, marketing, juridique (narthex entreprise <section> [page])"),
+    ].join("\n");
+  }
+  const spec = ENTERPRISE.find((x) => x.section.toLowerCase().startsWith(section.toLowerCase()));
+  if (!spec || spec.pages.length === 0) throw new Error(`Section inconnue : ${section}. Choix : finances, ventes, marketing, juridique.`);
+  const p = page ? spec.pages.find((x) => x.page.toLowerCase().startsWith(page.toLowerCase())) : spec.pages[0];
+  if (!p) throw new Error(`Page inconnue : ${page}. Choix : ${spec.pages.map((x) => x.page).join(", ")}.`);
+  const v = pageView(s, spec.section, p.page, now);
+  const out = [bold(`${spec.section} · ${p.page}`), dim(`Pages : ${spec.pages.map((x) => x.page).join(", ")}`), ""];
+  for (const t of v.tasks) out.push(`  ○ ${clean(t.title)} ${dim(`· ${s.agents[t.agentId]?.name ?? ""}`)}`);
+  for (const d of v.deliverables) out.push(`  ${violet("↳")} ${clean(d.title)} ${dim(`· ${clean(d.summary)} · narthex livrable ${d.id}`)}`);
+  if (v.empty) out.push(dim(`  ${v.empty}`));
+  return out.join("\n");
+}
+
+export function depense(s: CompanyState, events: StoredEvent[]): string {
+  const b = spendBreakdown(s, events);
+  return [
+    `${bold("Dépense IA")} ${dim(`· ${fmt.dollars(b.total)} au total · plafond ${fmt.dollars(s.settings.dailyBudgetCredits)} par jour`)}`,
+    ...b.byAgent.map((a) => `  ${a.name.padEnd(10)} ${fmt.dollars(a.credits)}`),
+    ...(b.byDay.length ? ["", dim("Par jour :"), ...b.byDay.filter((d) => d.credits > 0).map((d) => `  ${fmt.day(d.day).padEnd(14)} ${fmt.dollars(d.credits)}`)] : []),
+  ].join("\n");
+}
+
+export function tableaux(s: CompanyState): string {
+  const t = tablesOf(s);
+  if (t.length === 0) return dim("Pas encore de tableau.");
+  return t
+    .map((x) => [bold(clean(x.deliverable.title)), dim(x.header.map(clean).join(" | ")), ...x.rows.map((r) => r.map(clean).join(" | "))].join("\n"))
+    .join("\n\n");
 }

@@ -77,7 +77,7 @@ function taskMission(state: CompanyState, t: Task, now: number): Mission {
  * The colored sign: always the most important thing right now (the key, a legal duty, an action
  * about to leave, the team's main mission). Acting on it opens a popup, never a field in the Fil.
  */
-function Sign({ signs, state, onAct }: { signs: Mission[]; state: CompanyState; onAct(m: Mission): void }) {
+export function Sign({ signs, state, onAct }: { signs: Mission[]; state: CompanyState; onAct(m: Mission): void }) {
   const [index, setIndex] = useState(0);
   const i = Math.min(index, signs.length - 1);
   const m = signs[i]!;
