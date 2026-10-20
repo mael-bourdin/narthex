@@ -16,3 +16,5 @@ export * from "./links.ts";
 export * from "./lock.ts";
 export * from "./connectors/entreprises.ts";
 export * from "./host.ts";
+export * from "./connectors/discord.ts";
+export * from "./discord-bridge.ts";

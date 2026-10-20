@@ -34,6 +34,12 @@ const api = {
     /** Asks where to save it; resolves to the file path, or null if the founder cancelled. */
     save: (id: string): Promise<string | null> => ipcRenderer.invoke("narthex:deliverable:save", id),
   },
+  discord: {
+    get: (): Promise<{ connected: boolean; guildName: string | null; hasToken: boolean; ownsEngine: boolean }> => ipcRenderer.invoke("narthex:discord:get"),
+    check: (token: string): Promise<{ ok: true; bot: string; guilds: { id: string; name: string }[] } | { ok: false; message: string }> => ipcRenderer.invoke("narthex:discord:check", token),
+    save: (choice: { token: string; guildId: string; guildName: string }): Promise<void> => ipcRenderer.invoke("narthex:discord:save", choice),
+    off: (): Promise<void> => ipcRenderer.invoke("narthex:discord:off"),
+  },
   data: {
     export: (): Promise<string> => ipcRenderer.invoke("narthex:data:export"),
     restart: (): Promise<string | null> => ipcRenderer.invoke("narthex:data:restart"),

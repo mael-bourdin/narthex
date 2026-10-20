@@ -93,6 +93,21 @@ export interface ReflectionResult {
   usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
 }
 
+/** On the team chat: a colleague answers a piece of work in one or two sentences. */
+export interface RemarkInput {
+  speaker: { name: string; role: RoleId };
+  author: string;
+  /** What the author shared (their post and the deliverable's summary). */
+  text: string;
+  company: string;
+  signal: AbortSignal;
+}
+
+export interface RemarkResult {
+  text: string;
+  usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
+}
+
 /** Something that can make an agent work: Claude, the offline simulation, or a test double. */
 export interface AgentRuntime {
   readonly name: Exclude<RuntimeName, "none">;
@@ -105,4 +120,6 @@ export interface AgentRuntime {
   consolidateFacts?(input: ConsolidationInput): Promise<ConsolidationResult>;
   /** L4: lessons for the role's playbook, with a small model. Absent in simulation. */
   reflect?(input: ReflectionInput): Promise<ReflectionResult>;
+  /** Team chat: a short answer from a colleague, with a small model. Absent in simulation. */
+  remark?(input: RemarkInput): Promise<RemarkResult>;
 }
