@@ -17,6 +17,7 @@ function company(checkLink?: LinkCheck) {
     firstLook: async () => { throw new Error("no"); },
     run: async () => ({
       post: "Fait.",
+      consulted: ["https://www.inpi.fr/a", "https://example.org/404"],
       deliverable: { title: "Nom", summary: "", body: "", sources: [{ title: "INPI", url: "https://www.inpi.fr/a" }, { title: "Mort", url: "https://example.org/404" }, { title: "Sans lien" }] },
     }),
   };

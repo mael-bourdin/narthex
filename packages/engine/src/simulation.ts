@@ -99,7 +99,7 @@ const SCRIPTS: Record<string, Script> = {
     ],
   },
   outreach: {
-    post: "Les messages sont partis. Je lis les réponses au fil de l'eau et je cale les rendez-vous.",
+    post: "Les messages sont prêts (exemple, mode simulation). Rien n'est parti : c'est à toi de les envoyer.",
     summary: "Messages envoyés, suivi des réponses.",
     body: () => "# Envoi\n\nMessages personnalisés envoyés. Relance prévue dans 4 jours.\n",
   },

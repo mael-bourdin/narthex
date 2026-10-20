@@ -51,6 +51,8 @@ export function isPublicAddress(address: string): boolean {
 
 async function isPublicUrl(url: URL, lookup: LinkCheckDeps["lookup"]): Promise<boolean> {
   if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  // Web pages live on the standard ports; anything else is a service, not a source.
+  if (url.port !== "") return false;
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host)) return isPublicAddress(host);
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".lan") || host.endsWith(".internal")) return false;

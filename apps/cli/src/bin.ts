@@ -45,6 +45,7 @@ ${bold("Regarder")}
 ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
   narthex valider <id> [--forme SASU]   Dire que tu as fait une obligation
   narthex annuler <id>                  Annuler une action prévue
+  narthex vente [montant] [--note "…"] Enregistrer une vente (la première ouvre l'étape « en activité »)
   narthex reessayer <id>                Relancer une obligation bloquée après plusieurs échecs
   narthex pause | reprendre             Mettre l'équipe en pause
   narthex recommencer [--oui]           Archiver l'entreprise et revoir le premier lancement
@@ -84,6 +85,7 @@ const { values: opts, positionals } = parseArgs({
     forme: { type: "string" },
     nombre: { type: "string", short: "n" },
     oui: { type: "boolean" },
+    note: { type: "string" },
   },
 });
 
@@ -179,6 +181,13 @@ async function main(): Promise<void> {
         const o = byPrefix(Object.values(state.obligations), args[0], "obligation");
         const next = await client.call("obligation.fulfill", { obligationId: o.id, ...(opts.forme ? { legalForm: legalForm(opts.forme) } : {}) });
         print(`${bold("C'est noté.")} ${o.title}.`);
+        return afterAction(next, status.passive);
+      }
+      case "vente": {
+        const amountCents = args[0] ? fmt.parseDollars(args[0]) : undefined;
+        if (amountCents !== undefined && !(amountCents >= 0)) throw new Error("Montant illisible : narthex vente 39,90");
+        const next = await client.call("sale.record", { ...(amountCents !== undefined ? { amountCents } : {}), ...(opts.note ? { note: opts.note } : {}) });
+        print(`${bold("Vente enregistrée.")}${amountCents !== undefined ? ` ${(amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}` : ""}`);
         return afterAction(next, status.passive);
       }
       case "reessayer": {

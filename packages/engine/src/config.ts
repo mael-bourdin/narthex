@@ -41,8 +41,9 @@ export function saveConfig(dir: string, config: Config): void {
   } catch {}
 }
 
+/** The key the player saved for Narthex wins: an exported work key must never be billed instead. */
 export function apiKey(config: Config, env: NodeJS.ProcessEnv = process.env): string | undefined {
-  return env.ANTHROPIC_API_KEY || config.anthropicApiKey || undefined;
+  return config.anthropicApiKey || env.ANTHROPIC_API_KEY || undefined;
 }
 
 /**

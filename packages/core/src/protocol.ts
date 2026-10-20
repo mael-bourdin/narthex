@@ -10,6 +10,7 @@ export interface Methods {
   "engine.status": { params: Record<string, never>; result: EngineStatus };
   "company.found": { params: FoundParams; result: CompanyState };
   "company.pause": { params: Record<string, never>; result: CompanyState };
+  "sale.record": { params: { amountCents?: number; note?: string }; result: CompanyState };
   "company.update": { params: { name?: string; city?: string; founderName?: string }; result: CompanyState };
   "company.resume": { params: Record<string, never>; result: CompanyState };
   "state.get": { params: Record<string, never>; result: CompanyState | null };
@@ -24,6 +25,25 @@ export interface Methods {
 }
 
 export type Method = keyof Methods;
+
+/** Every method, at runtime: the server refuses anything else. The record type keeps it complete. */
+const METHOD_LIST: Record<Method, true> = {
+  "engine.status": true,
+  "company.found": true,
+  "company.pause": true,
+  "sale.record": true,
+  "company.update": true,
+  "company.resume": true,
+  "state.get": true,
+  "events.read": true,
+  "task.cancel": true,
+  "obligation.retry": true,
+  "obligation.fulfill": true,
+  "settings.update": true,
+  "clock.advance": true,
+  "onboarding.firstLook": true,
+};
+export const METHODS: ReadonlySet<string> = new Set(Object.keys(METHOD_LIST));
 export type Params<M extends Method> = Methods[M]["params"];
 export type Result<M extends Method> = Methods[M]["result"];
 

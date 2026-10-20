@@ -26,6 +26,9 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
   const [perTask, setPerTask] = useState(asDollars(state.settings.taskBudgetCredits));
   const dailyCents = fmt.parseDollars(daily);
   const taskCents = fmt.parseDollars(perTask);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const amountCents = amount.trim() ? fmt.parseDollars(amount) : undefined;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const speaker = mission.speakerId ? state.agents[mission.speakerId] : undefined;
@@ -95,6 +98,20 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
           </div>
         )}
 
+        {mission.action === "sale" && (
+          <div className="modal-body budget">
+            <label>
+              <span>Montant</span>
+              <input autoFocus inputMode="decimal" value={amount} placeholder="39,00" onChange={(e) => setAmount(e.target.value)} aria-label="Montant de la vente, en euros" />
+              <span className="muted small">€</span>
+            </label>
+            <label>
+              <span>Note</span>
+              <input value={note} maxLength={200} placeholder="Marché de Noël, première cliente…" onChange={(e) => setNote(e.target.value)} aria-label="Note sur la vente" />
+            </label>
+          </div>
+        )}
+
         {mission.action === "form" && (
           <div className="modal-body forms">
             {FORMS.map((f) => (
@@ -153,6 +170,11 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
               C'est fait
             </button>
           )}
+          {mission.action === "sale" && (
+            <button className="btn btn-primary" disabled={busy || (amountCents !== undefined && !(amountCents >= 0))} onClick={() => run(() => recordSale(amountCents, note))}>
+              Enregistrer
+            </button>
+          )}
           {mission.action === "retry" && (
             <button className="btn btn-primary" disabled={busy} onClick={() => run(() => retry(mission.obligationId!))}>
               Réessayer
@@ -181,6 +203,10 @@ async function fulfill(obligationId: string, legalForm?: LegalForm): Promise<voi
 
 async function setBudget(dailyBudgetCredits: number, taskBudgetCredits: number): Promise<void> {
   await window.narthex.call("settings.update", { patch: { dailyBudgetCredits, taskBudgetCredits } });
+}
+
+async function recordSale(amountCents: number | undefined, note: string): Promise<void> {
+  await window.narthex.call("sale.record", { ...(amountCents !== undefined ? { amountCents } : {}), ...(note.trim() ? { note } : {}) });
 }
 
 async function retry(obligationId: string): Promise<void> {

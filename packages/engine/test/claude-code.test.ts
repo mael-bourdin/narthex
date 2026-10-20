@@ -77,6 +77,9 @@ describe("ClaudeCodeRuntime (dev only: the developer's own Claude Code)", () => 
     const ctx = { ...context({ plans: [], recruits: [], spent: [] }), progress: (n: string) => void notes.push(n) };
     await new ClaudeCodeRuntime({ call }).run(ctx);
     expect(notes.slice(0, 2)).toEqual(["Je cherche : bougies Lille prix", "Je lis : insee.fr"]);
+    const { call: call2 } = fake(RESULT, "claude.ai", [tool("WebFetch", { url: "https://www.insee.fr/fr/stat" }), { type: "user", message: { content: [{ type: "tool_result", content: "Links: [{\"url\":\"https://www.cma-hautsdefrance.fr/x\"}]" }] } }]);
+    const out = await new ClaudeCodeRuntime({ call: call2 }).run(context({ plans: [], recruits: [], spent: [] }));
+    expect(out.consulted).toEqual(["https://www.insee.fr/fr/stat", "https://www.cma-hautsdefrance.fr/x"]);
   });
 
   it("stops a task that runs too long", async () => {

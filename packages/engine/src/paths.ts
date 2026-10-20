@@ -23,16 +23,17 @@ export function dataDir(env: NodeJS.ProcessEnv = process.env): string {
 
 /** Local socket the engine listens on: a named pipe on Windows, a Unix socket elsewhere. */
 export function socketPath(dir: string = dataDir()): string {
-  if (platform() === "win32") {
-    // Named pipes are global: scope by user and data dir so two installs never collide.
-    const scope = Buffer.from(`${userInfo().username}:${dir}`).toString("base64url").slice(0, 24);
-    return `\\\\.\\pipe\\narthex-${scope}`;
-  }
+  if (platform() === "win32") return pipeName(userInfo().username, dir);
   const inside = join(dir, "narthex.sock");
   // Unix socket paths are limited (~104 bytes on macOS): a deep data folder gets a short, stable one in /tmp.
   if (Buffer.byteLength(inside) < 100) return inside;
   const id = createHash("sha256").update(dir).digest("hex").slice(0, 16);
   return join(privateRuntimeDir(), `${id}.sock`);
+}
+
+/** Named pipes are global: one per user and data folder, hashed so two folders never collide. */
+export function pipeName(user: string, dir: string): string {
+  return `\\\\.\\pipe\\narthex-${createHash("sha256").update(`${user}:${dir}`).digest("hex").slice(0, 24)}`;
 }
 
 /**

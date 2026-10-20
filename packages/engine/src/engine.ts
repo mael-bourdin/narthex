@@ -3,8 +3,11 @@ import {
   decide,
   emptyState,
   fmt,
+  declinedByFounder,
   MAX_ATTEMPTS,
-  overBudget,
+  METHODS,
+  overBudget as dayOverBudget,
+  spentOn,
   recallFacts,
   guardTask,
   replay,
@@ -47,6 +50,8 @@ export interface EngineOptions {
    * Used by one-shot CLI commands when no `narthex lancer` is running.
    */
   passive?: boolean;
+  /** Called once the engine is closed (releases the data folder lock). */
+  onClose?: () => void;
   /** Checks that a cited link answers. Off in simulation and tests; `openEngine` gives the real one. */
   checkLink?: LinkCheck;
 }
@@ -69,6 +74,8 @@ export class Engine {
   private readonly passive: boolean;
   private readonly listeners = new Set<Listener>();
   private readonly checkLink: LinkCheck | undefined;
+  private stopping = false;
+  private readonly onClose: (() => void) | undefined;
   /** Link checks in flight, so `idle` and `close` wait for them. */
   private readonly checks = new Set<Promise<void>>();
   private readonly work = new Map<string, { controller: AbortController; done: Promise<void> }>();
@@ -78,6 +85,7 @@ export class Engine {
 
   constructor(options: EngineOptions) {
     this.checkLink = options.checkLink;
+    this.onClose = options.onClose;
     this.store = options.store;
     this.runtime = options.runtime;
     this.clock = options.clock ?? systemClock;
@@ -87,13 +95,14 @@ export class Engine {
     if (this.companyId) this.state = replay(this.store.read(this.companyId));
     // Work interrupted by a crash or a quit is recorded as such, never silently lost.
     if (!this.passive) for (const task of Object.values(this.state.tasks)) {
-      if (task.status === "running") this.emit({ type: "task.failed", taskId: task.id, at: this.now(), error: "Interrompue (Narthex a été fermé)." });
+      if (task.status === "running") this.emit({ type: "task.failed", taskId: task.id, at: this.now(), error: "Interrompue (Narthex a été fermé).", interrupted: true });
     }
   }
 
   // ---------- Lifecycle ----------
 
   start(): void {
+    this.stopping = false;
     if (this.timer) return;
     this.timer = setInterval(() => this.tick(), this.tickMs);
     this.timer.unref?.();
@@ -101,6 +110,8 @@ export class Engine {
   }
 
   async stop(): Promise<void> {
+    // Agents finish what they started; nothing new starts, even from a task that ends meanwhile.
+    this.stopping = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
     await this.idle();
@@ -116,6 +127,7 @@ export class Engine {
   async close(): Promise<void> {
     await this.stop();
     this.store.close();
+    this.onClose?.();
   }
 
   /** Aborts every agent at work; their tasks are recorded as interrupted on next start. */
@@ -148,6 +160,7 @@ export class Engine {
   }
 
   private async dispatch(method: Method, params: unknown): Promise<unknown> {
+    if (typeof method !== "string" || !METHODS.has(method)) throw new Error(`Méthode inconnue : ${String(method).slice(0, 60)}`);
     switch (method) {
       case "engine.status":
         return this.status();
@@ -161,6 +174,15 @@ export class Engine {
         return this.found(params as Params<"company.found">);
       case "onboarding.firstLook":
         return this.firstLook(params as Params<"onboarding.firstLook">);
+      case "sale.record": {
+        this.requireCompany();
+        const p = params as Params<"sale.record">;
+        if (p.amountCents !== undefined && !(Number.isInteger(p.amountCents) && p.amountCents >= 0 && p.amountCents < 1e11)) throw new Error("Le montant n'est pas valide.");
+        const note = p.note?.trim().slice(0, 200);
+        this.emit({ type: "sale.recorded", sale: { id: newId("sa"), at: this.now(), ...(p.amountCents !== undefined ? { amountCents: p.amountCents } : {}), ...(note ? { note } : {}) } });
+        this.tick();
+        return this.state;
+      }
       case "company.update": {
         this.requireCompany();
         const p = params as Params<"company.update">;
@@ -190,7 +212,7 @@ export class Engine {
       case "obligation.retry": {
         const o = this.state.obligations[(params as Params<"obligation.retry">).obligationId];
         if (!o) throw new Error("Obligation inconnue.");
-        if (!o.stuck || o.status === "done") throw new Error("Cette obligation n'est pas bloquée.");
+        if (o.status === "done" || (!o.stuck && !declinedByFounder(this.state, o))) throw new Error("Cette obligation n'est pas bloquée.");
         this.emit({ type: "obligation.retried", obligationId: o.id, at: this.now() });
         this.tick();
         return this.state;
@@ -202,6 +224,8 @@ export class Engine {
       case "clock.advance": {
         if (!(this.clock instanceof SimulatedClock)) throw new Error("L'horloge ne s'avance qu'en mode simulation.");
         this.clock.advance((params as Params<"clock.advance">).hours * 3_600_000);
+        // Written down, so the next start resumes from the advanced time even if nothing else happens.
+        if (this.companyId) this.emit({ type: "clock.advanced", hours: (params as Params<"clock.advance">).hours, at: this.now() });
         this.tick();
         return this.status();
       }
@@ -244,6 +268,8 @@ export class Engine {
   }
 
   private async firstLook(p: Params<"onboarding.firstLook">): Promise<FirstLook> {
+    // Paid, and outside any budget (no company yet): only during the first launch.
+    if (this.state.company) throw new Error("Le premier coup d'œil n'a lieu qu'au premier lancement.");
     const fallback: FirstLook = { reaction: SEUIL.noLook, findings: [], simulated: this.runtime?.name === "simulation" };
     if (!this.runtime) return fallback;
     const controller = new AbortController();
@@ -278,7 +304,7 @@ export class Engine {
       createdAt: now,
     };
     this.emit({ type: "task.completed", taskId, at: now, deliverable });
-    if (look.usage) this.emit({ type: "usage.recorded", agentId: margaux.id, taskId, ...look.usage });
+    if (look.usage) this.emit({ type: "usage.recorded", agentId: margaux.id, taskId, ...look.usage, at: now });
     this.post(margaux.id, "deliverable", look.reaction, { taskId, deliverableId: deliverable.id });
   }
 
@@ -312,7 +338,7 @@ export class Engine {
 
   /** Applies policy decisions until there is nothing left to decide. Synchronous by design. */
   tick(): void {
-    if (!this.passive) {
+    if (!this.passive && !this.stopping) {
       const tried = new Set<string>();
       for (let round = 0; round < 50; round++) {
         const fresh = decide(this.state, this.now()).filter((i) => !tried.has(key(i)));
@@ -434,7 +460,8 @@ export class Engine {
     const task = this.state.tasks[taskId]!;
     const runtime = this.runtime;
     let spent = 0;
-    let overBudget = false;
+    // Set from the spend callback: declared wide so later checks are not narrowed to `false`.
+    let overBudget = false as false | "task" | "day";
     try {
       if (!runtime) throw new Error("Personne ne peut travailler sans clé.");
       const result = await runtime.run({
@@ -452,11 +479,13 @@ export class Engine {
           if (usage.credits <= 0 && usage.inputTokens <= 0) return;
           spent += usage.credits;
           this.emit({ type: "usage.recorded", agentId: agent.id, taskId, ...usage, at: this.now() });
-          if (spent > this.state.settings.taskBudgetCredits && !overBudget) {
-            overBudget = true;
-            controller.abort();
-          }
+          if (overBudget) return;
+          // The day's budget stops work in progress too, not only new starts.
+          overBudget = spent > this.state.settings.taskBudgetCredits ? "task" : dayOverBudget(this.state, this.now()) ? "day" : false;
+          if (overBudget) controller.abort();
         },
+        remainingCredits: () =>
+          Math.min(this.state.settings.taskBudgetCredits - spent, this.state.settings.dailyBudgetCredits - spentOn(this.state, this.now())),
       });
       if (overBudget) throw new Error("budget");
       if (controller.signal.aborted || this.state.tasks[taskId]?.status !== "running") return;
@@ -467,11 +496,16 @@ export class Engine {
         : undefined;
       this.emit({ type: "task.completed", taskId, at: this.now(), ...(deliverable ? { deliverable } : {}) });
       if (deliverable) {
-        this.checkSources(deliverable.id);
+        this.checkSources(deliverable.id, result.consulted ?? []);
         this.extractFacts(deliverable.id);
       }
       this.post(agent.id, deliverable ? "deliverable" : "update", result.post, { taskId, ...(deliverable ? { deliverableId: deliverable.id } : {}) });
     } catch (e) {
+      if (overBudget === "day" && this.state.tasks[taskId]?.status === "running") {
+        this.emit({ type: "task.failed", taskId, at: this.now(), error: "Budget du jour atteint.", interrupted: true });
+        this.post(agent.id, "update", `Je m'arrête sur « ${task.title} » : le budget du jour est atteint. Je reprendrai quand il le permettra.`, { taskId });
+        return;
+      }
       if (overBudget && this.state.tasks[taskId]?.status === "running") {
         const limit = this.state.settings.taskBudgetCredits;
         this.emit({ type: "task.failed", taskId, at: this.now(), error: `Budget de la tâche atteint (${fmt.dollars(spent)} sur ${fmt.dollars(limit)}).` });
@@ -492,7 +526,7 @@ export class Engine {
   private extractFacts(deliverableId: string): void {
     const runtime = this.runtime;
     const d = this.state.deliverables[deliverableId];
-    if (!runtime?.extractFacts || !d || overBudget(this.state, this.now())) return;
+    if (!runtime?.extractFacts || !d || dayOverBudget(this.state, this.now())) return;
     const known = recallFacts(this.state, `${d.title} ${d.summary} ${d.body.slice(0, 2000)}`, { role: "cofondateur", now: this.now(), k: 40 });
     const run = (async () => {
       try {
@@ -523,9 +557,11 @@ export class Engine {
   }
 
   /** After delivery, Narthex itself checks that every cited link answers (no model, no cost). */
-  private checkSources(deliverableId: string): void {
+  private checkSources(deliverableId: string, consulted: readonly string[]): void {
     const check = this.checkLink;
-    const urls = [...new Set((this.state.deliverables[deliverableId]?.sources ?? []).flatMap((s) => (s.url ? [s.url] : [])))];
+    // Only pages the agent really read: a cited URL from injected text is never called from the player's machine.
+    const read = new Set(consulted.map(normalUrl));
+    const urls = [...new Set((this.state.deliverables[deliverableId]?.sources ?? []).flatMap((s) => (s.url && read.has(normalUrl(s.url)) ? [s.url] : [])))].slice(0, 40);
     if (!check || urls.length === 0) return;
     const run = (async () => {
       const results = await Promise.all(
@@ -609,4 +645,14 @@ function key(intent: Intent): string {
 
 function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+function normalUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    return u.href;
+  } catch {
+    return url;
+  }
 }

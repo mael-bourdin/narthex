@@ -22,9 +22,10 @@ export function emptyState(): CompanyState {
  * so a log written by a newer version still replays.
  */
 export function apply(state: CompanyState, event: DomainEvent | StoredEvent): CompanyState {
-  const next = reduce(state, event);
-  if ("seq" in event) next.lastSeq = event.seq;
-  return next;
+  // A newer version's event this one does not know is skipped, never thrown on.
+  const reduced = reduce(state, event) ?? state;
+  if (!("seq" in event)) return reduced;
+  return { ...reduced, lastSeq: event.seq };
 }
 
 export function replay(events: Iterable<DomainEvent | StoredEvent>, from: CompanyState = emptyState()): CompanyState {
@@ -97,15 +98,13 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       }
       return scoreAgent(setAgentWork(next, event.taskId, false), event.taskId, true);
     }
-    case "task.failed":
-      return scoreAgent(
-        setAgentWork(patchTask(state, event.taskId, { status: "failed", endedAt: event.at, error: event.error }), event.taskId, false),
-        event.taskId,
-        false,
-      );
+    case "task.failed": {
+      const next = setAgentWork(patchTask(state, event.taskId, { status: "failed", endedAt: event.at, error: event.error, ...(event.interrupted ? { interrupted: true } : {}) }), event.taskId, false);
+      return event.interrupted ? next : scoreAgent(next, event.taskId, false);
+    }
     case "task.cancelled": {
       const wasRunning = state.tasks[event.taskId]?.status === "running";
-      const next = patchTask(state, event.taskId, { status: "cancelled", endedAt: event.at });
+      const next = patchTask(state, event.taskId, { status: "cancelled", endedAt: event.at, cancelledBy: event.by });
       return wasRunning ? setAgentWork(next, event.taskId, false) : next;
     }
     case "post.published":
@@ -117,6 +116,8 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       if (!o) return state;
       return { ...state, obligations: { ...state.obligations, [o.id]: { ...o, status: "done", doneAt: event.at } } };
     }
+    case "sale.recorded":
+      return { ...state, sales: [...(state.sales ?? []), event.sale] };
     case "facts.extracted": {
       const facts = { ...state.facts };
       for (const id of event.invalidated) if (facts[id] && !facts[id]!.invalidAt) facts[id] = { ...facts[id]!, invalidAt: event.at };
@@ -159,5 +160,7 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
               : { ...state.usage.byDay, [dayKey(event.at)]: (state.usage.byDay?.[dayKey(event.at)] ?? 0) + event.credits },
         },
       };
+    default:
+      return state;
   }
 }

@@ -39,7 +39,6 @@ export class MemoryEventStore implements EventStore {
 
 export class SqliteEventStore implements EventStore {
   private readonly db: DatabaseSync;
-  private readonly seqs = new Map<Id, number>();
 
   constructor(file: string) {
     mkdirSync(dirname(file), { recursive: true });
@@ -49,6 +48,7 @@ export class SqliteEventStore implements EventStore {
     this.db.exec(`
       PRAGMA journal_mode = WAL;
       PRAGMA synchronous = NORMAL;
+      PRAGMA busy_timeout = 5000;
       CREATE TABLE IF NOT EXISTS events (
         company_id TEXT NOT NULL,
         seq        INTEGER NOT NULL,
@@ -61,23 +61,19 @@ export class SqliteEventStore implements EventStore {
     `);
   }
 
-  private nextSeq(companyId: Id): number {
-    let seq = this.seqs.get(companyId);
-    if (seq === undefined) {
-      const row = this.db.prepare("SELECT MAX(seq) AS s FROM events WHERE company_id = ?").get(companyId) as { s: number | null };
-      seq = row.s ?? 0;
-    }
-    seq += 1;
-    this.seqs.set(companyId, seq);
-    return seq;
-  }
-
+  /** The next number is read from the file in the same write transaction: another process may have written. */
   append(companyId: Id, event: DomainEvent, ts: number): StoredEvent {
-    const seq = this.nextSeq(companyId);
-    this.db
-      .prepare("INSERT INTO events (company_id, seq, ts, type, payload) VALUES (?, ?, ?, ?, ?)")
-      .run(companyId, seq, ts, event.type, JSON.stringify(event));
-    return { ...event, companyId, seq, ts } as StoredEvent;
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const row = this.db.prepare("SELECT MAX(seq) AS s FROM events WHERE company_id = ?").get(companyId) as { s: number | null };
+      const seq = (row.s ?? 0) + 1;
+      this.db.prepare("INSERT INTO events (company_id, seq, ts, type, payload) VALUES (?, ?, ?, ?, ?)").run(companyId, seq, ts, event.type, JSON.stringify(event));
+      this.db.exec("COMMIT");
+      return { ...event, companyId, seq, ts } as StoredEvent;
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
+    }
   }
 
   read(companyId: Id, afterSeq = 0, limit = -1): StoredEvent[] {

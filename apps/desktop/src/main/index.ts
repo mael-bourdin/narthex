@@ -38,7 +38,16 @@ const dir = dataDir();
 async function connect(): Promise<Client> {
   const existing = await SocketClient.connect(socketPath(dir));
   if (existing) return existing;
-  engine = openEngine({ dir }).engine;
+  try {
+    engine = openEngine({ dir }).engine;
+  } catch (e) {
+    // Another Narthex owns the data (« narthex lancer » busy starting): wait for its socket instead.
+    for (let i = 0; i < 5; i++) {
+      const late = await SocketClient.connect(socketPath(dir), 2_000);
+      if (late) return late;
+    }
+    throw e;
+  }
   const server = await serve(engine, socketPath(dir));
   closeServer = () => server.close();
   engine.start();

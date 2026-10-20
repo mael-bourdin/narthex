@@ -25,6 +25,11 @@ const PRICES: Record<string, { input: number; output: number; cacheRead: number 
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
 
+/** A model we do not know the price of is counted dear: overestimating stops early, underestimating overspends. */
+const UNKNOWN_PRICE = { input: 15, output: 75, cacheRead: 1.5 };
+/** Anthropic charges $10 per 1,000 web searches: one cent each. */
+const WEB_SEARCH_CREDITS = 1;
+
 /**
  * Real agents, on the Messages API with the player's own key.
  * Each role gets a stable, cached prefix (tools → identity and rules → company sheet),
@@ -40,7 +45,8 @@ export class AnthropicRuntime implements AgentRuntime {
   private readonly maxTurns: number;
 
   constructor(options: AnthropicRuntimeOptions = {}) {
-    this.client = options.client ?? new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {});
+    // The player's key goes to Anthropic only: no gateway or extra token picked up from the environment.
+    this.client = options.client ?? new Anthropic({ ...(options.apiKey ? { apiKey: options.apiKey } : {}), baseURL: "https://api.anthropic.com", authToken: null });
     this.model = options.model ?? DEFAULT_MODEL;
     this.chosen = options.model;
     this.models = options.models ?? {};
@@ -66,7 +72,7 @@ export class AnthropicRuntime implements AgentRuntime {
     if (response.stop_reason === "refusal") throw new Error("Claude a refusé.");
     if (response.stop_reason === "max_tokens" || response.stop_reason === "pause_turn") throw new Error("Réponse incomplète.");
     const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
-    addUsage(usage, response.usage, this.model);
+    addUsage(usage, response.usage, response.model || this.model);
     return { ...parseFirstLook(response.content), simulated: false, usage };
   }
 
@@ -99,13 +105,14 @@ export class AnthropicRuntime implements AgentRuntime {
     const messages: MessageParam[] = [{ role: "user", content: brief(ctx) }];
     let deliverable: WorkResult["deliverable"];
     let memory: string | undefined;
+    const consulted = new Set<string>();
 
     for (let turn = 0; turn < this.maxTurns; turn++) {
       if (ctx.signal.aborted) throw new Error("Annulée");
       const stream = this.client.beta.messages.stream(
         {
           model,
-          max_tokens: 64000,
+          max_tokens: maxTokensFor(model, ctx.remainingCredits?.()),
           betas: ["server-side-fallback-2026-07-01"],
           fallbacks: "default",
           output_config: { effort: def.effort },
@@ -121,12 +128,13 @@ export class AnthropicRuntime implements AgentRuntime {
       const response = await stream.finalMessage();
       // Counted at once by the engine, which stops the task past its budget.
       const turn = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
-      addUsage(turn, response.usage, model);
+      addUsage(turn, response.usage, response.model || model);
       ctx.spend(turn);
       if (ctx.signal.aborted) throw new Error("Budget atteint.");
 
       if (response.stop_reason === "refusal") throw new Error("Claude a refusé cette tâche.");
       if (response.stop_reason === "max_tokens") throw new Error("Réponse trop longue, interrompue.");
+      for (const url of consultedUrls(response.content)) consulted.add(url);
       messages.push({ role: "assistant", content: response.content });
       if (response.stop_reason === "pause_turn") continue;
 
@@ -136,7 +144,7 @@ export class AnthropicRuntime implements AgentRuntime {
           .flatMap((b) => (b.type === "text" ? [b.text] : []))
           .join("\n")
           .trim();
-        return { post: post || `C'est fait : ${ctx.task.title}.`, deliverable, memory };
+        return { post: (post || `C'est fait : ${ctx.task.title}.`).slice(0, MAX_POST_CHARS), deliverable, memory, consulted: [...consulted] };
       }
 
       // All results go back in a single user message, so parallel tool use keeps working.
@@ -159,9 +167,13 @@ export class AnthropicRuntime implements AgentRuntime {
               const refused = ctx.recruit(requireString(input, "role") as RoleId, requireString(input, "why"));
               return refused ? error(call.id, refused) : ok(call.id, "Recruté : il ou elle commence tout de suite.");
             }
-            case "update_memory":
-              memory = requireString(input, "memory");
+            case "update_memory": {
+              // Read by every agent on every turn: a long or injected sheet would steer and cost forever.
+              const next = requireString(input, "memory");
+              if (next.length > MAX_MEMORY_CHARS) return error(call.id, `Trop longue (${next.length} caractères) : 300 mots, ${MAX_MEMORY_CHARS} caractères au plus.`);
+              memory = next;
               return ok(call.id, "Fiche de l'entreprise mise à jour.");
+            }
             default:
               return error(call.id, `Outil inconnu : ${call.name}`);
           }
@@ -175,6 +187,21 @@ export class AnthropicRuntime implements AgentRuntime {
   }
 }
 
+const MAX_MEMORY_CHARS = 2500;
+const MAX_POST_CHARS = 2000;
+const MAX_SOURCES = 40;
+
+/** Pages the agent really read: search results and fetched pages. Only these are ever checked by Narthex. */
+export function consultedUrls(content: readonly unknown[]): string[] {
+  const urls: string[] = [];
+  for (const block of content as { type?: string; content?: unknown }[]) {
+    if (block.type !== "web_search_tool_result" && block.type !== "web_fetch_tool_result") continue;
+    const items = Array.isArray(block.content) ? block.content : [block.content];
+    for (const item of items as { url?: unknown }[]) if (item && typeof item.url === "string") urls.push(item.url);
+  }
+  return urls;
+}
+
 function ok(id: string, content: string): ToolResult {
   return { type: "tool_result", tool_use_id: id, content };
 }
@@ -183,9 +210,18 @@ function error(id: string, content: string): ToolResult {
   return { type: "tool_result", tool_use_id: id, content, is_error: true };
 }
 
+/** A turn's output never costs more than what is left of the task's and the day's budget. */
+export function maxTokensFor(model: string, remainingCredits: number | undefined): number {
+  if (remainingCredits === undefined) return 64000;
+  const price = PRICES[model] ?? UNKNOWN_PRICE;
+  const affordable = Math.floor(((Math.max(0, remainingCredits) / 100) * 1_000_000) / price.output);
+  return Math.min(64000, Math.max(1024, affordable));
+}
+
 type UsageLike = {
   input_tokens: number;
   output_tokens: number;
+  server_tool_use?: { web_search_requests?: number | null } | null;
   cache_read_input_tokens?: number | null;
   cache_creation_input_tokens?: number | null;
   cache_creation?: { ephemeral_5m_input_tokens?: number | null; ephemeral_1h_input_tokens?: number | null } | null;
@@ -196,7 +232,7 @@ type UsageLike = {
  * fresh input, cache writes (×1.25 for 5 min, ×2 for 1 h), cache reads, output.
  */
 export function creditsFor(model: string, u: UsageLike): number {
-  const price = PRICES[model] ?? PRICES[DEFAULT_MODEL]!;
+  const price = PRICES[model] ?? UNKNOWN_PRICE;
   const write5m = u.cache_creation?.ephemeral_5m_input_tokens ?? (u.cache_creation ? 0 : (u.cache_creation_input_tokens ?? 0));
   const write1h = u.cache_creation?.ephemeral_1h_input_tokens ?? 0;
   const usd =
@@ -206,7 +242,7 @@ export function creditsFor(model: string, u: UsageLike): number {
       (u.cache_read_input_tokens ?? 0) * price.cacheRead +
       u.output_tokens * price.output) /
     1_000_000;
-  return Math.ceil(usd * 100 - 1e-9);
+  return Math.ceil(usd * 100 - 1e-9) + (u.server_tool_use?.web_search_requests ?? 0) * WEB_SEARCH_CREDITS;
 }
 
 function addUsage(total: NonNullable<WorkResult["usage"]>, u: Anthropic.Beta.BetaUsage, model: string): void {
@@ -293,7 +329,9 @@ export function brief(ctx: WorkContext): string {
     "",
     `Ta tâche : ${ctx.task.title}`,
     `Pourquoi : ${ctx.task.why}`,
-    ctx.task.kind === "external" ? "Le délai d'annulation est passé : tu peux agir." : "",
+    ctx.task.kind === "external"
+      ? "Le fondateur n'a pas annulé cette action. Mais tu n'as aucun outil pour agir dehors (envoyer, publier, payer, déposer) : prépare tout pour qu'il n'ait plus qu'à le faire, et dis que c'est prêt, jamais que c'est parti."
+      : "",
     "",
     recent.length ? `Derniers livrables de l'équipe :\n${recent.join("\n")}` : "",
     known.length ? `Ce que l'équipe sait déjà sur ce sujet (vérifie ce qui a pu changer, ne refais pas ce qui est acquis) :\n${known.join("\n")}` : "",
@@ -480,10 +518,20 @@ const MEMORY: Tool = {
 
 // ---------- Input validation (strict tools, but we never trust model output blindly) ----------
 
-function requireString(input: Record<string, unknown>, key: string): string {
+function requireString(input: Record<string, unknown>, key: string, max = 200_000): string {
   const v = input[key];
   if (typeof v !== "string" || !v.trim()) throw new Error(`Champ « ${key} » manquant.`);
-  return v;
+  return v.trim().slice(0, max);
+}
+
+function webUrl(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" || u.protocol === "http:" ? v : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function parseDeliverable(input: Record<string, unknown>): NonNullable<WorkResult["deliverable"]> {
@@ -491,12 +539,13 @@ export function parseDeliverable(input: Record<string, unknown>): NonNullable<Wo
     ? input.sources.flatMap((s) => {
         if (!s || typeof s !== "object") return [];
         const o = s as Record<string, unknown>;
-        return typeof o.title === "string"
-          ? [{ title: o.title, ...(typeof o.url === "string" ? { url: o.url } : {}), ...(typeof o.checkedAt === "string" ? { checkedAt: o.checkedAt } : {}) }]
-          : [];
+        const url = webUrl(o.url);
+        // A source that is not a web page (javascript:, file:) is dropped, not stored.
+        if (typeof o.title !== "string" || (o.url !== undefined && !url)) return [];
+        return [{ title: o.title.slice(0, 300), ...(url ? { url } : {}), ...(typeof o.checkedAt === "string" ? { checkedAt: o.checkedAt.slice(0, 20) } : {}) }];
       })
     : [];
-  return { title: requireString(input, "title"), summary: requireString(input, "summary"), body: requireString(input, "body"), sources };
+  return { title: requireString(input, "title", 200), summary: requireString(input, "summary", 500), body: requireString(input, "body"), sources: sources.slice(0, MAX_SOURCES) };
 }
 
 export function parseFollowUp(input: Record<string, unknown>): FollowUp {
@@ -505,5 +554,5 @@ export function parseFollowUp(input: Record<string, unknown>): FollowUp {
     ? (input.assignee as RoleId)
     : undefined;
   const inHours = typeof input.in_hours === "number" && input.in_hours >= 0 ? Math.min(input.in_hours, 24 * 30) : 0;
-  return { title: requireString(input, "title"), why: requireString(input, "why"), kind, inHours, ...(assignee ? { assignee } : {}) };
+  return { title: requireString(input, "title", 200), why: requireString(input, "why", 500), kind, inHours, ...(assignee ? { assignee } : {}) };
 }
