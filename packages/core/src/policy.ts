@@ -112,7 +112,7 @@ const STAGE_RULES: readonly { to: Stage; when: (s: CompanyState) => boolean; rea
   { to: "research", when: (s) => agentsWith(s, "cofondateur").length > 0, reason: "L'équipe étudie l'idée." },
   { to: "creation", when: (s) => tagDone(s, "market-study"), reason: "L'étude de marché est faite : on crée la société." },
   { to: "launch", when: (s) => obligationDone(s, "B4-immatriculation"), reason: "La société est immatriculée : on prépare le lancement." },
-  { to: "operating", when: (s) => tagDone(s, "first-sale"), reason: "Première vente : l'entreprise tourne." },
+  { to: "operating", when: (s) => (s.sales?.length ?? 0) > 0 || tagDone(s, "first-sale"), reason: "Première vente : l'entreprise tourne." },
 ];
 
 function obligationApplies(state: CompanyState, rule: ObligationRule): boolean {
@@ -173,6 +173,8 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
       continue;
     }
     const attempts = Object.values(state.tasks).filter((t) => t.tag === o.code);
+    // The founder cancelled the last try: the team waits until told to take it back up.
+    if (declinedByFounder(state, o)) continue;
     const covered = attempts.some((t) => t.status === "planned" || t.status === "running");
     // After the founder asks to try again, earlier failures no longer count.
     const failures = attempts.filter((t) => t.status === "failed" && (t.endedAt ?? 0) >= (o.retriedAt ?? 0)).sort((a, b) => (a.endedAt ?? 0) - (b.endedAt ?? 0));
@@ -217,6 +219,15 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
   return intents;
 }
 
+/** The latest try of this obligation was cancelled by the founder, after any « reprendre ». */
+export function declinedByFounder(state: CompanyState, o: Obligation): boolean {
+  const tries = Object.values(state.tasks)
+    .filter((t) => t.tag === o.code && (t.endedAt ?? t.createdAt) >= (o.retriedAt ?? 0))
+    .sort((a, b) => (a.endedAt ?? a.createdAt) - (b.endedAt ?? b.createdAt));
+  const last = tries.at(-1);
+  return last?.status === "cancelled" && last.cancelledBy === "founder";
+}
+
 /** Credits spent on the day of `at` (Paris time). */
 export function spentOn(state: CompanyState, at: Timestamp): number {
   return state.usage.byDay?.[dayKey(at)] ?? 0;
@@ -256,7 +267,8 @@ export function guardTask(state: CompanyState, draft: TaskDraft, now: Timestamp)
   if (queued >= MAX_PLANNED_PER_AGENT) return { ok: false, reason: `${agent.name} a déjà ${queued} tâches prévues.` };
 
   const sensitive = (draft.tag !== undefined && state.settings.alwaysAsk.includes(draft.tag)) || reservedTopic(state, draft.title, draft.why) !== undefined;
-  const kind: TaskKind = sensitive ? "external" : draft.kind;
+  // The agent's own label is not trusted: what reads like leaving the company waits for the cancel window.
+  const kind: TaskKind = sensitive || touchesOutside(draft.title) ? "external" : draft.kind;
   const scheduledAt = Math.max(draft.scheduledAt ?? now, now);
   const windowMs = state.settings.cancelWindowHours * HOUR * autonomyFactor(agent.autonomy);
   const task: Omit<Task, "id"> = {
@@ -278,11 +290,31 @@ export function guardTask(state: CompanyState, draft: TaskDraft, now: Timestamp)
 export const ALWAYS_ASK: readonly { tag: string; label: string; words: RegExp }[] = [
   // Actions, not mentions: studying prices is research, changing them is the founder's call.
   // Patterns are written without accents: text is normalised first (JS \b ignores accented letters).
-  { tag: "prix", label: "Changer les prix", words: /\b(changer|baisser|augmenter|modifier|fixer|appliquer|reduire)\b.{0,30}\b(prix|tarifs?)\b|\b(remise|code promo|promotion de)\b/ },
-  { tag: "publicite-payante", label: "Publicité payante", words: /\b(lancer|acheter|payer|financer|creer)\b.{0,30}\b(publicites?|annonces? sponsorisees?)\b|campagne (payante|sponsorisee)|\bsponsoriser\b/ },
+  {
+    tag: "prix",
+    label: "Changer les prix",
+    words:
+      /\b(changer|baisser|augmenter|relever|monter|modifier|fixer|appliquer|reduire|passer|ajuster|revoir)\b.{0,60}\b(prix|tarifs?|tarification)\b|\b(nouvelle|nouveaux?) (grille tarifaire|prix|tarifs?)\b|\bgrille tarifaire\b.{0,20}[+-]?\d|\b(remise|reduction|rabais|code promo|promotion de|soldes?)\b.{0,20}\d/,
+  },
+  {
+    tag: "publicite-payante",
+    label: "Publicité payante",
+    words:
+      /\b(lancer|acheter|payer|financer|creer)\b.{0,40}\b(publicites?|pubs?|annonces? sponsorisees?)\b|\b(lancer|booster|sponsoriser|financer)\b.{0,40}\b(campagnes?|posts?|publications?|ads)\b.{0,40}(€|euros?|par (jour|mois))|\b(google|meta|facebook|instagram|tiktok|linkedin) ads\b|campagne (payante|sponsorisee)|\bsponsoriser\b|\bbooster\b.{0,40}(€|euros?)/,
+  },
   { tag: "presse", label: "Parler à la presse", words: /\b(contacter|ecrire|repondre|envoyer)\b.{0,30}\b(presse|journalistes?)\b|communique de presse|\binterview\b/ },
   { tag: "contrat-client", label: "Signer un contrat client", words: /\bsigner\b.{0,30}\b(contrat|devis|bon de commande)\b|\benvoyer\b.{0,30}\b(contrat|devis)\b/ },
 ];
+
+/** Acting on the outside world (not preparing it): send, publish, order, pay, call, file, put online. */
+const OUTSIDE =
+  /^\s*(envoyer|expedier|publier|poster|diffuser|commander|acheter|payer|regler|virer|appeler|telephoner|relancer|contacter|ecrire a|deposer|souscrire|signer|resilier|mettre en ligne|lancer la campagne|repondre a)\b/;
+const PREPARING = /\b(brouillons?|preparer|rediger|projet de|ebauche)\b/;
+
+export function touchesOutside(title: string): boolean {
+  const text = plain(title);
+  return OUTSIDE.test(text) && !PREPARING.test(text);
+}
 
 /** Lowercase, accents removed, so « Écrire » and « ecrire » are the same word for the rules. */
 function plain(text: string): string {

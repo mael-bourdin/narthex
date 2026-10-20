@@ -77,9 +77,12 @@ export function staffingFrom(look?: FirstLook): StaffingEntry[] {
   const now = clean(look?.team, seen, 3);
   if (now.length === 0) return [...DEFAULT_STAFFING];
   const later = clean(look?.later, seen, 3);
+  // Creating the company waits for a market study: someone has to do it, whoever else Margaux picked.
+  const study = seen.has("recherche") ? [] : [{ role: "recherche" as const, at: "research" as const, why: "L'étude de marché ouvre la création de la société." }];
   return [
     DEFAULT_STAFFING[0]!,
     ...now.map((p) => ({ role: p.role, at: "research" as const, why: p.why })),
+    ...study,
     ...later.map((p) => ({ role: p.role, at: "creation" as const, why: p.why })),
     // Later stages keep the usual roles, unless Margaux already brought them.
     ...DEFAULT_STAFFING.filter((e) => (e.at === "launch" || e.at === "operating") && !seen.has(e.role)),

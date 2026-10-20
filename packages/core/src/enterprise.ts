@@ -1,3 +1,4 @@
+import { dayKey } from "./format.ts";
 import type { StoredEvent } from "./events.ts";
 import { OBLIGATIONS } from "./obligations.ts";
 import { staffingOf, stageIndex } from "./policy.ts";
@@ -202,23 +203,24 @@ export interface SpendBreakdown {
 /** The AI spend from the real usage log, by teammate and by day (14 last days). */
 export function spendBreakdown(state: CompanyState, events: readonly StoredEvent[], days = 14): SpendBreakdown {
   const byAgent = new Map<string, number>();
-  const byDay = new Map<number, number>();
+  // Paris days, like the daily budget, whatever the machine's time zone.
+  const byDay = new Map<string, number>();
   let total = 0;
   for (const e of events) {
     if (e.type !== "usage.recorded") continue;
     total += e.credits;
     byAgent.set(e.agentId, (byAgent.get(e.agentId) ?? 0) + e.credits);
-    const d = new Date(e.at ?? e.ts);
-    d.setHours(0, 0, 0, 0);
-    byDay.set(d.getTime(), (byDay.get(d.getTime()) ?? 0) + e.credits);
+    const key = dayKey(e.at ?? e.ts);
+    byDay.set(key, (byDay.get(key) ?? 0) + e.credits);
   }
-  const last = Math.max(...byDay.keys(), 0);
+  const last = [...byDay.keys()].sort().at(-1);
   const series: { day: Timestamp; credits: number }[] = [];
   if (last) {
+    const [y, m, d] = last.split("-").map(Number) as [number, number, number];
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(last);
-      d.setDate(d.getDate() - i);
-      series.push({ day: d.getTime(), credits: byDay.get(d.getTime()) ?? 0 });
+      // Noon UTC always falls on the same date in Paris.
+      const day = Date.UTC(y, m - 1, d - i, 12);
+      series.push({ day, credits: byDay.get(dayKey(day)) ?? 0 });
     }
   }
   return {

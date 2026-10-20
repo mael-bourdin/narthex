@@ -1,7 +1,7 @@
 import type { RuntimeName } from "./protocol.ts";
 import { dollars, relative } from "./format.ts";
 import { filView } from "./fil.ts";
-import { MAX_ATTEMPTS, overBudget, spentOn } from "./policy.ts";
+import { declinedByFounder, MAX_ATTEMPTS, overBudget, spentOn } from "./policy.ts";
 import { forFounder } from "./views.ts";
 import type { CompanyState, Timestamp } from "./types.ts";
 
@@ -72,14 +72,17 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
   }
 
   for (const o of Object.values(state.obligations)) {
-    if (o.status !== "open" || !o.stuck) continue;
+    const declined = o.status === "open" && o.owner !== "founder" && !o.stuck && declinedByFounder(state, o);
+    if (o.status !== "open" || (!o.stuck && !declined)) continue;
     const owner = o.owner === "founder" ? undefined : agents.find((a) => a.role === o.owner);
     out.push({
       id: `stuck-${o.id}`,
       kind: "stuck",
-      eyebrow: `Bloqué après ${MAX_ATTEMPTS} essais · il faut ton avis`,
+      eyebrow: o.stuck ? `Bloqué après ${MAX_ATTEMPTS} essais · il faut ton avis` : "Tu l'as annulée · reprends quand tu veux",
       title: o.title,
-      why: `Dernière erreur : ${o.stuck.error} L'équipe a arrêté d'essayer et attend que tu lui dises de reprendre.`,
+      why: o.stuck
+        ? `Dernière erreur : ${o.stuck.error} L'équipe a arrêté d'essayer et attend que tu lui dises de reprendre.`
+        : "L'équipe ne la refera pas sans toi. Elle reste une obligation : reprends-la quand c'est le bon moment.",
       ...(owner ? { speakerId: owner.id } : margaux ? { speakerId: margaux.id } : {}),
       action: "retry",
       label: "Voir",

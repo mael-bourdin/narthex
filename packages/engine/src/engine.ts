@@ -3,6 +3,7 @@ import {
   decide,
   emptyState,
   fmt,
+  declinedByFounder,
   MAX_ATTEMPTS,
   overBudget,
   recallFacts,
@@ -190,7 +191,7 @@ export class Engine {
       case "obligation.retry": {
         const o = this.state.obligations[(params as Params<"obligation.retry">).obligationId];
         if (!o) throw new Error("Obligation inconnue.");
-        if (!o.stuck || o.status === "done") throw new Error("Cette obligation n'est pas bloquée.");
+        if (o.status === "done" || (!o.stuck && !declinedByFounder(this.state, o))) throw new Error("Cette obligation n'est pas bloquée.");
         this.emit({ type: "obligation.retried", obligationId: o.id, at: this.now() });
         this.tick();
         return this.state;

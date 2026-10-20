@@ -93,6 +93,16 @@ export interface Task {
   deliverableId?: Id;
   parentId?: Id;
   error?: string;
+  /** Who cancelled it: the founder's cancel is a decision the team respects. */
+  cancelledBy?: "founder" | "team";
+}
+
+/** A sale the founder recorded (the first one opens the « operating » stage). */
+export interface Sale {
+  id: Id;
+  at: Timestamp;
+  amountCents?: number;
+  note?: string;
 }
 
 export interface Source {
@@ -219,5 +229,7 @@ export interface CompanyState {
   memory: string;
   /** L2 memory: facts extracted from deliverables. */
   facts: Record<Id, Fact>;
+  /** Sales recorded by the founder. */
+  sales?: Sale[];
   lastSeq: number;
 }
