@@ -123,6 +123,8 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       for (const id of event.factIds) delete facts[id];
       return { ...state, facts };
     }
+    case "office.moved":
+      return { ...state, office: Math.max(state.office ?? 0, event.tier) as CompanyState["office"] };
     case "sale.recorded":
       return { ...state, sales: [...(state.sales ?? []), event.sale] };
     case "facts.extracted":

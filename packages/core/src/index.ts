@@ -19,3 +19,4 @@ export * from "./playbook.ts";
 export * from "./avatar.ts";
 export * from "./chatter.ts";
 export * from "./analytics.ts";
+export * from "./office.ts";

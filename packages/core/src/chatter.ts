@@ -1,5 +1,6 @@
 import type { StoredEvent } from "./events.ts";
 import { day, hour } from "./format.ts";
+import { OFFICES } from "./office.ts";
 import type { CompanyState, RoleId } from "./types.ts";
 
 /**
@@ -81,6 +82,10 @@ export function chatFor(state: CompanyState, event: StoredEvent): ChatMessage[] 
     }
     case "stage.changed":
       return margaux ? [{ channel: "general", as: speaker(margaux), text: `Nouvelle étape pour ${state.company?.name ?? "la société"} : **${STAGE_SAID[event.stage] ?? event.stage}**.`, reactions: ["🎉"] }] : [];
+    case "office.moved": {
+      const line = OFFICES[event.tier]?.line;
+      return margaux && line ? [{ channel: "general", as: speaker(margaux), text: line, reactions: ["🎉", "🏢"] }] : [];
+    }
     case "sale.recorded":
       return margaux ? [{ channel: "general", as: speaker(margaux), text: `Une vente${event.sale.amountCents !== undefined ? ` de ${(event.sale.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}` : ""} ! ${event.sale.note ?? ""}`.trim(), reactions: ["🎉"] }] : [];
     default:

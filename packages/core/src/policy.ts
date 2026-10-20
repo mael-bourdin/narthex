@@ -1,3 +1,4 @@
+import { nextOffice } from "./office.ts";
 import { dayKey } from "./format.ts";
 import { OBLIGATIONS, type ObligationRule } from "./obligations.ts";
 import { role } from "./roles.ts";
@@ -26,7 +27,8 @@ export type Intent =
   | { type: "fulfill-obligation"; obligationId: string; by: string }
   | { type: "plan-task"; draft: TaskDraft }
   | { type: "start-task"; taskId: string }
-  | { type: "escalate"; obligationId: string; error: string };
+  | { type: "escalate"; obligationId: string; error: string }
+  | { type: "move-office"; tier: 0 | 1 | 2 | 3 | 4 };
 
 /** What an agent (or a policy) asks for; `guardTask` turns it into a safe Task. */
 export interface TaskDraft {
@@ -141,6 +143,9 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
   const company = state.company;
   if (!company || company.paused) return [];
   const intents: Intent[] = [];
+
+  const office = nextOffice(state);
+  if (office) intents.push({ type: "move-office", tier: office.tier });
 
   const nextStage = STAGE_RULES.find((r) => stageIndex(r.to) === stageIndex(company.stage) + 1);
   if (nextStage?.when(state)) intents.push({ type: "advance-stage", stage: nextStage.to, reason: nextStage.reason });
