@@ -75,7 +75,7 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     const cofounder = ctx.agent.role === "cofondateur";
     const out = await this.ask(
       {
-        system: `${identity(def, ctx.agent.name)}\n\n${HOW_TO_ANSWER}\n\n${companySheet(ctx)}`,
+        system: `${identity(def, ctx.agent.name)}\n\n${HOW_TO_ANSWER}${def.tools.includes("search_companies") ? `\n${REGISTRY_BY_FETCH}` : ""}\n\n${companySheet(ctx)}`,
         prompt: brief(ctx),
         schema: workSchema(cofounder),
         model: this.models[ctx.agent.role] ?? this.chosen ?? def.model,
@@ -240,6 +240,10 @@ const HOW_TO_ANSWER = [
   "- followups : les tâches que tu prévoirais avec plan_task.",
   "- recruits et memory : seulement si tu es la co-fondatrice.",
 ].join("\n");
+
+/** Claude Code has no search_companies tool: the same public API, read with WebFetch. */
+const REGISTRY_BY_FETCH =
+  "- Registre officiel des entreprises (vérifier un nom, trouver des prospects) : WebFetch sur https://recherche-entreprises.api.gouv.fr/search?q=<nom>&code_postal=<cp>&departement=<dep>&activite_principale=<NAF>&per_page=10 (API publique, gratuite). Cite la fiche https://annuaire-entreprises.data.gouv.fr/entreprise/<siren>. N'écris jamais le nom des dirigeants.";
 
 const SOURCE = { type: "object", required: ["title", "url", "checkedAt"], properties: { title: { type: "string" }, url: { type: "string" }, checkedAt: { type: "string" } } };
 

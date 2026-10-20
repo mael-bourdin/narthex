@@ -109,7 +109,8 @@ Cocher dans ce fichier au fil des PR.
 - [x] Réglages : autonomie, délais, plafonds, sujets « toujours me demander », pause.
 
 **v0.4 — Le monde réel**
-- [ ] Connecteurs : guichet unique INPI (préparation du dossier), API Recherche d'entreprises, envoi d'e-mails (avec délai), plateforme agréée de facturation électronique, banque (lecture).
+- [x] Connecteur API Recherche d'entreprises (ouverte, sans clé) : outil `search_companies` pour la co-fondatrice, la recherche, le juridique et la prospection ; pas de noms de dirigeants (RGPD) ; 7 req/s respectées ; en mode dev, même API via WebFetch.
+- [ ] Connecteurs : guichet unique INPI (préparation du dossier), envoi d'e-mails (avec délai), plateforme agréée de facturation électronique, banque (lecture), BODACC.
 - [ ] Signature électronique des statuts.
 - [ ] Distribution : installeurs signés et notarisés (macOS), signés (Windows), mise à jour automatique ; paquet npm `narthex` pour le CLI.
 

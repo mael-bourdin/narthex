@@ -14,3 +14,4 @@ export * from "./restart.ts";
 export * from "./claude-code.ts";
 export * from "./links.ts";
 export * from "./lock.ts";
+export * from "./connectors/entreprises.ts";
