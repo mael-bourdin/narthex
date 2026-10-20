@@ -28,6 +28,7 @@ export interface SectionSpec {
 
 export const ENTERPRISE: readonly SectionSpec[] = [
   { section: "Vue d'ensemble", pages: [] },
+  { section: "Données", pages: [] },
   {
     section: "Finances",
     pages: [

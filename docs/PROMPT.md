@@ -120,7 +120,7 @@ Cocher dans ce fichier au fil des PR.
 - [x] Plusieurs entreprises dans la même app : `Host` (un moteur par entreprise, toutes travaillent, chacune son budget), sélecteur en haut à gauche, « Créer une autre entreprise » relance le premier lancement ; CLI `entreprises`, `choisir`, `init` en ajoute une.
 - [x] Discord : le bot du fondateur crée une catégorie par entreprise (#général, #décisions, #recherche, #juridique-et-compta, #ventes-et-com) ; chaque agent poste sous son nom et son avatar (webhooks, avatars PNG dans `assets/avatars`), aucune mention possible ; réactions ; un collègue répond aux livrables dans un fil (Haiku, compté dans la dépense) ; Réglages · Intégrations et `narthex discord`.
 - [ ] Discord, suite : le fondateur répond depuis Discord (annuler, valider, poser une question) ; Telegram ; WhatsApp.
-- [ ] Data avancées : tableaux de bord et graphiques (chiffre d'affaires, dépense, ventes, productivité, progression).
+- [x] Data avancées : Entreprise · Données (chiffre d'affaires, dépense IA, coût par livrable, liens qui répondent ; graphiques par jour depuis la création, 7 ou 30 jours ; équipe : missions, réussite, temps, XP, dépense ; progression), `narthex data` ; jours de Paris, vrais événements seulement.
 - [ ] Bureau qui évolue avec l'entreprise (petite maison, puis locaux, étages, ascenseur, vue), paliers débloqués par les vrais résultats, annoncés comme une surprise.
 - [ ] Nouvelle direction artistique, à partir de l'histoire et des valeurs (maquettes Figma d'abord).
 

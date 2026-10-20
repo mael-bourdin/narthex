@@ -40,6 +40,7 @@ ${bold("Regarder")}
   narthex entreprise [section] [page]  Vue d'ensemble, finances, ventes, marketing, juridique
   narthex depense                   La dépense IA, par coéquipier et par jour
   narthex tableaux                  Tous les tableaux produits par l'équipe
+  narthex data [--semaine]          Chiffres de l'entreprise : ventes, dépense, missions, équipe
   narthex memoire                   Ce que l'équipe sait (faits datés, tirés des livrables)
   narthex oublier <id> --oui            Effacer un fait de la mémoire et du journal (définitif)
   narthex pourquoi "<question>"     Retrouver une décision et sa raison dans le journal
@@ -168,6 +169,10 @@ async function main(): Promise<void> {
         const events = await client.call("events.read", {});
         const n = Number(opts.nombre ?? 40);
         return print(opts.json ? JSON.stringify(events, null, 2) : render.journal(state, events, n));
+      }
+      case "data": {
+        const events = await client.call("events.read", {});
+        return print(render.data(state, events, status.now, opts.semaine ? 7 : 30));
       }
       case "memoire":
         return print(opts.json ? JSON.stringify(Object.values(state.facts), null, 2) : render.memoire(state, status.now));
