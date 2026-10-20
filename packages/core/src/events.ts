@@ -40,6 +40,8 @@ export type DomainEvent =
   | { type: "obligation.opened"; obligation: Obligation }
   | { type: "obligation.fulfilled"; obligationId: Id; at: Timestamp; by: "founder" | Id }
   | { type: "sale.recorded"; sale: Sale }
+  /** RGPD erasure: these facts are gone, and their text was erased from the log itself. */
+  | { type: "facts.forgotten"; factIds: Id[]; at: Timestamp }
   /** The whole curated playbook of a role after a reflection on one task. */
   | { type: "playbook.updated"; role: RoleId; lessons: Lesson[]; taskId?: Id; at: Timestamp }
   /** End of a Paris day: duplicates merged, stale facts dated, reflections added (`day` = the day tidied). */

@@ -118,6 +118,11 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
     }
     case "playbook.updated":
       return { ...state, playbooks: { ...state.playbooks, [event.role]: event.lessons } };
+    case "facts.forgotten": {
+      const facts = { ...state.facts };
+      for (const id of event.factIds) delete facts[id];
+      return { ...state, facts };
+    }
     case "sale.recorded":
       return { ...state, sales: [...(state.sales ?? []), event.sale] };
     case "facts.extracted":

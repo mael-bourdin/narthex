@@ -39,6 +39,7 @@ ${bold("Regarder")}
   narthex depense                   La dépense IA, par coéquipier et par jour
   narthex tableaux                  Tous les tableaux produits par l'équipe
   narthex memoire                   Ce que l'équipe sait (faits datés, tirés des livrables)
+  narthex oublier <id> --oui            Effacer un fait de la mémoire et du journal (définitif)
   narthex pourquoi "<question>"     Retrouver une décision et sa raison dans le journal
   narthex livrable <id|dernier>     Lire un livrable (--fichier x.md pour l'enregistrer)
 
@@ -162,6 +163,12 @@ async function main(): Promise<void> {
       }
       case "memoire":
         return print(opts.json ? JSON.stringify(Object.values(state.facts), null, 2) : render.memoire(state, status.now));
+      case "oublier": {
+        const f = byPrefix(Object.values(state.facts), args[0], "donnée");
+        if (!opts.oui) return print(`${bold("Oublier :")} ${clean(f.text)}\nC'est définitif : effacé de la mémoire et du journal. Confirme avec --oui.`);
+        await client.call("fact.forget", { factId: f.id });
+        return print(`${bold("Oublié.")} Effacé de la mémoire et du journal.`);
+      }
       case "pourquoi": {
         const question = args.join(" ").trim();
         if (!question) throw new Error("Pose ta question : narthex pourquoi \"le dépôt-vente\"");

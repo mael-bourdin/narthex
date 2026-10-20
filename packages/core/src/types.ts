@@ -215,6 +215,8 @@ export interface Fact {
   invalidAt?: Timestamp;
   /** Money, pay, personal data: only the co-founder, accounting and legal see it. */
   sensitive?: boolean;
+  /** For a merge or a reflection: the facts it was drawn from (forgetting one forgets it too). */
+  from?: Id[];
 }
 
 /** L4 memory: one lesson a role learnt from its own work (research: ACE playbooks, by deltas). */

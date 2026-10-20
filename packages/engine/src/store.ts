@@ -12,7 +12,19 @@ export interface EventStore {
   append(companyId: Id, event: DomainEvent, ts: number): StoredEvent;
   read(companyId: Id, afterSeq?: number, limit?: number): StoredEvent[];
   companies(): Id[];
+  /**
+   * The one exception to « never edited » (RGPD erasure): blanks these facts' text in every past event,
+   * so neither the log nor the file keeps it.
+   */
+  forgetFacts(companyId: Id, factIds: ReadonlySet<string>): void;
   close(): void;
+}
+
+/** The event with the forgotten facts' text and subject blanked; untouched otherwise. */
+export function redactFacts(event: DomainEvent, factIds: ReadonlySet<string>): DomainEvent {
+  if (event.type !== "facts.extracted" && event.type !== "facts.consolidated") return event;
+  if (!event.added.some((f) => factIds.has(f.id))) return event;
+  return { ...event, added: event.added.map((f) => (factIds.has(f.id) ? { ...f, text: "(oublié)", subject: "" } : f)) };
 }
 
 export class MemoryEventStore implements EventStore {
@@ -34,6 +46,11 @@ export class MemoryEventStore implements EventStore {
     return [...this.logs.keys()];
   }
 
+  forgetFacts(companyId: Id, factIds: ReadonlySet<string>): void {
+    const log = this.logs.get(companyId) ?? [];
+    this.logs.set(companyId, log.map((e) => ({ ...redactFacts(e, factIds), companyId: e.companyId, seq: e.seq, ts: e.ts }) as StoredEvent));
+  }
+
   close(): void {}
 }
 
@@ -49,6 +66,7 @@ export class SqliteEventStore implements EventStore {
       PRAGMA journal_mode = WAL;
       PRAGMA synchronous = NORMAL;
       PRAGMA busy_timeout = 5000;
+      PRAGMA secure_delete = ON;
       CREATE TABLE IF NOT EXISTS events (
         company_id TEXT NOT NULL,
         seq        INTEGER NOT NULL,
@@ -86,6 +104,27 @@ export class SqliteEventStore implements EventStore {
   companies(): Id[] {
     const rows = this.db.prepare("SELECT company_id AS id, MIN(ts) AS t FROM events GROUP BY company_id ORDER BY t").all() as { id: string }[];
     return rows.map((r) => r.id);
+  }
+
+  forgetFacts(companyId: Id, factIds: ReadonlySet<string>): void {
+    const rows = this.db
+      .prepare("SELECT seq, payload FROM events WHERE company_id = ? AND type IN ('facts.extracted', 'facts.consolidated')")
+      .all(companyId) as { seq: number; payload: string }[];
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const update = this.db.prepare("UPDATE events SET payload = ? WHERE company_id = ? AND seq = ?");
+      for (const r of rows) {
+        const event = JSON.parse(r.payload) as DomainEvent;
+        const redacted = redactFacts(event, factIds);
+        if (redacted !== event) update.run(JSON.stringify(redacted), companyId, r.seq);
+      }
+      this.db.exec("COMMIT");
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
+    }
+    // secure_delete zeroes freed space; the checkpoint flushes and empties the WAL that still held the old pages.
+    this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
   }
 
   close(): void {

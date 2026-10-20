@@ -177,6 +177,20 @@ export class Engine {
         return this.found(params as Params<"company.found">);
       case "onboarding.firstLook":
         return this.firstLook(params as Params<"onboarding.firstLook">);
+      case "fact.forget": {
+        this.requireCompany();
+        const first = (params as Params<"fact.forget">).factId;
+        if (!this.state.facts[first]) throw new Error("Fait inconnu.");
+        // What was drawn from it goes too: a merge or a reflection may repeat its words.
+        const ids = new Set([first]);
+        for (let grew = true; grew; ) {
+          grew = false;
+          for (const f of Object.values(this.state.facts)) if (!ids.has(f.id) && f.from?.some((id) => ids.has(id))) (ids.add(f.id), (grew = true));
+        }
+        this.store.forgetFacts(this.companyId!, ids);
+        this.emit({ type: "facts.forgotten", factIds: [...ids], at: this.now() });
+        return this.state;
+      }
       case "sale.record": {
         this.requireCompany();
         const p = params as Params<"sale.record">;
@@ -439,7 +453,7 @@ export class Engine {
           for (const id of from) invalidated.add(id);
           // A merge of anything sensitive stays sensitive.
           const sensitive = m.sensitive || from.some((id) => known.get(id)!.sensitive);
-          added.push({ id: newId("fa"), text: m.text.trim().slice(0, 600), subject: m.subject.trim().slice(0, 80), importance: level(m.importance), deliverableId: known.get(from[0]!)!.deliverableId, validFrom: at, ...(sensitive ? { sensitive: true } : {}) });
+          added.push({ id: newId("fa"), text: m.text.trim().slice(0, 600), subject: m.subject.trim().slice(0, 80), importance: level(m.importance), deliverableId: known.get(from[0]!)!.deliverableId, validFrom: at, from, ...(sensitive ? { sensitive: true } : {}) });
         }
         const merged = new Set(invalidated);
         for (const id of out.invalidated) if (known.has(id)) invalidated.add(id);
@@ -447,7 +461,7 @@ export class Engine {
         for (const r of out.reflections.slice(0, 3)) {
           // A reflection must rest on at least two facts we gave; anything else is a guess.
           const basis = r.from.filter((id) => known.has(id));
-          if (basis.length >= 2 && r.text.trim()) added.push({ id: newId("fa"), text: r.text.trim().slice(0, 600), subject: "Réflexion", importance: level(r.importance), deliverableId: "", validFrom: at });
+          if (basis.length >= 2 && r.text.trim()) added.push({ id: newId("fa"), text: r.text.trim().slice(0, 600), subject: "Réflexion", importance: level(r.importance), deliverableId: "", validFrom: at, from: basis, ...(basis.some((id) => known.get(id)!.sensitive) ? { sensitive: true } : {}) });
         }
         this.emit({ type: "facts.consolidated", day, at, added, invalidated: [...invalidated] });
         const merges = added.filter((f) => f.subject !== "Réflexion").length;

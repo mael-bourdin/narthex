@@ -17,10 +17,11 @@ export interface Mission {
   why: string;
   speakerId?: string;
   /** What the popup offers. */
-  action: "key" | "budget" | "form" | "fulfill" | "retry" | "cancel" | "open" | "sale" | "none";
+  action: "key" | "budget" | "form" | "fulfill" | "retry" | "cancel" | "open" | "sale" | "forget" | "none";
   label: string;
   taskId?: string;
   obligationId?: string;
+  factId?: string;
 }
 
 export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeName): Mission[] {
