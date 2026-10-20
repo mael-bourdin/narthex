@@ -1,7 +1,7 @@
 import type { RoleId } from "./types.ts";
 
 /** Tools an agent may be given. The engine maps each name to a real implementation. */
-export type ToolName = "web_search" | "web_fetch" | "plan_task" | "publish_deliverable" | "post_update" | "update_memory" | "recruit";
+export type ToolName = "web_search" | "web_fetch" | "search_companies" | "plan_task" | "publish_deliverable" | "post_update" | "update_memory" | "recruit";
 
 /**
  * A job sheet, readable by machines (A2A-style agent card) and by the player (fiche agent).
@@ -37,7 +37,7 @@ export const ROLES: readonly RoleDef[] = [
     defaultName: "Margaux",
     mission:
       "Je tiens la vision, je décide des priorités de la semaine et je fais venir chaque coéquipier au moment où l'entreprise en a besoin, pas avant.",
-    tools: ["web_search", "plan_task", "post_update", "update_memory", "publish_deliverable", "recruit"],
+    tools: ["web_search", "search_companies", "plan_task", "post_update", "update_memory", "publish_deliverable", "recruit"],
     guardrails: COMMON_GUARDRAILS,
     effort: "high",
     model: "claude-opus-5-5",
@@ -47,7 +47,7 @@ export const ROLES: readonly RoleDef[] = [
     title: "Recherche",
     defaultName: "Léa",
     mission: "J'étudie le marché, les clientes et les concurrents, et je ne retiens que ce que je peux sourcer.",
-    tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
+    tools: ["web_search", "web_fetch", "search_companies", "publish_deliverable", "post_update", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
     effort: "high",
     model: "claude-sonnet-5-5",
@@ -67,7 +67,7 @@ export const ROLES: readonly RoleDef[] = [
     title: "Juridique",
     defaultName: "Hugo",
     mission: "Je crée la société et je suis toutes ses obligations, pour que rien ne tombe en retard.",
-    tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
+    tools: ["web_search", "web_fetch", "search_companies", "publish_deliverable", "post_update", "plan_task"],
     guardrails: [
       ...COMMON_GUARDRAILS,
       "Information juridique générale et sourcée seulement : tu ne tranches jamais une question de droit sur un cas particulier (loi du 31 déc. 1971, art. 54). Tu proposes alors un avocat.",
@@ -81,7 +81,7 @@ export const ROLES: readonly RoleDef[] = [
     title: "Prospection",
     defaultName: "Samir",
     mission: "Je trouve les premiers clients et je leur écris un message personnel, jamais un envoi de masse.",
-    tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
+    tools: ["web_search", "web_fetch", "search_companies", "publish_deliverable", "post_update", "plan_task"],
     guardrails: [
       ...COMMON_GUARDRAILS,
       "Prospection B2B uniquement par des adresses professionnelles, avec un lien de désinscription (CNIL).",

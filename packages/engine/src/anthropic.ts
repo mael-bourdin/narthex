@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { fmt, recallFacts, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
+import { searchCompanies, type CompanySearch } from "./connectors/entreprises.ts";
 import type { AgentRuntime, ConsolidationInput, ConsolidationResult, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 type Tool = Anthropic.Beta.BetaToolUnion;
@@ -14,6 +15,8 @@ export interface AnthropicRuntimeOptions {
   /** Hard cap on model turns per task, so a confused agent cannot loop forever. */
   maxTurns?: number;
   client?: Anthropic;
+  /** The API Recherche d'entreprises; injected in tests. */
+  companies?: typeof searchCompanies;
 }
 
 /** USD per million tokens, used to convert usage into credits (1 credit = 0.01 USD). */
@@ -43,6 +46,7 @@ export class AnthropicRuntime implements AgentRuntime {
   private readonly chosen: string | undefined;
   private readonly models: Partial<Record<RoleId, string>>;
   private readonly maxTurns: number;
+  private readonly companies: typeof searchCompanies;
 
   constructor(options: AnthropicRuntimeOptions = {}) {
     // The player's key goes to Anthropic only: no gateway or extra token picked up from the environment.
@@ -51,6 +55,7 @@ export class AnthropicRuntime implements AgentRuntime {
     this.chosen = options.model;
     this.models = options.models ?? {};
     this.maxTurns = options.maxTurns ?? 12;
+    this.companies = options.companies ?? searchCompanies;
   }
 
   async firstLook(input: { idea: string; founderName: string; now: number; signal: AbortSignal }): Promise<FirstLook> {
@@ -166,10 +171,19 @@ export class AnthropicRuntime implements AgentRuntime {
       }
 
       // All results go back in a single user message, so parallel tool use keeps working.
-      const results: ToolResult[] = calls.map((call) => {
+      const results: ToolResult[] = await Promise.all(calls.map(async (call): Promise<ToolResult> => {
         const input = call.input as Record<string, unknown>;
         try {
           switch (call.name) {
+            case "search_companies": {
+              const search: CompanySearch = {};
+              for (const k of ["q", "code_postal", "departement", "activite_principale"] as const) if (typeof input[k] === "string") search[k] = input[k] as string;
+              const found = await this.companies(search, { signal: ctx.signal });
+              // Sheets built from the official SIREN: real pages, safe to check later.
+              for (const hit of found.results) consulted.add(hit.fiche);
+              ctx.progress(`Je cherche au registre : ${search.q ?? search.activite_principale ?? search.code_postal ?? search.departement}`);
+              return ok(call.id, JSON.stringify(found));
+            }
             case "publish_deliverable":
               deliverable = parseDeliverable(input);
               ctx.progress(`Livrable prêt : ${deliverable.title}`);
@@ -198,7 +212,7 @@ export class AnthropicRuntime implements AgentRuntime {
         } catch (e) {
           return error(call.id, e instanceof Error ? e.message : String(e));
         }
-      });
+      }));
       messages.push({ role: "user", content: results });
     }
     throw new Error(`Pas terminé après ${this.maxTurns} tours.`);
@@ -519,6 +533,7 @@ function toolsFor(def: RoleDef): Tool[] {
   // Searches launched from the tool's own code each count as a use.
   if (def.tools.includes("web_search")) tools.push({ type: "web_search_20260209", name: "web_search", max_uses: 20 });
   if (def.tools.includes("web_fetch")) tools.push({ type: "web_fetch_20260209", name: "web_fetch", max_uses: 12 });
+  if (def.tools.includes("search_companies")) tools.push(SEARCH_COMPANIES);
   if (def.tools.includes("publish_deliverable")) tools.push(PUBLISH);
   if (def.tools.includes("plan_task")) tools.push(PLAN);
   if (def.tools.includes("post_update")) tools.push(PROGRESS);
@@ -548,6 +563,24 @@ const PUBLISH: Tool = {
           properties: { title: { type: "string" }, url: { type: "string" }, checkedAt: { type: "string", description: "AAAA-MM-JJ" } },
         },
       },
+    },
+  },
+};
+
+const SEARCH_COMPANIES: Tool = {
+  name: "search_companies",
+  description:
+    "Cherche dans le registre officiel des entreprises françaises (API Recherche d'entreprises, gratuite) : par nom ou marque, code postal, département ou code NAF. Pour vérifier qu'un nom est libre ou trouver de vrais prospects. Renvoie SIREN, nom, enseignes, activité, date de création, état (active ou fermée), commune et la fiche publique à citer comme source.",
+  strict: true,
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["q", "code_postal", "departement", "activite_principale"],
+    properties: {
+      q: { type: ["string", "null"], description: "Nom, marque ou mots-clés." },
+      code_postal: { type: ["string", "null"] },
+      departement: { type: ["string", "null"], description: "Ex. 59." },
+      activite_principale: { type: ["string", "null"], description: "Code NAF, ex. 47.78C." },
     },
   },
 };
