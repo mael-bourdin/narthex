@@ -25,6 +25,11 @@ const PRICES: Record<string, { input: number; output: number; cacheRead: number 
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
 
+/** A model we do not know the price of is counted dear: overestimating stops early, underestimating overspends. */
+const UNKNOWN_PRICE = { input: 15, output: 75, cacheRead: 1.5 };
+/** Anthropic charges $10 per 1,000 web searches: one cent each. */
+const WEB_SEARCH_CREDITS = 1;
+
 /**
  * Real agents, on the Messages API with the player's own key.
  * Each role gets a stable, cached prefix (tools → identity and rules → company sheet),
@@ -66,7 +71,7 @@ export class AnthropicRuntime implements AgentRuntime {
     if (response.stop_reason === "refusal") throw new Error("Claude a refusé.");
     if (response.stop_reason === "max_tokens" || response.stop_reason === "pause_turn") throw new Error("Réponse incomplète.");
     const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
-    addUsage(usage, response.usage, this.model);
+    addUsage(usage, response.usage, response.model || this.model);
     return { ...parseFirstLook(response.content), simulated: false, usage };
   }
 
@@ -105,7 +110,7 @@ export class AnthropicRuntime implements AgentRuntime {
       const stream = this.client.beta.messages.stream(
         {
           model,
-          max_tokens: 64000,
+          max_tokens: maxTokensFor(model, ctx.remainingCredits?.()),
           betas: ["server-side-fallback-2026-07-01"],
           fallbacks: "default",
           output_config: { effort: def.effort },
@@ -121,7 +126,7 @@ export class AnthropicRuntime implements AgentRuntime {
       const response = await stream.finalMessage();
       // Counted at once by the engine, which stops the task past its budget.
       const turn = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
-      addUsage(turn, response.usage, model);
+      addUsage(turn, response.usage, response.model || model);
       ctx.spend(turn);
       if (ctx.signal.aborted) throw new Error("Budget atteint.");
 
@@ -183,9 +188,18 @@ function error(id: string, content: string): ToolResult {
   return { type: "tool_result", tool_use_id: id, content, is_error: true };
 }
 
+/** A turn's output never costs more than what is left of the task's and the day's budget. */
+export function maxTokensFor(model: string, remainingCredits: number | undefined): number {
+  if (remainingCredits === undefined) return 64000;
+  const price = PRICES[model] ?? UNKNOWN_PRICE;
+  const affordable = Math.floor(((Math.max(0, remainingCredits) / 100) * 1_000_000) / price.output);
+  return Math.min(64000, Math.max(1024, affordable));
+}
+
 type UsageLike = {
   input_tokens: number;
   output_tokens: number;
+  server_tool_use?: { web_search_requests?: number | null } | null;
   cache_read_input_tokens?: number | null;
   cache_creation_input_tokens?: number | null;
   cache_creation?: { ephemeral_5m_input_tokens?: number | null; ephemeral_1h_input_tokens?: number | null } | null;
@@ -196,7 +210,7 @@ type UsageLike = {
  * fresh input, cache writes (×1.25 for 5 min, ×2 for 1 h), cache reads, output.
  */
 export function creditsFor(model: string, u: UsageLike): number {
-  const price = PRICES[model] ?? PRICES[DEFAULT_MODEL]!;
+  const price = PRICES[model] ?? UNKNOWN_PRICE;
   const write5m = u.cache_creation?.ephemeral_5m_input_tokens ?? (u.cache_creation ? 0 : (u.cache_creation_input_tokens ?? 0));
   const write1h = u.cache_creation?.ephemeral_1h_input_tokens ?? 0;
   const usd =
@@ -206,7 +220,7 @@ export function creditsFor(model: string, u: UsageLike): number {
       (u.cache_read_input_tokens ?? 0) * price.cacheRead +
       u.output_tokens * price.output) /
     1_000_000;
-  return Math.ceil(usd * 100 - 1e-9);
+  return Math.ceil(usd * 100 - 1e-9) + (u.server_tool_use?.web_search_requests ?? 0) * WEB_SEARCH_CREDITS;
 }
 
 function addUsage(total: NonNullable<WorkResult["usage"]>, u: Anthropic.Beta.BetaUsage, model: string): void {

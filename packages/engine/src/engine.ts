@@ -6,7 +6,8 @@ import {
   declinedByFounder,
   MAX_ATTEMPTS,
   METHODS,
-  overBudget,
+  overBudget as dayOverBudget,
+  spentOn,
   recallFacts,
   guardTask,
   replay,
@@ -267,6 +268,8 @@ export class Engine {
   }
 
   private async firstLook(p: Params<"onboarding.firstLook">): Promise<FirstLook> {
+    // Paid, and outside any budget (no company yet): only during the first launch.
+    if (this.state.company) throw new Error("Le premier coup d'œil n'a lieu qu'au premier lancement.");
     const fallback: FirstLook = { reaction: SEUIL.noLook, findings: [], simulated: this.runtime?.name === "simulation" };
     if (!this.runtime) return fallback;
     const controller = new AbortController();
@@ -457,7 +460,8 @@ export class Engine {
     const task = this.state.tasks[taskId]!;
     const runtime = this.runtime;
     let spent = 0;
-    let overBudget = false;
+    // Set from the spend callback: declared wide so later checks are not narrowed to `false`.
+    let overBudget = false as false | "task" | "day";
     try {
       if (!runtime) throw new Error("Personne ne peut travailler sans clé.");
       const result = await runtime.run({
@@ -475,11 +479,13 @@ export class Engine {
           if (usage.credits <= 0 && usage.inputTokens <= 0) return;
           spent += usage.credits;
           this.emit({ type: "usage.recorded", agentId: agent.id, taskId, ...usage, at: this.now() });
-          if (spent > this.state.settings.taskBudgetCredits && !overBudget) {
-            overBudget = true;
-            controller.abort();
-          }
+          if (overBudget) return;
+          // The day's budget stops work in progress too, not only new starts.
+          overBudget = spent > this.state.settings.taskBudgetCredits ? "task" : dayOverBudget(this.state, this.now()) ? "day" : false;
+          if (overBudget) controller.abort();
         },
+        remainingCredits: () =>
+          Math.min(this.state.settings.taskBudgetCredits - spent, this.state.settings.dailyBudgetCredits - spentOn(this.state, this.now())),
       });
       if (overBudget) throw new Error("budget");
       if (controller.signal.aborted || this.state.tasks[taskId]?.status !== "running") return;
@@ -495,6 +501,11 @@ export class Engine {
       }
       this.post(agent.id, deliverable ? "deliverable" : "update", result.post, { taskId, ...(deliverable ? { deliverableId: deliverable.id } : {}) });
     } catch (e) {
+      if (overBudget === "day" && this.state.tasks[taskId]?.status === "running") {
+        this.emit({ type: "task.failed", taskId, at: this.now(), error: "Budget du jour atteint.", interrupted: true });
+        this.post(agent.id, "update", `Je m'arrête sur « ${task.title} » : le budget du jour est atteint. Je reprendrai quand il le permettra.`, { taskId });
+        return;
+      }
       if (overBudget && this.state.tasks[taskId]?.status === "running") {
         const limit = this.state.settings.taskBudgetCredits;
         this.emit({ type: "task.failed", taskId, at: this.now(), error: `Budget de la tâche atteint (${fmt.dollars(spent)} sur ${fmt.dollars(limit)}).` });
@@ -515,7 +526,7 @@ export class Engine {
   private extractFacts(deliverableId: string): void {
     const runtime = this.runtime;
     const d = this.state.deliverables[deliverableId];
-    if (!runtime?.extractFacts || !d || overBudget(this.state, this.now())) return;
+    if (!runtime?.extractFacts || !d || dayOverBudget(this.state, this.now())) return;
     const known = recallFacts(this.state, `${d.title} ${d.summary} ${d.body.slice(0, 2000)}`, { role: "cofondateur", now: this.now(), k: 40 });
     const run = (async () => {
       try {

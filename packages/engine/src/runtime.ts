@@ -24,6 +24,8 @@ export interface WorkContext {
   plan(followUp: FollowUp): string | null;
   /** Reports what a model call just cost. The engine counts it at once and stops the task past its budget. */
   spend(usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number }): void;
+  /** What is left before this task stops: the smaller of its own budget and the day's. Optional for tests. */
+  remainingCredits?(): number;
   /** Co-founder only: brings a teammate now. Returns why it was refused, if it was. */
   recruit(role: RoleId, why: string): string | null;
 }
