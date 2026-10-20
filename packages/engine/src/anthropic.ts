@@ -191,13 +191,15 @@ const MAX_MEMORY_CHARS = 2500;
 const MAX_POST_CHARS = 2000;
 const MAX_SOURCES = 40;
 
-/** Pages the agent really read: search results and fetched pages. Only these are ever checked by Narthex. */
+/**
+ * Pages the search engine itself returned. Only these are ever checked by Narthex: a fetched URL
+ * was chosen by the model (and so by whatever text it read), a search result was not.
+ */
 export function consultedUrls(content: readonly unknown[]): string[] {
   const urls: string[] = [];
   for (const block of content as { type?: string; content?: unknown }[]) {
-    if (block.type !== "web_search_tool_result" && block.type !== "web_fetch_tool_result") continue;
-    const items = Array.isArray(block.content) ? block.content : [block.content];
-    for (const item of items as { url?: unknown }[]) if (item && typeof item.url === "string") urls.push(item.url);
+    if (block.type !== "web_search_tool_result" || !Array.isArray(block.content)) continue;
+    for (const item of block.content as { type?: string; url?: unknown }[]) if (item?.type === "web_search_result" && typeof item.url === "string") urls.push(item.url);
   }
   return urls;
 }
