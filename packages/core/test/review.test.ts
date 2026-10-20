@@ -85,6 +85,15 @@ describe("revision: stages always reachable", () => {
   });
 });
 
+describe("revision: the journal tells the sale", () => {
+  it("lists the founder's sale", async () => {
+    const { journalEntries } = await import("../src/index.ts");
+    const events = [founded, { type: "sale.recorded", sale: { id: "v", at: NOW, amountCents: 3990, note: "Marché" } }].map((e, i) => ({ ...e, seq: i + 1, ts: NOW, companyId: "c" }) as StoredEvent);
+    // French currency formatting puts a narrow no-break space before €.
+    expect(journalEntries(replay(events), events).some((e) => /^Tu as enregistré une vente de 39,90\s€ · Marché$/u.test(e.text))).toBe(true);
+  });
+});
+
 describe("revision: guard on external actions", () => {
   const s = replay([founded, hire("s", "prospection")]);
   it.each([
