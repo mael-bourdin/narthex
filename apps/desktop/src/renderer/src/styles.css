@@ -343,6 +343,12 @@ a { color: var(--accent); }
 .switcher-item.create { color: var(--accent); border-top: 1px solid var(--border-subtle); border-radius: 0 0 9px 9px; margin-top: 4px; padding-top: 11px; }
 .creating { position: relative; height: 100%; }
 .creating-back { position: absolute; top: 18px; left: 24px; z-index: 30; }
+.steps { margin: 8px 0 12px; padding-left: 18px; color: var(--text-secondary); display: grid; gap: 6px; }
+.steps a { color: var(--accent); }
+.key-row { display: flex; gap: 8px; padding-bottom: 12px; }
+.key-row input { flex: 1; background: var(--bg-surface); border: 1px solid var(--border-default); color: var(--text-primary); border-radius: 10px; padding: 10px 12px; font: inherit; outline: none; }
+.key-row input:focus { border-color: var(--accent); }
+.discord .chips { padding-bottom: 12px; }
 .lessons { text-align: left; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 4px; }
 .lessons ul { margin: 6px 0; padding-left: 16px; color: var(--text-secondary); display: grid; gap: 4px; }
 .memory-title { font-size: 17px; font-weight: 500; margin: 24px 0 10px; }

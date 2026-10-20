@@ -8,6 +8,8 @@ import {
   isAlive,
   loadConfig,
   openEngine,
+  startDiscord,
+  checkDiscordToken,
   saveConfig,
   serve,
   SocketClient,
@@ -51,6 +53,7 @@ ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque c
   narthex vente [montant] [--note "…"] Enregistrer une vente (la première ouvre l'étape « en activité »)
   narthex reessayer <id>                Relancer une obligation bloquée après plusieurs échecs
   narthex pause | reprendre             Mettre l'équipe en pause
+  narthex discord [jeton | serveur <id> | off]  L'équipe écrit sur ton Discord (un salon par équipe)
   narthex recommencer [--oui]           Archiver l'entreprise et revoir le premier lancement
 
 ${bold("Réglages")}
@@ -107,6 +110,8 @@ async function main(): Promise<void> {
       return config();
     case "recommencer":
       return recommencer();
+    case "discord":
+      return discord();
   }
   await withClient(async (client) => {
     if (command === "entreprises" || command === "choisir") return companies(client);
@@ -269,6 +274,39 @@ async function init(): Promise<void> {
   return lancer();
 }
 
+// ---------- discord ----------
+
+async function discord(): Promise<void> {
+  const current = loadConfig(dir);
+  const [first, second] = args;
+  if (first === "off") {
+    const { discord: _gone, ...rest } = current;
+    saveConfig(dir, rest);
+    return print("Discord débranché. Les messages déjà postés restent sur ton serveur.");
+  }
+  if (first === "serveur") {
+    if (!current.discord?.token) throw new Error("Donne d'abord le jeton du bot : narthex discord <jeton>");
+    const check = await checkDiscordToken(current.discord.token);
+    if (!check.ok) throw new Error(check.message);
+    const guild = check.guilds.find((g) => g.id === second || g.name.toLowerCase() === (second ?? "").toLowerCase());
+    if (!guild) throw new Error(`Serveur introuvable. Le bot est sur : ${check.guilds.map((g) => `${g.name} (${g.id})`).join(", ") || "aucun serveur, invite-le d'abord"}.`);
+    saveConfig(dir, { ...current, discord: { token: current.discord.token, guildId: guild.id, guildName: guild.name } });
+    return print(`${bold("C'est branché.")} L'équipe écrira sur ${clean(guild.name)} au prochain « narthex lancer » (ou dans l'app).`);
+  }
+  if (!first) {
+    if (!current.discord?.token) return print(`Pas de Discord. Crée un bot (discord.com/developers · New Application · Bot), invite-le sur ton serveur, puis : ${bold("narthex discord <jeton>")}`);
+    return print(current.discord.guildId ? `Discord : ${clean(current.discord.guildName ?? current.discord.guildId)}.` : `Jeton enregistré. Choisis le serveur : ${bold("narthex discord serveur <nom ou id>")}`);
+  }
+  const check = await checkDiscordToken(first);
+  if (!check.ok) throw new Error(check.message);
+  const only = check.guilds.length === 1 ? check.guilds[0]! : undefined;
+  saveConfig(dir, { ...current, discord: { token: first, ...(only ? { guildId: only.id, guildName: only.name } : {}) } });
+  if (only) return print(`${bold("C'est branché.")} Le bot ${clean(check.bot)} écrira sur ${clean(only.name)}.`);
+  print(`Bot ${clean(check.bot)} reconnu. Choisis le serveur :`);
+  for (const g of check.guilds) print(`  ${clean(g.name)} ${dim(g.id)}`);
+  print(check.guilds.length ? `→ ${bold("narthex discord serveur <nom ou id>")}` : "Il n'est sur aucun serveur : invite-le d'abord (OAuth2 · URL Generator · bot, avec Gérer les salons, Gérer les webhooks, Envoyer des messages, Ajouter des réactions, Créer des fils publics).");
+}
+
 // ---------- entreprises ----------
 
 async function companies(client: Client): Promise<void> {
@@ -335,6 +373,8 @@ async function lancer(): Promise<void> {
     }
   });
   engine.start();
+  const stopDiscord = startDiscord(engine, dir, (e) => print(dim(`  Discord : ${e.message}`)));
+  if (stopDiscord) print(dim(`Discord : l'équipe écrit aussi sur ${loadConfig(dir).discord?.guildName ?? "ton serveur"}.`));
 
   let stopping = false;
   const stop = async () => {
@@ -343,6 +383,7 @@ async function lancer(): Promise<void> {
       process.exit(130);
     }
     stopping = true;
+    stopDiscord?.();
     print(dim("\nJ'attends que l'équipe finisse ce qu'elle a commencé… (Ctrl+C encore pour couper net)"));
     server.close();
     await engine.close();
@@ -361,7 +402,11 @@ async function config(): Promise<void> {
   const next: Config = { ...current };
   switch (key) {
     case undefined: {
-      const shown = { ...current, ...(current.anthropicApiKey ? { anthropicApiKey: `${current.anthropicApiKey.slice(0, 10)}…` } : {}) };
+      const shown = {
+        ...current,
+        ...(current.anthropicApiKey ? { anthropicApiKey: `${current.anthropicApiKey.slice(0, 10)}…` } : {}),
+        ...(current.discord ? { discord: { serveur: current.discord.guildName ?? current.discord.guildId ?? "à choisir", jeton: "masqué" } } : {}),
+      };
       print(`${bold("Dossier")} ${dir}\n${bold("Mode")} ${chooseRuntime(current)}\n${JSON.stringify(shown, null, 2)}`);
       return;
     }

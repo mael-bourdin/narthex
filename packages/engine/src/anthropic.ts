@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { fmt, recallFacts, role, ROLES, type Lesson, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
 import { searchCompanies, type CompanySearch } from "./connectors/entreprises.ts";
-import type { AgentRuntime, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
+import type { AgentRuntime, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, RemarkInput, RemarkResult, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 type Tool = Anthropic.Beta.BetaToolUnion;
 type MessageParam = Anthropic.Beta.BetaMessageParam;
@@ -97,6 +97,17 @@ export class AnthropicRuntime implements AgentRuntime {
     addUsage(usage, response.usage, MEMORY_MODEL);
     const call = response.content.find((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === "record_facts");
     return { ...factsFrom(call?.input), usage };
+  }
+
+  async remark(input: RemarkInput): Promise<RemarkResult> {
+    const response = await this.client.beta.messages.create(
+      { model: MEMORY_MODEL, max_tokens: 300, system: remarkSystem(input), messages: [{ role: "user", content: input.text }] },
+      { signal: input.signal },
+    );
+    const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
+    addUsage(usage, response.usage, response.model || MEMORY_MODEL);
+    const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join(" ").trim();
+    return { text, usage };
   }
 
   async reflect(input: ReflectionInput): Promise<ReflectionResult> {
@@ -545,6 +556,18 @@ export function tidyFrom(value: unknown): Omit<ConsolidationResult, "usage"> {
     : [];
   return { merged, invalidated: strings(v.invalidated), reflections };
 }
+
+// ---------- Team chat ----------
+
+export function remarkSystem(input: Pick<RemarkInput, "speaker" | "author" | "company">): string {
+  return [
+    `Tu es ${input.speaker.name}, ${role(input.speaker.role).title.toLowerCase()} chez ${input.company}, une petite entreprise française tenue par une équipe d'agents IA.`,
+    `${input.author}, ton collègue, vient de partager ce message dans le salon de l'équipe. Réponds-lui en une ou deux phrases courtes, naturelles, à la première personne, en le tutoyant, sans emoji ni formule creuse :`,
+    "ce que ça change pour ton propre travail, une question précise, ou un bravo concret. N'invente aucun fait, aucun chiffre, aucune action déjà faite.",
+  ].join("\n");
+}
+
+export const REMARK_SCHEMA = { type: "object", additionalProperties: false, required: ["text"], properties: { text: { type: "string" } } } as const;
 
 // ---------- Playbooks (L4) ----------
 

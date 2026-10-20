@@ -36,7 +36,12 @@ export function Reglages({ state, status, view, onView, onChange }: { state: Com
         {view === "Budget" && <Budget state={state} status={status} onChange={onChange} />}
         {view === "Notifications" && config && <Notifications config={config} onSaved={reload} />}
         {view === "Autonomie" && <Autonomie state={state} onChange={onChange} />}
-        {view === "Intégrations" && <Integrations />}
+        {view === "Intégrations" && (
+          <>
+            <DiscordCard />
+            <Integrations />
+          </>
+        )}
         {view === "API et modèles" && config && <ApiModels state={state} status={status} config={config} events={events} onChange={() => (reload(), onChange())} />}
         {view === "Membres" && <Membres state={state} />}
         {view === "Sécurité" && config && <Securite config={config} />}
@@ -283,6 +288,83 @@ function Autonomie({ state, onChange }: { state: CompanyState; onChange(): void 
 
 // ---------- Intégrations ----------
 
+function DiscordCard() {
+  type Status = Awaited<ReturnType<typeof window.narthex.discord.get>>;
+  const [status, setStatus] = useState<Status>();
+  const [token, setToken] = useState("");
+  const [guilds, setGuilds] = useState<{ id: string; name: string }[]>();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string>();
+  const reload = () => void window.narthex.discord.get().then(setStatus);
+  useEffect(reload, []);
+
+  const check = async () => {
+    setBusy(true);
+    setMessage(undefined);
+    const r = await window.narthex.discord.check(token);
+    setBusy(false);
+    if (!r.ok) return setMessage(r.message);
+    if (r.guilds.length === 0) return setMessage(`Bot ${r.bot} reconnu, mais il n'est sur aucun serveur : invite-le d'abord (étape 2).`);
+    if (r.guilds.length === 1) return choose(r.guilds[0]!);
+    setGuilds(r.guilds);
+  };
+  const choose = async (g: { id: string; name: string }) => {
+    await window.narthex.discord.save({ token, guildId: g.id, guildName: g.name });
+    setToken("");
+    setGuilds(undefined);
+    reload();
+  };
+
+  return (
+    <MargauxSays text="Branche ton Discord et l'équipe y parle aussi : un salon par équipe, chacun sous son nom, des réponses et des réactions. Tu suis la société sans ouvrir l'app. Les réponses entre collègues comptent dans la dépense IA (quelques centimes par jour).">
+      <div className="form-box discord">
+        {status?.connected ? (
+          <>
+            <div className="form-row static">
+              <span>
+                Discord · {status.guildName}
+                <span className="muted small block">Une catégorie par entreprise : #général, #décisions, #recherche, #juridique-et-compta, #ventes-et-com.</span>
+              </span>
+              <button className="btn btn-quiet" onClick={() => void window.narthex.discord.off().then(reload)}>
+                Débrancher
+              </button>
+            </div>
+            {!status.ownsEngine && <p className="muted small">L'équipe tourne dans un terminal : relance « narthex lancer » pour qu'elle écrive sur Discord.</p>}
+          </>
+        ) : (
+          <>
+            <div className="form-title">Discord</div>
+            <ol className="steps small">
+              <li>
+                Sur <a href="https://discord.com/developers/applications" target="_blank" rel="noreferrer">discord.com/developers</a> : New Application, puis Bot, puis Reset Token. Copie le jeton.
+              </li>
+              <li>OAuth2 · URL Generator : coche « bot », puis Gérer les salons, Gérer les webhooks, Envoyer des messages, Ajouter des réactions, Créer des fils publics. Ouvre l'URL et invite le bot sur ton serveur.</li>
+              <li>Colle le jeton ici. Il reste sur ton ordinateur.</li>
+            </ol>
+            {guilds ? (
+              <div className="chips">
+                {guilds.map((g) => (
+                  <button key={g.id} className="chip" onClick={() => void choose(g)}>
+                    {g.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="key-row">
+                <input type="password" value={token} placeholder="Jeton du bot" aria-label="Jeton du bot Discord" onChange={(e) => setToken(e.target.value)} onKeyDown={(e) => e.key === "Enter" && token.trim() && void check()} />
+                <button className="btn btn-primary" disabled={!token.trim() || busy} onClick={() => void check()}>
+                  {busy ? "Vérification…" : "Brancher"}
+                </button>
+              </div>
+            )}
+            {message && <p className="error small">{message}</p>}
+          </>
+        )}
+      </div>
+    </MargauxSays>
+  );
+}
+
 function Integrations() {
   const items = [
     ["Guichet unique de l'INPI", "Préparer et suivre l'immatriculation", "Hugo"],
@@ -292,7 +374,7 @@ function Integrations() {
     ["Réseaux sociaux", "Programmer les publications validées", "Jeanne"],
   ];
   return (
-    <MargauxSays text="Aujourd'hui, l'équipe cherche sur le web, écrit et prépare ; elle ne se connecte encore à aucun service extérieur. Voici ceux qui arrivent, dans l'ordre où ils serviront.">
+    <MargauxSays text="L'équipe cherche sur le web, interroge le registre officiel des entreprises, et peut écrire sur ton Discord. Les services qui agissent pour toi arrivent ensuite, dans l'ordre où ils serviront.">
       <div className="form-box">
         {items.map(([name, what, who]) => (
           <div key={name} className="form-row static">

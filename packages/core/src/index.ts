@@ -16,3 +16,5 @@ export * as fmt from "./format.ts";
 export * from "./deliverable.ts";
 export * from "./memory.ts";
 export * from "./playbook.ts";
+export * from "./avatar.ts";
+export * from "./chatter.ts";

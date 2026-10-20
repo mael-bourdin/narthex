@@ -121,6 +121,11 @@ export class Host {
     return this.engines.get(companyId)?.getState();
   }
 
+  /** A colleague's answer on the team chat, paid by that company's budget. */
+  remark(companyId: string, input: Parameters<Engine["remark"]>[0]): Promise<string | undefined> {
+    return this.engines.get(companyId)?.remark(input) ?? Promise.resolve(undefined);
+  }
+
   now(): number {
     return (this.shown() ?? this.spare()).now();
   }

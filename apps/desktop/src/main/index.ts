@@ -14,6 +14,8 @@ import {
   loadConfig,
   needsKey,
   openEngine,
+  startDiscord,
+  checkDiscordToken,
   saveKey,
   serve,
   SocketClient,
@@ -51,6 +53,7 @@ async function connect(): Promise<Client> {
   const server = await serve(engine, socketPath(dir));
   closeServer = () => server.close();
   engine.start();
+  restartDiscord();
   return new InProcessClient(engine);
 }
 
@@ -123,6 +126,37 @@ ipcMain.handle("narthex:config:get", () => {
     notifications: { legal: true, leaving: true, budget: true, deliverables: false, ...config.notifications },
     ownsEngine: Boolean(engine),
   };
+});
+
+// ---------- Discord ----------
+
+let stopDiscord: (() => void) | undefined;
+
+/** (Re)starts the team chat on Discord from the config, when this app runs the companies. */
+function restartDiscord(): void {
+  stopDiscord?.();
+  stopDiscord = engine ? startDiscord(engine, dir, (e) => console.error(`Discord : ${e.message}`)) : undefined;
+}
+
+ipcMain.handle("narthex:discord:get", () => {
+  const d = loadConfig(dir).discord;
+  return { connected: Boolean(d?.token && d.guildId), guildName: d?.guildName ?? null, hasToken: Boolean(d?.token), ownsEngine: Boolean(engine) };
+});
+
+ipcMain.handle("narthex:discord:check", (_e, token: string) => checkDiscordToken(token));
+
+ipcMain.handle("narthex:discord:save", (_e, choice: { token: string; guildId: string; guildName: string }) => {
+  const config = loadConfig(dir);
+  // A new server starts with no channels: they are made on the first message of each company.
+  const sameServer = config.discord?.guildId === choice.guildId;
+  saveConfig(dir, { ...config, discord: { token: choice.token.trim(), guildId: choice.guildId, guildName: choice.guildName, ...(sameServer && config.discord?.setups ? { setups: config.discord.setups } : {}) } });
+  restartDiscord();
+});
+
+ipcMain.handle("narthex:discord:off", () => {
+  const { discord: _gone, ...rest } = loadConfig(dir);
+  saveConfig(dir, rest);
+  restartDiscord();
 });
 
 ipcMain.handle("narthex:config:setModels", (_e, models: Partial<Record<RoleId, string>>) => {

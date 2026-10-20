@@ -36,7 +36,7 @@ import {
 } from "@narthex/core";
 import { SimulatedClock, systemClock, type Clock } from "./clock.ts";
 import { newId } from "./ids.ts";
-import type { AgentRuntime, FollowUp, ReflectionInput } from "./runtime.ts";
+import type { AgentRuntime, FollowUp, ReflectionInput, RemarkInput } from "./runtime.ts";
 import type { EventStore } from "./store.ts";
 
 export const ENGINE_VERSION = "0.1.0";
@@ -378,6 +378,23 @@ export class Engine {
       this.consolidate();
     }
     this.announceHires();
+  }
+
+  /**
+   * A colleague's short answer on the team chat (Discord). Paid like any work: recorded in the AI spend,
+   * never past the day's budget. Undefined when nobody can or should answer.
+   */
+  async remark(input: Omit<RemarkInput, "company" | "signal">): Promise<string | undefined> {
+    const runtime = this.runtime;
+    const agent = Object.values(this.state.agents).find((a) => a.role === input.speaker.role);
+    if (!runtime?.remark || !agent || !this.state.company || dayOverBudget(this.state, this.now())) return undefined;
+    try {
+      const out = await runtime.remark({ ...input, company: this.state.company.name, signal: AbortSignal.timeout(30_000) });
+      this.emit({ type: "usage.recorded", agentId: agent.id, ...out.usage, at: this.now() });
+      return out.text.trim().slice(0, 600) || undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /** One reflection at a time per role, so two never overwrite each other's playbook. */

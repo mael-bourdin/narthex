@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { role, ROLES, type FirstLook, type RoleId } from "@narthex/core";
-import { REFLECT_SCHEMA, REFLECT_SYSTEM, reflectionFrom, reflectPrompt, TIDY_SCHEMA, TIDY_SYSTEM, tidyFrom, tidyPrompt, brief, companySheet, DEFAULT_MODEL, FACTS_SCHEMA, FACTS_SYSTEM, factsFrom, factsPrompt, MEMORY_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
-import type { AgentRuntime, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, FactsInput, FactsResult, WorkContext, WorkResult } from "./runtime.ts";
+import { REMARK_SCHEMA, remarkSystem, REFLECT_SCHEMA, REFLECT_SYSTEM, reflectionFrom, reflectPrompt, TIDY_SCHEMA, TIDY_SYSTEM, tidyFrom, tidyPrompt, brief, companySheet, DEFAULT_MODEL, FACTS_SCHEMA, FACTS_SYSTEM, factsFrom, factsPrompt, MEMORY_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
+import type { AgentRuntime, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, RemarkInput, RemarkResult, FactsInput, FactsResult, WorkContext, WorkResult } from "./runtime.ts";
 
 /**
  * DEVELOPMENT ONLY. The developer's own Claude Code (`claude -p`), on their own claude.ai subscription,
@@ -59,6 +59,12 @@ export class ClaudeCodeRuntime implements AgentRuntime {
       () => {},
     );
     return { ...factsFrom(out.value), usage: out.usage };
+  }
+
+  async remark(input: RemarkInput): Promise<RemarkResult> {
+    const out = await this.ask({ system: remarkSystem(input), prompt: input.text, schema: REMARK_SCHEMA, model: MEMORY_MODEL, effort: "low", web: false }, input.signal, () => {});
+    const v = (out.value ?? {}) as { text?: unknown };
+    return { text: typeof v.text === "string" ? v.text : "", usage: out.usage };
   }
 
   async reflect(input: ReflectionInput): Promise<ReflectionResult> {
