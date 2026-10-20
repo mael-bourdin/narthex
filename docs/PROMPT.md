@@ -116,7 +116,14 @@ Cocher dans ce fichier au fil des PR.
 - [ ] Signature électronique des statuts.
 - [ ] Distribution : installeurs signés et notarisés (macOS), signés (Windows), mise à jour automatique ; paquet npm `narthex` pour le CLI.
 
-**Plus tard** : version hébergée (PostgreSQL derrière `EventStore`, comptes, crédits), mobile, multi-entreprises.
+**v0.5 — Plusieurs entreprises, messagerie, data, jeu**
+- [x] Plusieurs entreprises dans la même app : `Host` (un moteur par entreprise, toutes travaillent, chacune son budget), sélecteur en haut à gauche, « Créer une autre entreprise » relance le premier lancement ; CLI `entreprises`, `choisir`, `init` en ajoute une.
+- [ ] Discord : un serveur avec salons, chaque agent sous son nom et son avatar, réponses et réactions ; le fondateur suit sa société sans ouvrir l'app (puis Telegram, WhatsApp).
+- [ ] Data avancées : tableaux de bord et graphiques (chiffre d'affaires, dépense, ventes, productivité, progression).
+- [ ] Bureau qui évolue avec l'entreprise (petite maison, puis locaux, étages, ascenseur, vue), paliers débloqués par les vrais résultats, annoncés comme une surprise.
+- [ ] Nouvelle direction artistique, à partir de l'histoire et des valeurs (maquettes Figma d'abord).
+
+**Plus tard** : version hébergée (PostgreSQL derrière `EventStore`, comptes, crédits), mobile.
 
 ## 7. Définition de « fini »
 

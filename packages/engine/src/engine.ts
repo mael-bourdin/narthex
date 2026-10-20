@@ -53,6 +53,13 @@ export interface EngineOptions {
    * Used by one-shot CLI commands when no `narthex lancer` is running.
    */
   passive?: boolean;
+  /**
+   * The company this engine runs: `null` for a new one (founded later), absent for the first in the log.
+   * Several engines share one store when several companies run (see `Host`).
+   */
+  companyId?: string | null;
+  /** False when a `Host` owns the store and closes it once, after every engine. */
+  ownsStore?: boolean;
   /** Called once the engine is closed (releases the data folder lock). */
   onClose?: () => void;
   /** Checks that a cited link answers. Off in simulation and tests; `openEngine` gives the real one. */
@@ -78,6 +85,7 @@ export class Engine {
   private readonly listeners = new Set<Listener>();
   private readonly checkLink: LinkCheck | undefined;
   private stopping = false;
+  private readonly ownsStore: boolean;
   private readonly onClose: (() => void) | undefined;
   /** Link checks in flight, so `idle` and `close` wait for them. */
   private readonly checks = new Set<Promise<void>>();
@@ -94,7 +102,8 @@ export class Engine {
     this.clock = options.clock ?? systemClock;
     this.tickMs = options.tickMs ?? 5_000;
     this.passive = options.passive ?? false;
-    this.companyId = this.store.companies()[0] ?? null;
+    this.companyId = options.companyId === undefined ? (this.store.companies()[0] ?? null) : options.companyId;
+    this.ownsStore = options.ownsStore ?? true;
     if (this.companyId) this.state = replay(this.store.read(this.companyId));
     // Work interrupted by a crash or a quit is recorded as such, never silently lost.
     if (!this.passive) for (const task of Object.values(this.state.tasks)) {
@@ -129,7 +138,7 @@ export class Engine {
   /** Stops and releases the event store. */
   async close(): Promise<void> {
     await this.stop();
-    this.store.close();
+    if (this.ownsStore) this.store.close();
     this.onClose?.();
   }
 

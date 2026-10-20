@@ -329,6 +329,20 @@ a { color: var(--accent); }
 .recruit-head > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
 .cal-scroll { max-height: 560px; overflow-y: auto; }
 .recruit-why { padding-left: 28px; white-space: normal; }
+.switcher { position: relative; }
+.switcher-btn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; }
+.switcher-btn:hover, .switcher-btn[aria-expanded="true"] { background: var(--bg-surface); }
+.switcher-btn:focus-visible { outline: 1px solid var(--accent); }
+.switcher-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.switcher-caret { font-size: 11px; }
+.switcher-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 300px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: var(--radius); padding: 8px; display: grid; gap: 2px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45); }
+.switcher-menu > p { margin: 4px 8px 6px; }
+.switcher-item { all: unset; cursor: pointer; display: flex; justify-content: space-between; gap: 16px; padding: 9px 10px; border-radius: 9px; }
+.switcher-item:hover, .switcher-item:focus-visible { background: var(--bg-surface); }
+.switcher-item.on { background: var(--bg-surface); box-shadow: inset 2px 0 0 var(--accent); }
+.switcher-item.create { color: var(--accent); border-top: 1px solid var(--border-subtle); border-radius: 0 0 9px 9px; margin-top: 4px; padding-top: 11px; }
+.creating { position: relative; height: 100%; }
+.creating-back { position: absolute; top: 18px; left: 24px; z-index: 30; }
 .lessons { text-align: left; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 4px; }
 .lessons ul { margin: 6px 0; padding-left: 16px; color: var(--text-secondary); display: grid; gap: 4px; }
 .memory-title { font-size: 17px; font-weight: 500; margin: 24px 0 10px; }

@@ -20,7 +20,7 @@ import {
   socketPath,
   verifyAnthropicKey,
   type Client,
-  type Engine,
+  type Host,
 } from "@narthex/engine";
 
 /**
@@ -28,7 +28,7 @@ import {
  * we join it; otherwise the app runs the engine itself and serves it so the CLI can join.
  */
 let client: Client | undefined;
-let engine: Engine | undefined;
+let engine: Host | undefined;
 let closeServer: (() => void) | undefined;
 let unsubscribe: (() => void) | undefined;
 let window: BrowserWindow | undefined;
@@ -183,11 +183,14 @@ function notify(event: StoredEvent): void {
   const prefs = { legal: true, leaving: true, budget: true, deliverables: false, ...loadConfig(dir).notifications };
   if (!Notification.isSupported() || window?.isFocused()) return;
   const show = (title: string, body: string) => {
-    const n = new Notification({ title, body, silent: false });
+    const n = new Notification({ title: `${from}${title}`, body, silent: false });
     n.on("click", () => window?.show());
     n.show();
   };
-  const state = engine?.getState();
+  // Several companies run: the notification speaks of the event's own company, named when it is not the one shown.
+  const state = engine?.stateOf(event.companyId) ?? engine?.getState();
+  const shown = engine?.status().companyId;
+  const from = state?.company && shown && event.companyId !== shown ? `${state.company.name} · ` : "";
   if (event.type === "obligation.opened" && event.obligation.owner === "founder" && prefs.legal) show("À faire par toi", event.obligation.title);
   if (event.type === "obligation.stuck" && prefs.legal) show("L'équipe est bloquée", `${state?.obligations[event.obligationId]?.title ?? "Une obligation"} : il faut ton avis pour reprendre.`);
   if (event.type === "task.planned" && event.task.kind === "external" && prefs.leaving) {

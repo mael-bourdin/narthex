@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CompanyState, EngineStatus } from "@narthex/core";
 
 /** Live company state: fetched once, refreshed (throttled) after every engine event. */
@@ -6,6 +6,7 @@ export function useCompany(): { state: CompanyState | null | undefined; status: 
   const [state, setState] = useState<CompanyState | null | undefined>(undefined);
   const [status, setStatus] = useState<EngineStatus>();
   const [tick, setTick] = useState(0);
+  const shown = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -13,6 +14,7 @@ export function useCompany(): { state: CompanyState | null | undefined; status: 
       if (!alive) return;
       setState(s);
       setStatus(st);
+      shown.current = st.companyId;
     });
     return () => {
       alive = false;
@@ -21,7 +23,9 @@ export function useCompany(): { state: CompanyState | null | undefined; status: 
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const off = window.narthex.onEvent(() => {
+    const off = window.narthex.onEvent((event) => {
+      // Other companies keep working in the background: only the one shown refreshes the screen.
+      if (shown.current && event.companyId !== shown.current) return;
       timer ??= setTimeout(() => {
         timer = undefined;
         setTick((t) => t + 1);

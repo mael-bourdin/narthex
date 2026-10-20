@@ -17,6 +17,8 @@ export interface Config {
   models?: Partial<Record<import("@narthex/core").RoleId, string>>;
   /** Desktop notifications the player wants. */
   notifications?: { legal?: boolean; leaving?: boolean; budget?: boolean; deliverables?: boolean };
+  /** The company the app and the CLI show (several can run). */
+  activeCompany?: string;
   /** Simulation only: simulated minutes per real second. */
   simulationSpeed?: number;
 }
