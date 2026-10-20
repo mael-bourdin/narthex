@@ -270,9 +270,32 @@ function DomainPage({
   onTask(t: Task): void;
 }) {
   const v = pageView(state, section, page, status.now);
+  const [selling, setSelling] = useState(false);
+  const sales = state.sales ?? [];
   return (
     <>
       <h1>{page}</h1>
+      {section === "Ventes" && (
+        <section className="sales">
+          <p className="muted small">
+            {sales.length === 0
+              ? "Aucune vente enregistrée. La première fait passer l'entreprise en activité."
+              : `${sales.length} vente${sales.length > 1 ? "s" : ""} enregistrée${sales.length > 1 ? "s" : ""}, la dernière le ${fmt.day(sales.at(-1)!.at)}.`}
+          </p>
+          <button className="btn btn-secondary" onClick={() => setSelling(true)}>
+            J'ai fait une vente
+          </button>
+          {selling && (
+            <ActionModal
+              mission={{ id: "sale", kind: "rest", eyebrow: "Ventes", title: "Enregistrer une vente", why: "Le montant est facultatif. L'équipe s'en sert pour ses chiffres.", action: "sale", label: "" }}
+              state={state}
+              now={status.now}
+              onClose={() => setSelling(false)}
+              onDone={() => {}}
+            />
+          )}
+        </section>
+      )}
       <section className="owners">
         {v.owners.length > 0
           ? v.owners.map((a) => (

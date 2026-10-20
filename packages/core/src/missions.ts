@@ -17,7 +17,7 @@ export interface Mission {
   why: string;
   speakerId?: string;
   /** What the popup offers. */
-  action: "key" | "budget" | "form" | "fulfill" | "retry" | "cancel" | "open" | "none";
+  action: "key" | "budget" | "form" | "fulfill" | "retry" | "cancel" | "open" | "sale" | "none";
   label: string;
   taskId?: string;
   obligationId?: string;

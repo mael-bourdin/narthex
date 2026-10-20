@@ -162,6 +162,15 @@ export class Engine {
         return this.found(params as Params<"company.found">);
       case "onboarding.firstLook":
         return this.firstLook(params as Params<"onboarding.firstLook">);
+      case "sale.record": {
+        this.requireCompany();
+        const p = params as Params<"sale.record">;
+        if (p.amountCents !== undefined && !(Number.isInteger(p.amountCents) && p.amountCents >= 0 && p.amountCents < 1e11)) throw new Error("Le montant n'est pas valide.");
+        const note = p.note?.trim().slice(0, 200);
+        this.emit({ type: "sale.recorded", sale: { id: newId("sa"), at: this.now(), ...(p.amountCents !== undefined ? { amountCents: p.amountCents } : {}), ...(note ? { note } : {}) } });
+        this.tick();
+        return this.state;
+      }
       case "company.update": {
         this.requireCompany();
         const p = params as Params<"company.update">;
