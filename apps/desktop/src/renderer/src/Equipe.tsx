@@ -529,6 +529,19 @@ function AgentPage({ state, status, agentId, onBack, onChange }: { state: Compan
             <span>Pas abouties</span>
             <span>{sheet.stats.failed}</span>
           </div>
+          {sheet.lessons.length > 0 && (
+            <div className="lessons">
+              <p className="small">Ce qu'{she ? "elle" : "il"} a appris</p>
+              <ul>
+                {sheet.lessons.map((l) => (
+                  <li key={l.id} className="small" title={`Utile ${l.helpful} fois · appris le ${fmt.day(l.learntAt)}`}>
+                    {l.text}
+                  </li>
+                ))}
+              </ul>
+              <p className="muted small">Partagé par tous les {sheet.title.toLowerCase()}, appliqué à chaque mission.</p>
+            </div>
+          )}
           {sheet.sources.length > 0 && (
             <div className="chips">
               {sheet.sources.slice(0, 8).map((s) => (

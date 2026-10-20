@@ -3,6 +3,8 @@ import type {
   Company,
   Deliverable,
   Fact,
+  Lesson,
+  RoleId,
   Sale,
   Id,
   Obligation,
@@ -38,6 +40,8 @@ export type DomainEvent =
   | { type: "obligation.opened"; obligation: Obligation }
   | { type: "obligation.fulfilled"; obligationId: Id; at: Timestamp; by: "founder" | Id }
   | { type: "sale.recorded"; sale: Sale }
+  /** The whole curated playbook of a role after a reflection on one task. */
+  | { type: "playbook.updated"; role: RoleId; lessons: Lesson[]; taskId?: Id; at: Timestamp }
   /** End of a Paris day: duplicates merged, stale facts dated, reflections added (`day` = the day tidied). */
   | { type: "facts.consolidated"; day: string; at: Timestamp; added: Fact[]; invalidated: Id[] }
   | { type: "facts.extracted"; deliverableId: Id; at: Timestamp; added: Fact[]; invalidated: Id[] }

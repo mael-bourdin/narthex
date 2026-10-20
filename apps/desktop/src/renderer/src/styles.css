@@ -321,6 +321,8 @@ a { color: var(--accent); }
 
 /* ---------- Recrutements, journal ---------- */
 .recruit-row > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.lessons { text-align: left; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 4px; }
+.lessons ul { margin: 6px 0; padding-left: 16px; color: var(--text-secondary); display: grid; gap: 4px; }
 .memory-title { font-size: 17px; font-weight: 500; margin: 24px 0 10px; }
 .memory-hits { margin-top: 12px; }
 .memory-row { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); align-items: start; }

@@ -9,6 +9,7 @@ import {
   overBudget as dayOverBudget,
   spentOn,
   recallFacts,
+  curatePlaybook,
   isValid,
   type Fact,
   guardTask,
@@ -35,7 +36,7 @@ import {
 } from "@narthex/core";
 import { SimulatedClock, systemClock, type Clock } from "./clock.ts";
 import { newId } from "./ids.ts";
-import type { AgentRuntime, FollowUp } from "./runtime.ts";
+import type { AgentRuntime, FollowUp, ReflectionInput } from "./runtime.ts";
 import type { EventStore } from "./store.ts";
 
 export const ENGINE_VERSION = "0.1.0";
@@ -316,6 +317,7 @@ export class Engine {
     if (task.status !== "planned" && task.status !== "running") throw new Error("Cette tâche n'est plus annulable.");
     this.work.get(taskId)?.controller.abort();
     this.emit({ type: "task.cancelled", taskId, at: this.now(), by: "founder" });
+    this.reflect(taskId, "cancelled", "Le fondateur a annulé cette tâche avant qu'elle ne parte.");
     this.post(task.agentId, "update", `D'accord, j'annule « ${task.title} ».`, { taskId });
     return this.state;
   }
@@ -353,6 +355,49 @@ export class Engine {
       this.consolidate();
     }
     this.announceHires();
+  }
+
+  /** One reflection at a time per role, so two never overwrite each other's playbook. */
+  private readonly reflecting = new Map<RoleId, Promise<void>>();
+
+  /**
+   * L4 (research: ACE): after each outcome, a small model proposes small deltas to the role's playbook;
+   * curation is deterministic (`curatePlaybook`). Never past the day's budget; a failure changes nothing.
+   */
+  private reflect(taskId: string, outcome: ReflectionInput["outcome"], detail: string): void {
+    const runtime = this.runtime;
+    const task = this.state.tasks[taskId];
+    const agent = task && this.state.agents[task.agentId];
+    if (!runtime?.reflect || !task || !agent || dayOverBudget(this.state, this.now())) return;
+    const r = agent.role;
+    const previous = this.reflecting.get(r) ?? Promise.resolve();
+    const run = previous.then(async () => {
+      try {
+        const lessons = this.state.playbooks?.[r] ?? [];
+        const out = await runtime.reflect!({
+          role: r,
+          task: { title: task.title, why: task.why, kind: task.kind },
+          outcome,
+          detail: detail.slice(0, 4000),
+          lessons: lessons.map((l) => ({ id: l.id, text: l.text })),
+          now: this.now(),
+          signal: AbortSignal.timeout(60_000),
+        });
+        if (!this.companyId) return;
+        this.emit({ type: "usage.recorded", agentId: agent.id, taskId, ...out.usage, at: this.now() });
+        const current = this.state.playbooks?.[r] ?? [];
+        const next = curatePlaybook(current, { add: out.add.slice(0, 2).map((text) => ({ id: newId("le"), text })), helpful: out.helpful, harmful: out.harmful }, this.now());
+        if (JSON.stringify(next) !== JSON.stringify(current)) this.emit({ type: "playbook.updated", role: r, lessons: next, taskId, at: this.now() });
+      } catch {
+        // A lesson is a bonus: never blocks the work.
+      }
+    });
+    this.reflecting.set(r, run);
+    this.checks.add(run);
+    void run.finally(() => {
+      this.checks.delete(run);
+      if (this.reflecting.get(r) === run) this.reflecting.delete(r);
+    });
   }
 
   private consolidating = false;
@@ -568,6 +613,7 @@ export class Engine {
         ? { id: newId("dl"), taskId, agentId: agent.id, createdAt: this.now(), ...result.deliverable }
         : undefined;
       this.emit({ type: "task.completed", taskId, at: this.now(), ...(deliverable ? { deliverable } : {}) });
+      this.reflect(taskId, "done", [result.post, deliverable ? `Livrable : ${deliverable.title}. ${deliverable.summary}` : ""].filter(Boolean).join("\n"));
       if (deliverable) {
         this.checkSources(deliverable.id, result.consulted ?? []);
         this.extractFacts(deliverable.id);
@@ -588,6 +634,7 @@ export class Engine {
       if (controller.signal.aborted || this.state.tasks[taskId]?.status !== "running") return;
       const message = e instanceof Error ? e.message : String(e);
       this.emit({ type: "task.failed", taskId, at: this.now(), error: message });
+      this.reflect(taskId, "failed", message);
       this.post(agent.id, "update", `Je n'ai pas pu terminer « ${task.title} » : ${message}`, { taskId });
     }
   }

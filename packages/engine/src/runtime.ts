@@ -73,6 +73,26 @@ export interface ConsolidationResult {
   usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
 }
 
+/** After a task, what happened, for the role's playbook (research: ACE reflection). */
+export interface ReflectionInput {
+  role: RoleId;
+  task: { title: string; why: string; kind: TaskKind };
+  outcome: "done" | "failed" | "cancelled";
+  /** The agent's post or deliverable summary, the error, or the founder's cancel. */
+  detail: string;
+  lessons: { id: string; text: string }[];
+  now: number;
+  signal: AbortSignal;
+}
+
+export interface ReflectionResult {
+  /** At most two new lessons. */
+  add: string[];
+  helpful: string[];
+  harmful: string[];
+  usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
+}
+
 /** Something that can make an agent work: Claude, the offline simulation, or a test double. */
 export interface AgentRuntime {
   readonly name: Exclude<RuntimeName, "none">;
@@ -83,4 +103,6 @@ export interface AgentRuntime {
   extractFacts?(input: FactsInput): Promise<FactsResult>;
   /** End-of-day tidying of L2 memory, with a small model. Absent in simulation. */
   consolidateFacts?(input: ConsolidationInput): Promise<ConsolidationResult>;
+  /** L4: lessons for the role's playbook, with a small model. Absent in simulation. */
+  reflect?(input: ReflectionInput): Promise<ReflectionResult>;
 }

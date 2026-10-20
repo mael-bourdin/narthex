@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { fmt, recallFacts, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
+import { fmt, recallFacts, role, ROLES, type Lesson, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
 import { searchCompanies, type CompanySearch } from "./connectors/entreprises.ts";
-import type { AgentRuntime, ConsolidationInput, ConsolidationResult, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
+import type { AgentRuntime, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 type Tool = Anthropic.Beta.BetaToolUnion;
 type MessageParam = Anthropic.Beta.BetaMessageParam;
@@ -99,6 +99,24 @@ export class AnthropicRuntime implements AgentRuntime {
     return { ...factsFrom(call?.input), usage };
   }
 
+  async reflect(input: ReflectionInput): Promise<ReflectionResult> {
+    const response = await this.client.beta.messages.create(
+      {
+        model: MEMORY_MODEL,
+        max_tokens: 2000,
+        system: REFLECT_SYSTEM,
+        tools: [UPDATE_PLAYBOOK],
+        tool_choice: { type: "tool", name: "update_playbook" },
+        messages: [{ role: "user", content: reflectPrompt(input) }],
+      },
+      { signal: input.signal },
+    );
+    const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
+    addUsage(usage, response.usage, response.model || MEMORY_MODEL);
+    const call = response.content.find((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === "update_playbook");
+    return { ...reflectionFrom(call?.input), usage };
+  }
+
   async consolidateFacts(input: ConsolidationInput): Promise<ConsolidationResult> {
     const response = await this.client.beta.messages.create(
       {
@@ -122,7 +140,7 @@ export class AnthropicRuntime implements AgentRuntime {
     const model = this.models[ctx.agent.role] ?? this.chosen ?? def.model;
     const tools = toolsFor(def);
     const system: Anthropic.Beta.BetaTextBlockParam[] = [
-      { type: "text", text: identity(def, ctx.agent.name) },
+      { type: "text", text: identity(def, ctx.agent.name, ctx.state.playbooks?.[ctx.agent.role]) },
       { type: "text", text: companySheet(ctx), cache_control: { type: "ephemeral", ttl: "1h" } },
     ];
     const messages: MessageParam[] = [{ role: "user", content: brief(ctx) }];
@@ -305,7 +323,7 @@ export function firstLookPrompt(input: { idea: string; founderName: string; now:
   return `Nous sommes le ${fmt.day(input.now)}. ${input.founderName} vient de te confier son idée : « ${input.idea} »`;
 }
 
-export function identity(def: RoleDef, name: string): string {
+export function identity(def: RoleDef, name: string, lessons: readonly Lesson[] = []): string {
   return [
     `Tu es ${name}, ${def.title.toLowerCase()} dans une petite entreprise française que tu fais tourner avec une équipe d'agents IA, pour le compte de son fondateur.`,
     `Ta mission : ${def.mission}`,
@@ -320,6 +338,8 @@ export function identity(def: RoleDef, name: string): string {
     ...def.guardrails.map((g) => `- ${g}`),
     "",
     `L'équipe possible : ${ROLES.map((r) => `${r.id} (${r.title})`).join(", ")}.`,
+    // L4: what this role learnt from its own work, kept short and curated.
+    ...(lessons.length ? ["", "Ce que tu as appris de ton travail (applique-le) :", ...lessons.map((l) => `- ${l.text}`)] : []),
   ].join("\n");
 }
 
@@ -524,6 +544,41 @@ export function tidyFrom(value: unknown): Omit<ConsolidationResult, "usage"> {
       })
     : [];
   return { merged, invalidated: strings(v.invalidated), reflections };
+}
+
+// ---------- Playbooks (L4) ----------
+
+export const REFLECT_SYSTEM = [
+  "Tu aides un membre d'une petite équipe d'agents IA à apprendre de son propre travail. On te donne une tâche, ce qui s'est passé, et ses leçons actuelles avec leur identifiant entre crochets.",
+  "add : 0 à 2 leçons nouvelles, seulement si cette tâche apprend vraiment quelque chose de réutilisable. Une phrase courte, concrète, à l'impératif (« Interroger le registre des entreprises avant les noms de domaine »). Rien de vague, rien de propre à cette seule tâche, pas de chiffre qui changera.",
+  "helpful : les identifiants des leçons qui ont visiblement aidé ici. harmful : celles qui ont nui ou mené à l'échec.",
+  "Si le fondateur a annulé la tâche, la leçon porte sur ce qu'il ne veut pas qu'on fasse sans lui. Si rien n'est à apprendre, renvoie des listes vides.",
+].join("\n");
+
+export function reflectPrompt(input: ReflectionInput): string {
+  const outcome = input.outcome === "done" ? "terminée" : input.outcome === "failed" ? "échouée" : "annulée par le fondateur";
+  const lessons = input.lessons.length ? input.lessons.map((l) => `[${l.id}] ${l.text}`).join("\n") : "(aucune)";
+  return `Rôle : ${role(input.role).title}\nTâche ${outcome} : ${input.task.title}\nPourquoi : ${input.task.why}\nCe qui s'est passé : ${input.detail}\n\nLeçons actuelles :\n${lessons}`;
+}
+
+export const REFLECT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["add", "helpful", "harmful"],
+  properties: { add: { type: "array", items: { type: "string" } }, helpful: { type: "array", items: { type: "string" } }, harmful: { type: "array", items: { type: "string" } } },
+} as const;
+
+const UPDATE_PLAYBOOK: Tool = {
+  name: "update_playbook",
+  description: "Ajoute au plus deux leçons et note celles qui ont aidé ou nui.",
+  strict: true,
+  input_schema: REFLECT_SCHEMA as unknown as Anthropic.Beta.BetaTool.InputSchema,
+};
+
+export function reflectionFrom(value: unknown): Omit<ReflectionResult, "usage"> {
+  const v = (value ?? {}) as Record<string, unknown>;
+  const strings = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === "string" && s.trim() !== "") : []);
+  return { add: strings(v.add).slice(0, 2), helpful: strings(v.helpful), harmful: strings(v.harmful) };
 }
 
 // ---------- Tools ----------

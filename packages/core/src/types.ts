@@ -217,6 +217,17 @@ export interface Fact {
   sensitive?: boolean;
 }
 
+/** L4 memory: one lesson a role learnt from its own work (research: ACE playbooks, by deltas). */
+export interface Lesson {
+  id: Id;
+  /** One short, actionable sentence. */
+  text: string;
+  /** Times the reflector found it helped, or hurt. */
+  helpful: number;
+  harmful: number;
+  learntAt: Timestamp;
+}
+
 export interface CompanyState {
   company?: Company;
   agents: Record<Id, Agent>;
@@ -232,6 +243,8 @@ export interface CompanyState {
   memory: string;
   /** L2 memory: facts extracted from deliverables. */
   facts: Record<Id, Fact>;
+  /** L4 memory: lessons per role, in every agent's cached prefix. */
+  playbooks?: Partial<Record<RoleId, Lesson[]>>;
   /** Last Paris day (YYYY-MM-DD) whose notes were tidied at the end of the day. */
   consolidatedThrough?: string;
   /** Sales recorded by the founder. */
