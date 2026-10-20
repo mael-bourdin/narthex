@@ -39,6 +39,8 @@ function attach(engine: Engine, socket: Socket): void {
     } catch {
       return;
     }
+    // Same-user peers only, but a malformed line must never take the engine down.
+    if (!request || typeof request !== "object" || typeof request.method !== "string") return;
     let response: RpcResponse;
     try {
       response = { id: request.id, result: await engine.handle(request.method, request.params) };
@@ -53,15 +55,22 @@ export function write(socket: Socket, message: unknown): void {
   if (!socket.destroyed) socket.write(`${JSON.stringify(message)}\n`);
 }
 
-export function readLines(socket: Socket, onLine: (line: string) => void): void {
+/** A line longer than this is not a request: the peer is dropped. */
+const MAX_LINE = 8 * 1024 * 1024;
+
+export function readLines(socket: Socket, onLine: (line: string) => void | Promise<void>): void {
   let buffer = "";
   socket.on("data", (chunk: string | Buffer) => {
     buffer += chunk.toString();
+    if (buffer.length > MAX_LINE && buffer.indexOf("\n") < 0) {
+      socket.destroy();
+      return;
+    }
     let index: number;
     while ((index = buffer.indexOf("\n")) >= 0) {
       const line = buffer.slice(0, index).trim();
       buffer = buffer.slice(index + 1);
-      if (line) onLine(line);
+      if (line) void Promise.resolve(onLine(line)).catch(() => {});
     }
   });
 }

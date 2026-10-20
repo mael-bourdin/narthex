@@ -25,6 +25,25 @@ export interface Methods {
 }
 
 export type Method = keyof Methods;
+
+/** Every method, at runtime: the server refuses anything else. The record type keeps it complete. */
+const METHOD_LIST: Record<Method, true> = {
+  "engine.status": true,
+  "company.found": true,
+  "company.pause": true,
+  "sale.record": true,
+  "company.update": true,
+  "company.resume": true,
+  "state.get": true,
+  "events.read": true,
+  "task.cancel": true,
+  "obligation.retry": true,
+  "obligation.fulfill": true,
+  "settings.update": true,
+  "clock.advance": true,
+  "onboarding.firstLook": true,
+};
+export const METHODS: ReadonlySet<string> = new Set(Object.keys(METHOD_LIST));
 export type Params<M extends Method> = Methods[M]["params"];
 export type Result<M extends Method> = Methods[M]["result"];
 

@@ -5,6 +5,7 @@ import {
   fmt,
   declinedByFounder,
   MAX_ATTEMPTS,
+  METHODS,
   overBudget,
   recallFacts,
   guardTask,
@@ -48,6 +49,8 @@ export interface EngineOptions {
    * Used by one-shot CLI commands when no `narthex lancer` is running.
    */
   passive?: boolean;
+  /** Called once the engine is closed (releases the data folder lock). */
+  onClose?: () => void;
   /** Checks that a cited link answers. Off in simulation and tests; `openEngine` gives the real one. */
   checkLink?: LinkCheck;
 }
@@ -70,6 +73,8 @@ export class Engine {
   private readonly passive: boolean;
   private readonly listeners = new Set<Listener>();
   private readonly checkLink: LinkCheck | undefined;
+  private stopping = false;
+  private readonly onClose: (() => void) | undefined;
   /** Link checks in flight, so `idle` and `close` wait for them. */
   private readonly checks = new Set<Promise<void>>();
   private readonly work = new Map<string, { controller: AbortController; done: Promise<void> }>();
@@ -79,6 +84,7 @@ export class Engine {
 
   constructor(options: EngineOptions) {
     this.checkLink = options.checkLink;
+    this.onClose = options.onClose;
     this.store = options.store;
     this.runtime = options.runtime;
     this.clock = options.clock ?? systemClock;
@@ -88,13 +94,14 @@ export class Engine {
     if (this.companyId) this.state = replay(this.store.read(this.companyId));
     // Work interrupted by a crash or a quit is recorded as such, never silently lost.
     if (!this.passive) for (const task of Object.values(this.state.tasks)) {
-      if (task.status === "running") this.emit({ type: "task.failed", taskId: task.id, at: this.now(), error: "Interrompue (Narthex a été fermé)." });
+      if (task.status === "running") this.emit({ type: "task.failed", taskId: task.id, at: this.now(), error: "Interrompue (Narthex a été fermé).", interrupted: true });
     }
   }
 
   // ---------- Lifecycle ----------
 
   start(): void {
+    this.stopping = false;
     if (this.timer) return;
     this.timer = setInterval(() => this.tick(), this.tickMs);
     this.timer.unref?.();
@@ -102,6 +109,8 @@ export class Engine {
   }
 
   async stop(): Promise<void> {
+    // Agents finish what they started; nothing new starts, even from a task that ends meanwhile.
+    this.stopping = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
     await this.idle();
@@ -117,6 +126,7 @@ export class Engine {
   async close(): Promise<void> {
     await this.stop();
     this.store.close();
+    this.onClose?.();
   }
 
   /** Aborts every agent at work; their tasks are recorded as interrupted on next start. */
@@ -149,6 +159,7 @@ export class Engine {
   }
 
   private async dispatch(method: Method, params: unknown): Promise<unknown> {
+    if (typeof method !== "string" || !METHODS.has(method)) throw new Error(`Méthode inconnue : ${String(method).slice(0, 60)}`);
     switch (method) {
       case "engine.status":
         return this.status();
@@ -212,6 +223,8 @@ export class Engine {
       case "clock.advance": {
         if (!(this.clock instanceof SimulatedClock)) throw new Error("L'horloge ne s'avance qu'en mode simulation.");
         this.clock.advance((params as Params<"clock.advance">).hours * 3_600_000);
+        // Written down, so the next start resumes from the advanced time even if nothing else happens.
+        if (this.companyId) this.emit({ type: "clock.advanced", hours: (params as Params<"clock.advance">).hours, at: this.now() });
         this.tick();
         return this.status();
       }
@@ -288,7 +301,7 @@ export class Engine {
       createdAt: now,
     };
     this.emit({ type: "task.completed", taskId, at: now, deliverable });
-    if (look.usage) this.emit({ type: "usage.recorded", agentId: margaux.id, taskId, ...look.usage });
+    if (look.usage) this.emit({ type: "usage.recorded", agentId: margaux.id, taskId, ...look.usage, at: now });
     this.post(margaux.id, "deliverable", look.reaction, { taskId, deliverableId: deliverable.id });
   }
 
@@ -322,7 +335,7 @@ export class Engine {
 
   /** Applies policy decisions until there is nothing left to decide. Synchronous by design. */
   tick(): void {
-    if (!this.passive) {
+    if (!this.passive && !this.stopping) {
       const tried = new Set<string>();
       for (let round = 0; round < 50; round++) {
         const fresh = decide(this.state, this.now()).filter((i) => !tried.has(key(i)));

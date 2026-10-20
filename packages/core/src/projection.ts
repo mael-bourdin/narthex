@@ -98,12 +98,10 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       }
       return scoreAgent(setAgentWork(next, event.taskId, false), event.taskId, true);
     }
-    case "task.failed":
-      return scoreAgent(
-        setAgentWork(patchTask(state, event.taskId, { status: "failed", endedAt: event.at, error: event.error }), event.taskId, false),
-        event.taskId,
-        false,
-      );
+    case "task.failed": {
+      const next = setAgentWork(patchTask(state, event.taskId, { status: "failed", endedAt: event.at, error: event.error, ...(event.interrupted ? { interrupted: true } : {}) }), event.taskId, false);
+      return event.interrupted ? next : scoreAgent(next, event.taskId, false);
+    }
     case "task.cancelled": {
       const wasRunning = state.tasks[event.taskId]?.status === "running";
       const next = patchTask(state, event.taskId, { status: "cancelled", endedAt: event.at, cancelledBy: event.by });

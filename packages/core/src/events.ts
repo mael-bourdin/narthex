@@ -30,7 +30,9 @@ export type DomainEvent =
   | { type: "task.started"; taskId: Id; at: Timestamp }
   | { type: "task.progressed"; taskId: Id; note: string; at: Timestamp }
   | { type: "task.completed"; taskId: Id; at: Timestamp; deliverable?: Deliverable }
-  | { type: "task.failed"; taskId: Id; at: Timestamp; error: string }
+  /** `interrupted`: Narthex was closed mid-task; not the agent's failure, not an attempt. */
+  | { type: "task.failed"; taskId: Id; at: Timestamp; error: string; interrupted?: boolean }
+  | { type: "clock.advanced"; hours: number; at: Timestamp }
   | { type: "task.cancelled"; taskId: Id; at: Timestamp; by: "founder" | "team" }
   | { type: "post.published"; post: Post }
   | { type: "obligation.opened"; obligation: Obligation }

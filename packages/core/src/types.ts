@@ -93,6 +93,8 @@ export interface Task {
   deliverableId?: Id;
   parentId?: Id;
   error?: string;
+  /** Cut by closing Narthex: not counted as a failed attempt. */
+  interrupted?: boolean;
   /** Who cancelled it: the founder's cancel is a decision the team respects. */
   cancelledBy?: "founder" | "team";
 }

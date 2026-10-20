@@ -38,7 +38,13 @@ export class SocketClient implements Client {
     this.socket = socket;
     socket.setEncoding("utf8");
     readLines(socket, (line) => {
-      const message = JSON.parse(line) as RpcResponse | RpcNotification;
+      let message: RpcResponse | RpcNotification;
+      try {
+        message = JSON.parse(line) as RpcResponse | RpcNotification;
+      } catch {
+        return;
+      }
+      if (!message || typeof message !== "object") return;
       if ("event" in message) {
         for (const l of this.listeners) l(message.event);
         return;
@@ -77,6 +83,7 @@ export class SocketClient implements Client {
   call<M extends Method>(method: M, params: Params<M>): Promise<Result<M>> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
+      if (this.socket.destroyed) return reject(new Error("Connexion au moteur perdue."));
       this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
       write(this.socket, { id, method, params });
     });

@@ -177,7 +177,7 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
     if (declinedByFounder(state, o)) continue;
     const covered = attempts.some((t) => t.status === "planned" || t.status === "running");
     // After the founder asks to try again, earlier failures no longer count.
-    const failures = attempts.filter((t) => t.status === "failed" && (t.endedAt ?? 0) >= (o.retriedAt ?? 0)).sort((a, b) => (a.endedAt ?? 0) - (b.endedAt ?? 0));
+    const failures = attempts.filter((t) => t.status === "failed" && !t.interrupted && (t.endedAt ?? 0) >= (o.retriedAt ?? 0)).sort((a, b) => (a.endedAt ?? 0) - (b.endedAt ?? 0));
     const owner = agentsWith(state, o.owner)[0];
     if (!covered && owner && failures.length >= MAX_ATTEMPTS && !o.stuck) {
       intents.push({ type: "escalate", obligationId: o.id, error: failures.at(-1)?.error ?? "Erreur inconnue." });
