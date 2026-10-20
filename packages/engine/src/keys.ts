@@ -17,7 +17,7 @@ export async function verifyAnthropicKey(raw: string, client?: Pick<Anthropic, "
   // A half-dead network (captive portal) must never leave the founder staring at « Vérification… ».
   const giveUp = new Promise<"timeout">((resolve) => (timer = setTimeout(() => resolve("timeout"), timeoutMs)));
   try {
-    const api = client ?? new Anthropic({ apiKey: key, timeout: timeoutMs, maxRetries: 1 });
+    const api = client ?? new Anthropic({ apiKey: key, baseURL: "https://api.anthropic.com", authToken: null, timeout: timeoutMs, maxRetries: 1 });
     const outcome = await Promise.race([api.models.list({ limit: 1 }), giveUp]);
     return outcome === "timeout" ? { ok: false, message: UNREACHABLE } : { ok: true, key };
   } catch (e) {

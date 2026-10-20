@@ -87,14 +87,14 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     const deliverable = v.deliverable && typeof v.deliverable === "object" ? parseDeliverable(v.deliverable as Record<string, unknown>) : undefined;
     if (deliverable) ctx.progress(`Livrable prêt : ${deliverable.title}`);
     const post = typeof v.post === "string" && v.post.trim() ? v.post.trim() : `C'est fait : ${ctx.task.title}.`;
-    return { post, ...(deliverable ? { deliverable } : {}), ...(cofounder && typeof v.memory === "string" && v.memory.trim() ? { memory: v.memory } : {}) };
+    return { post, consulted: out.consulted, ...(deliverable ? { deliverable } : {}), ...(cofounder && typeof v.memory === "string" && v.memory.trim() ? { memory: v.memory } : {}) };
   }
 
   private async ask(
     q: { system: string; prompt: string; schema: object; model: string; effort: string; web: boolean },
     signal: AbortSignal,
     progress: (note: string) => void,
-  ): Promise<{ value: unknown; usage: NonNullable<WorkResult["usage"]> }> {
+  ): Promise<{ value: unknown; usage: NonNullable<WorkResult["usage"]>; consulted: string[] }> {
     await (this.checked ??= this.checkSubscription());
     const args = [
       "-p",
@@ -112,11 +112,13 @@ export class ClaudeCodeRuntime implements AgentRuntime {
       "--no-session-persistence",
     ];
     const timeout = AbortSignal.timeout(this.timeoutMs);
+    const consulted = new Set<string>();
     let raw: string;
     try {
       raw = await this.call(args, q.prompt, subscriptionEnv(), AbortSignal.any([signal, timeout]), (line) => {
         const note = progressOf(line);
         if (note) progress(note);
+        for (const url of consultedOf(line)) consulted.add(url);
       });
     } catch (e) {
       if (timeout.aborted && !signal.aborted) throw new Error(`Arrêtée : la tâche a duré trop longtemps (plus de ${Math.round(this.timeoutMs / 60_000)} min).`);
@@ -134,7 +136,7 @@ export class ClaudeCodeRuntime implements AgentRuntime {
       cacheReadTokens: u.cache_read_input_tokens ?? 0,
       credits: 0,
     };
-    return { value: out.structured_output, usage };
+    return { value: out.structured_output, usage, consulted: [...consulted] };
   }
 
   /** A key configured in Claude Code itself would be billed: only the claude.ai subscription is accepted. */
@@ -172,6 +174,22 @@ function progressOf(line: string): string | undefined {
     }
   } catch {}
   return undefined;
+}
+
+/** Pages really read: fetched URLs, and the links search results returned (only these get checked). */
+function consultedOf(line: string): string[] {
+  if (!line.includes("WebFetch") && !line.includes("tool_result")) return [];
+  try {
+    const event = JSON.parse(line) as { type?: string; message?: { content?: { type: string; name?: string; input?: Record<string, unknown>; content?: unknown }[] } };
+    const urls: string[] = [];
+    for (const c of event.message?.content ?? []) {
+      if (event.type === "assistant" && c.type === "tool_use" && c.name === "WebFetch" && typeof c.input?.url === "string") urls.push(c.input.url);
+      if (event.type === "user" && c.type === "tool_result") urls.push(...(JSON.stringify(c.content ?? "").match(/https?:\/\/[^\s"'<>\\)\]]+/g) ?? []));
+    }
+    return urls;
+  } catch {
+    return [];
+  }
 }
 
 function list(v: unknown): Record<string, unknown>[] {

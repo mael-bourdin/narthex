@@ -36,6 +36,8 @@ export interface WorkResult {
   deliverable?: { title: string; summary: string; body: string; sources: Source[] };
   /** New L1 company sheet (co-founder only). */
   memory?: string;
+  /** Pages the agent really read (search results, fetched pages): the only links Narthex will check. */
+  consulted?: string[];
   usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
 }
 

@@ -45,7 +45,8 @@ export class AnthropicRuntime implements AgentRuntime {
   private readonly maxTurns: number;
 
   constructor(options: AnthropicRuntimeOptions = {}) {
-    this.client = options.client ?? new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {});
+    // The player's key goes to Anthropic only: no gateway or extra token picked up from the environment.
+    this.client = options.client ?? new Anthropic({ ...(options.apiKey ? { apiKey: options.apiKey } : {}), baseURL: "https://api.anthropic.com", authToken: null });
     this.model = options.model ?? DEFAULT_MODEL;
     this.chosen = options.model;
     this.models = options.models ?? {};
@@ -104,6 +105,7 @@ export class AnthropicRuntime implements AgentRuntime {
     const messages: MessageParam[] = [{ role: "user", content: brief(ctx) }];
     let deliverable: WorkResult["deliverable"];
     let memory: string | undefined;
+    const consulted = new Set<string>();
 
     for (let turn = 0; turn < this.maxTurns; turn++) {
       if (ctx.signal.aborted) throw new Error("Annulée");
@@ -132,6 +134,7 @@ export class AnthropicRuntime implements AgentRuntime {
 
       if (response.stop_reason === "refusal") throw new Error("Claude a refusé cette tâche.");
       if (response.stop_reason === "max_tokens") throw new Error("Réponse trop longue, interrompue.");
+      for (const url of consultedUrls(response.content)) consulted.add(url);
       messages.push({ role: "assistant", content: response.content });
       if (response.stop_reason === "pause_turn") continue;
 
@@ -141,7 +144,7 @@ export class AnthropicRuntime implements AgentRuntime {
           .flatMap((b) => (b.type === "text" ? [b.text] : []))
           .join("\n")
           .trim();
-        return { post: post || `C'est fait : ${ctx.task.title}.`, deliverable, memory };
+        return { post: (post || `C'est fait : ${ctx.task.title}.`).slice(0, MAX_POST_CHARS), deliverable, memory, consulted: [...consulted] };
       }
 
       // All results go back in a single user message, so parallel tool use keeps working.
@@ -164,9 +167,13 @@ export class AnthropicRuntime implements AgentRuntime {
               const refused = ctx.recruit(requireString(input, "role") as RoleId, requireString(input, "why"));
               return refused ? error(call.id, refused) : ok(call.id, "Recruté : il ou elle commence tout de suite.");
             }
-            case "update_memory":
-              memory = requireString(input, "memory");
+            case "update_memory": {
+              // Read by every agent on every turn: a long or injected sheet would steer and cost forever.
+              const next = requireString(input, "memory");
+              if (next.length > MAX_MEMORY_CHARS) return error(call.id, `Trop longue (${next.length} caractères) : 300 mots, ${MAX_MEMORY_CHARS} caractères au plus.`);
+              memory = next;
               return ok(call.id, "Fiche de l'entreprise mise à jour.");
+            }
             default:
               return error(call.id, `Outil inconnu : ${call.name}`);
           }
@@ -178,6 +185,21 @@ export class AnthropicRuntime implements AgentRuntime {
     }
     throw new Error(`Pas terminé après ${this.maxTurns} tours.`);
   }
+}
+
+const MAX_MEMORY_CHARS = 2500;
+const MAX_POST_CHARS = 2000;
+const MAX_SOURCES = 40;
+
+/** Pages the agent really read: search results and fetched pages. Only these are ever checked by Narthex. */
+export function consultedUrls(content: readonly unknown[]): string[] {
+  const urls: string[] = [];
+  for (const block of content as { type?: string; content?: unknown }[]) {
+    if (block.type !== "web_search_tool_result" && block.type !== "web_fetch_tool_result") continue;
+    const items = Array.isArray(block.content) ? block.content : [block.content];
+    for (const item of items as { url?: unknown }[]) if (item && typeof item.url === "string") urls.push(item.url);
+  }
+  return urls;
 }
 
 function ok(id: string, content: string): ToolResult {
@@ -307,7 +329,9 @@ export function brief(ctx: WorkContext): string {
     "",
     `Ta tâche : ${ctx.task.title}`,
     `Pourquoi : ${ctx.task.why}`,
-    ctx.task.kind === "external" ? "Le délai d'annulation est passé : tu peux agir." : "",
+    ctx.task.kind === "external"
+      ? "Le fondateur n'a pas annulé cette action. Mais tu n'as aucun outil pour agir dehors (envoyer, publier, payer, déposer) : prépare tout pour qu'il n'ait plus qu'à le faire, et dis que c'est prêt, jamais que c'est parti."
+      : "",
     "",
     recent.length ? `Derniers livrables de l'équipe :\n${recent.join("\n")}` : "",
     known.length ? `Ce que l'équipe sait déjà sur ce sujet (vérifie ce qui a pu changer, ne refais pas ce qui est acquis) :\n${known.join("\n")}` : "",
@@ -494,10 +518,20 @@ const MEMORY: Tool = {
 
 // ---------- Input validation (strict tools, but we never trust model output blindly) ----------
 
-function requireString(input: Record<string, unknown>, key: string): string {
+function requireString(input: Record<string, unknown>, key: string, max = 200_000): string {
   const v = input[key];
   if (typeof v !== "string" || !v.trim()) throw new Error(`Champ « ${key} » manquant.`);
-  return v;
+  return v.trim().slice(0, max);
+}
+
+function webUrl(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" || u.protocol === "http:" ? v : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function parseDeliverable(input: Record<string, unknown>): NonNullable<WorkResult["deliverable"]> {
@@ -505,12 +539,13 @@ export function parseDeliverable(input: Record<string, unknown>): NonNullable<Wo
     ? input.sources.flatMap((s) => {
         if (!s || typeof s !== "object") return [];
         const o = s as Record<string, unknown>;
-        return typeof o.title === "string"
-          ? [{ title: o.title, ...(typeof o.url === "string" ? { url: o.url } : {}), ...(typeof o.checkedAt === "string" ? { checkedAt: o.checkedAt } : {}) }]
-          : [];
+        const url = webUrl(o.url);
+        // A source that is not a web page (javascript:, file:) is dropped, not stored.
+        if (typeof o.title !== "string" || (o.url !== undefined && !url)) return [];
+        return [{ title: o.title.slice(0, 300), ...(url ? { url } : {}), ...(typeof o.checkedAt === "string" ? { checkedAt: o.checkedAt.slice(0, 20) } : {}) }];
       })
     : [];
-  return { title: requireString(input, "title"), summary: requireString(input, "summary"), body: requireString(input, "body"), sources };
+  return { title: requireString(input, "title", 200), summary: requireString(input, "summary", 500), body: requireString(input, "body"), sources: sources.slice(0, MAX_SOURCES) };
 }
 
 export function parseFollowUp(input: Record<string, unknown>): FollowUp {
@@ -519,5 +554,5 @@ export function parseFollowUp(input: Record<string, unknown>): FollowUp {
     ? (input.assignee as RoleId)
     : undefined;
   const inHours = typeof input.in_hours === "number" && input.in_hours >= 0 ? Math.min(input.in_hours, 24 * 30) : 0;
-  return { title: requireString(input, "title"), why: requireString(input, "why"), kind, inHours, ...(assignee ? { assignee } : {}) };
+  return { title: requireString(input, "title", 200), why: requireString(input, "why", 500), kind, inHours, ...(assignee ? { assignee } : {}) };
 }

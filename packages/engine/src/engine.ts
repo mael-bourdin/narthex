@@ -496,7 +496,7 @@ export class Engine {
         : undefined;
       this.emit({ type: "task.completed", taskId, at: this.now(), ...(deliverable ? { deliverable } : {}) });
       if (deliverable) {
-        this.checkSources(deliverable.id);
+        this.checkSources(deliverable.id, result.consulted ?? []);
         this.extractFacts(deliverable.id);
       }
       this.post(agent.id, deliverable ? "deliverable" : "update", result.post, { taskId, ...(deliverable ? { deliverableId: deliverable.id } : {}) });
@@ -557,9 +557,11 @@ export class Engine {
   }
 
   /** After delivery, Narthex itself checks that every cited link answers (no model, no cost). */
-  private checkSources(deliverableId: string): void {
+  private checkSources(deliverableId: string, consulted: readonly string[]): void {
     const check = this.checkLink;
-    const urls = [...new Set((this.state.deliverables[deliverableId]?.sources ?? []).flatMap((s) => (s.url ? [s.url] : [])))];
+    // Only pages the agent really read: a cited URL from injected text is never called from the player's machine.
+    const read = new Set(consulted.map(normalUrl));
+    const urls = [...new Set((this.state.deliverables[deliverableId]?.sources ?? []).flatMap((s) => (s.url && read.has(normalUrl(s.url)) ? [s.url] : [])))].slice(0, 40);
     if (!check || urls.length === 0) return;
     const run = (async () => {
       const results = await Promise.all(
@@ -643,4 +645,14 @@ function key(intent: Intent): string {
 
 function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+function normalUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    return u.href;
+  } catch {
+    return url;
+  }
 }
