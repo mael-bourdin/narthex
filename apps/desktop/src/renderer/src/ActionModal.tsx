@@ -170,6 +170,11 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
               C'est fait
             </button>
           )}
+          {mission.action === "forget" && (
+            <button className="btn btn-danger" disabled={busy} onClick={() => run(() => forget(mission.factId!))}>
+              Oublier
+            </button>
+          )}
           {mission.action === "sale" && (
             <button className="btn btn-primary" disabled={busy || (amountCents !== undefined && !(amountCents >= 0))} onClick={() => run(() => recordSale(amountCents, note))}>
               Enregistrer
@@ -203,6 +208,10 @@ async function fulfill(obligationId: string, legalForm?: LegalForm): Promise<voi
 
 async function setBudget(dailyBudgetCredits: number, taskBudgetCredits: number): Promise<void> {
   await window.narthex.call("settings.update", { patch: { dailyBudgetCredits, taskBudgetCredits } });
+}
+
+async function forget(factId: string): Promise<void> {
+  await window.narthex.call("fact.forget", { factId });
 }
 
 async function recordSale(amountCents: number | undefined, note: string): Promise<void> {

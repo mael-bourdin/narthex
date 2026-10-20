@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { fmt, isValid, searchJournal, type CompanyState, type Deliverable, type EngineStatus } from "@narthex/core";
+import { fmt, isValid, searchJournal, type CompanyState, type Deliverable, type EngineStatus, type Fact } from "@narthex/core";
+import { ActionModal } from "./ActionModal.tsx";
 import { DeliverableView } from "./Deliverable.tsx";
 import { PixelAvatar } from "./PixelAvatar.tsx";
 
@@ -11,6 +12,7 @@ export function Memoire({ state, status, onAgent, onChange }: { state: CompanySt
   const [question, setQuestion] = useState("");
   const [open, setOpen] = useState<Deliverable>();
   const [old, setOld] = useState(false);
+  const [forgetting, setForgetting] = useState<Fact>();
   const hits = question.trim().length > 2 ? searchJournal(state, question) : [];
   const facts = Object.values(state.facts);
   const current = facts.filter((f) => isValid(f, status.now)).sort((a, b) => b.importance - a.importance || b.validFrom - a.validFrom);
@@ -82,11 +84,33 @@ export function Memoire({ state, status, onAgent, onChange }: { state: CompanySt
                     </button>
                   </>
                 )}
+                {" · "}
+                <button className="link inline" onClick={() => setForgetting(f)}>
+                  Oublier
+                </button>
               </div>
             </div>
           </div>
         ))}
       </section>
+      {forgetting && (
+        <ActionModal
+          mission={{
+            id: `forget-${forgetting.id}`,
+            kind: "rest",
+            eyebrow: "Mémoire · effacement définitif",
+            title: "Oublier ce fait ?",
+            why: `« ${forgetting.text} » sera effacé de la mémoire et du journal, avec ce que l'équipe en a tiré. Le livrable d'où il vient reste tel quel.`,
+            action: "forget",
+            label: "",
+            factId: forgetting.id,
+          }}
+          state={state}
+          now={status.now}
+          onClose={() => setForgetting(undefined)}
+          onDone={onChange}
+        />
+      )}
 
       {outdated.length > 0 && (
         <>

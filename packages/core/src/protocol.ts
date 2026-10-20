@@ -10,6 +10,7 @@ export interface Methods {
   "engine.status": { params: Record<string, never>; result: EngineStatus };
   "company.found": { params: FoundParams; result: CompanyState };
   "company.pause": { params: Record<string, never>; result: CompanyState };
+  "fact.forget": { params: { factId: Id }; result: CompanyState };
   "sale.record": { params: { amountCents?: number; note?: string }; result: CompanyState };
   "company.update": { params: { name?: string; city?: string; founderName?: string }; result: CompanyState };
   "company.resume": { params: Record<string, never>; result: CompanyState };
@@ -32,6 +33,7 @@ const METHOD_LIST: Record<Method, true> = {
   "company.found": true,
   "company.pause": true,
   "sale.record": true,
+  "fact.forget": true,
   "company.update": true,
   "company.resume": true,
   "state.get": true,

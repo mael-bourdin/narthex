@@ -290,7 +290,7 @@ export function memoire(s: CompanyState, now: number): string {
   for (const f of current) {
     const from = s.deliverables[f.deliverableId];
     out.push(`${f.importance >= 8 ? violet("●") : dim("●")} ${clean(f.text)}`);
-    out.push(dim(`    ${f.subject ? `${clean(f.subject)} · ` : ""}appris le ${fmt.day(f.validFrom)}${from ? ` · ${clean(from.title)}` : ""}${f.sensitive ? " · réservé" : ""}`));
+    out.push(dim(`    ${f.subject ? `${clean(f.subject)} · ` : ""}appris le ${fmt.day(f.validFrom)}${from ? ` · ${clean(from.title)}` : ""}${f.sensitive ? " · réservé" : ""} · ${f.id}`));
   }
   if (outdated.length) out.push("", dim(`${outdated.length} fait${outdated.length > 1 ? "s" : ""} qui ne ${outdated.length > 1 ? "sont" : "est"} plus vrai${outdated.length > 1 ? "s" : ""} (gardé${outdated.length > 1 ? "s" : ""} pour l'historique).`));
   return out.join("\n");
