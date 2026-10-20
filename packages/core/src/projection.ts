@@ -118,11 +118,12 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
     }
     case "sale.recorded":
       return { ...state, sales: [...(state.sales ?? []), event.sale] };
-    case "facts.extracted": {
+    case "facts.extracted":
+    case "facts.consolidated": {
       const facts = { ...state.facts };
       for (const id of event.invalidated) if (facts[id] && !facts[id]!.invalidAt) facts[id] = { ...facts[id]!, invalidAt: event.at };
       for (const f of event.added) facts[f.id] = f;
-      return { ...state, facts };
+      return { ...state, facts, ...(event.type === "facts.consolidated" ? { consolidatedThrough: event.day } : {}) };
     }
     case "sources.checked": {
       const d = state.deliverables[event.deliverableId];

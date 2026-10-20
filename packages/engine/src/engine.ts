@@ -9,6 +9,8 @@ import {
   overBudget as dayOverBudget,
   spentOn,
   recallFacts,
+  isValid,
+  type Fact,
   guardTask,
   replay,
   role,
@@ -348,8 +350,79 @@ export class Engine {
           this.applyIntent(intent);
         }
       }
+      this.consolidate();
     }
     this.announceHires();
+  }
+
+  private consolidating = false;
+
+  /**
+   * « Pendant la nuit, l'equipe range ses notes » (research: sleep-time consolidation): on the first tick of
+   * a Paris day, a small model tidies the facts learnt before it. Once per day, only if there is something new.
+   */
+  private consolidate(): void {
+    const runtime = this.runtime;
+    const now = this.now();
+    const today = fmt.dayKey(now);
+    if (!runtime?.consolidateFacts || this.consolidating || !this.state.company || dayOverBudget(this.state, now)) return;
+    const through = this.state.consolidatedThrough;
+    const valid = Object.values(this.state.facts).filter((f) => isValid(f, now));
+    const fresh = valid.filter((f) => fmt.dayKey(f.validFrom) < today && (!through || fmt.dayKey(f.validFrom) > through));
+    if (fresh.length === 0) return;
+    const day = fresh.map((f) => fmt.dayKey(f.validFrom)).sort().at(-1)!;
+    const facts = valid.sort((a, b) => b.importance - a.importance || b.validFrom - a.validFrom).slice(0, 150);
+    const known = new Map(facts.map((f) => [f.id, f]));
+    this.consolidating = true;
+    const run = (async () => {
+      try {
+        const out = await runtime.consolidateFacts!({
+          facts: facts.map((f) => ({ id: f.id, text: f.text, subject: f.subject, importance: f.importance, sensitive: !!f.sensitive })),
+          now,
+          signal: AbortSignal.timeout(120_000),
+        });
+        if (!this.companyId) return;
+        const at = this.now();
+        const margaux = Object.values(this.state.agents).find((a) => a.role === "cofondateur");
+        if (margaux) this.emit({ type: "usage.recorded", agentId: margaux.id, ...out.usage, at });
+        const level = (n: number) => Math.min(10, Math.max(1, Math.round(n)));
+        const invalidated = new Set<string>();
+        const added: Fact[] = [];
+        for (const m of out.merged.slice(0, 40)) {
+          const from = m.from.filter((id) => known.has(id));
+          if (from.length < 2 || !m.text.trim()) continue;
+          for (const id of from) invalidated.add(id);
+          // A merge of anything sensitive stays sensitive.
+          const sensitive = m.sensitive || from.some((id) => known.get(id)!.sensitive);
+          added.push({ id: newId("fa"), text: m.text.trim().slice(0, 600), subject: m.subject.trim().slice(0, 80), importance: level(m.importance), deliverableId: known.get(from[0]!)!.deliverableId, validFrom: at, ...(sensitive ? { sensitive: true } : {}) });
+        }
+        const merged = new Set(invalidated);
+        for (const id of out.invalidated) if (known.has(id)) invalidated.add(id);
+        const stale = [...invalidated].filter((id) => !merged.has(id)).length;
+        for (const r of out.reflections.slice(0, 3)) {
+          // A reflection must rest on at least two facts we gave; anything else is a guess.
+          const basis = r.from.filter((id) => known.has(id));
+          if (basis.length >= 2 && r.text.trim()) added.push({ id: newId("fa"), text: r.text.trim().slice(0, 600), subject: "Réflexion", importance: level(r.importance), deliverableId: "", validFrom: at });
+        }
+        this.emit({ type: "facts.consolidated", day, at, added, invalidated: [...invalidated] });
+        const merges = added.filter((f) => f.subject !== "Réflexion").length;
+        const reflections = added.length - merges;
+        if (margaux && (merges || invalidated.size || reflections)) {
+          const parts = [
+            merges ? `${merges} doublon${merges > 1 ? "s" : ""} fusionné${merges > 1 ? "s" : ""}` : "",
+            stale ? `${stale} fait${stale > 1 ? "s" : ""} périmé${stale > 1 ? "s" : ""}` : "",
+            reflections ? `${reflections} réflexion${reflections > 1 ? "s" : ""}` : "",
+          ].filter(Boolean);
+          this.post(margaux.id, "update", `J'ai rangé nos notes de la veille : ${facts.length} faits relus, ${parts.join(", ")}. Tout est dans Équipe · Mémoire.`);
+        }
+      } catch {
+        // Tidying is a bonus: it is tried again on the next tick of a later day.
+      } finally {
+        this.consolidating = false;
+      }
+    })();
+    this.checks.add(run);
+    void run.finally(() => this.checks.delete(run));
   }
 
   /** Everyone who joined in the same instant is announced by Margaux in a single message. */
