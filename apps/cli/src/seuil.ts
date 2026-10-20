@@ -11,7 +11,7 @@ import {
   verifyAnthropicKey,
   InProcessClient,
   type Client,
-  type Engine,
+  type Host,
 } from "@narthex/engine";
 import { bold, clean, colours, dim, streamWords, violet } from "./style.ts";
 
@@ -27,7 +27,7 @@ const print = (text = "") => process.stdout.write(`${text}\n`);
 /** `narthex init`: the first launch, in a terminal. Same words as the app, same steps. */
 export async function runSeuil(options: SeuilOptions): Promise<void> {
   const socket = await SocketClient.connect(socketPath(options.dir));
-  const engine: Engine | undefined = socket ? undefined : openEngine({ dir: options.dir, passive: true }).engine;
+  const engine: Host | undefined = socket ? undefined : openEngine({ dir: options.dir, passive: true }).engine;
   const client: Client = socket ?? new InProcessClient(engine!);
   // Readline is created after the key step: while it listens, it would echo the key in clear.
   const io: { rl: ReturnType<typeof createInterface> | null } = { rl: null };
@@ -45,7 +45,9 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
   };
 
   try {
-    if (await client.call("state.get", {})) throw new Error("Une entreprise existe déjà ici. Regarde-la avec « narthex fil ».");
+    // Several companies can live side by side: « init » founds one more, the others keep running.
+    const others = await client.call("companies.list", {});
+    if (others.length) print(dim(`  Une entreprise de plus, à côté de : ${others.map((c) => c.name).join(", ")}.`));
     print();
     print(violet("     ╭──╮"));
     print(violet("     │░░│"));

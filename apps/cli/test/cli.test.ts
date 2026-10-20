@@ -25,8 +25,14 @@ describe("narthex CLI", () => {
     expect(fil).toContain("équipe à l'arrêt");
   });
 
-  it("refuses a second company in the same folder", () => {
-    expect(() => narthex("init", "--idee", "X", "--prenom", "Y", "--nom", "Z", "--sans-lancer")).toThrow();
+  it("founds a second company next to the first, and switches between them", () => {
+    narthex("init", "--idee", "De la céramique", "--prenom", "Inès", "--nom", "Atelier Brume", "--sans-lancer");
+    const list = narthex("entreprises");
+    expect(list).toContain("Maison Lumen");
+    expect(list).toContain("Atelier Brume");
+    expect(narthex("fil")).toContain("Atelier Brume");
+    expect(narthex("choisir", "maison")).toContain("Maison Lumen");
+    expect(narthex("fil")).toContain("Maison Lumen");
   });
 
   it("starts over on request, keeping the old company in the archives", () => {

@@ -1,6 +1,6 @@
 import type { StoredEvent } from "./events.ts";
 import type { FirstLook } from "./onboarding.ts";
-import type { CompanyState, Id, LegalForm, Settings } from "./types.ts";
+import type { CompanyState, Id, LegalForm, Settings, Stage, Timestamp } from "./types.ts";
 
 /**
  * The engine's API. Every client (CLI, desktop, a future web app) speaks only this,
@@ -12,6 +12,8 @@ export interface Methods {
   "company.pause": { params: Record<string, never>; result: CompanyState };
   "fact.forget": { params: { factId: Id }; result: CompanyState };
   "sale.record": { params: { amountCents?: number; note?: string }; result: CompanyState };
+  "companies.list": { params: Record<string, never>; result: CompanySummary[] };
+  "company.select": { params: { companyId: Id }; result: CompanyState };
   "company.update": { params: { name?: string; city?: string; founderName?: string }; result: CompanyState };
   "company.resume": { params: Record<string, never>; result: CompanyState };
   "state.get": { params: Record<string, never>; result: CompanyState | null };
@@ -35,6 +37,8 @@ const METHOD_LIST: Record<Method, true> = {
   "sale.record": true,
   "fact.forget": true,
   "company.update": true,
+  "companies.list": true,
+  "company.select": true,
   "company.resume": true,
   "state.get": true,
   "events.read": true,
@@ -93,3 +97,15 @@ export const PROTOCOL_VERSION = 1;
  * the offline simulation or the developer's own Claude Code (`NARTHEX_RUNTIME=claude-code`).
  */
 export type RuntimeName = "simulation" | "anthropic" | "claude-code" | "none";
+
+/** One company of the player, for the switcher (app) and « narthex entreprises » (CLI). */
+export interface CompanySummary {
+  id: Id;
+  name: string;
+  stage: Stage;
+  foundedAt: Timestamp;
+  /** The one the app and the CLI show. */
+  active: boolean;
+  /** AI spend so far, in cents. */
+  spent: number;
+}

@@ -3,13 +3,17 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { platform } from "node:os";
 import type { RpcRequest, RpcResponse } from "@narthex/core";
 import type { Engine } from "./engine.ts";
+import type { Host } from "./host.ts";
+
+/** What the server and in-process clients need: one engine, or a host running several companies. */
+export type Serving = Pick<Engine | Host, "handle" | "subscribe">;
 
 /**
  * Serves the engine on a local socket (JSON lines), so the CLI and the desktop app
  * can share one running company. Local only: a Unix socket in the user's data folder,
  * or a per-user named pipe on Windows. Nothing listens on the network.
  */
-export async function serve(engine: Engine, path: string): Promise<Server> {
+export async function serve(engine: Serving, path: string): Promise<Server> {
   if (platform() !== "win32" && existsSync(path)) {
     if (await isAlive(path)) throw new Error("Narthex tourne déjà (un autre moteur écoute sur ce dossier).");
     unlinkSync(path);
@@ -27,7 +31,7 @@ export async function serve(engine: Engine, path: string): Promise<Server> {
   return server;
 }
 
-function attach(engine: Engine, socket: Socket): void {
+function attach(engine: Serving, socket: Socket): void {
   socket.setEncoding("utf8");
   const unsubscribe = engine.subscribe((event) => write(socket, { event }));
   socket.on("close", unsubscribe);

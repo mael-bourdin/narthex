@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { fmt } from "@narthex/core";
 import { Bureau } from "./Bureau.tsx";
+import { CompanySwitcher } from "./CompanySwitcher.tsx";
 import { Entreprise } from "./Entreprise.tsx";
 import { Reglages, type ReglagesView } from "./Reglages.tsx";
 import { Equipe, type EquipeView } from "./Equipe.tsx";
@@ -28,6 +29,7 @@ export function App() {
   // The first launch keeps the screen until « Entrer », even after the company is founded.
   const firstLaunch = useRef<boolean | undefined>(undefined);
   const [entered, setEntered] = useState(false);
+  const [creating, setCreating] = useState(false);
   if (firstLaunch.current === undefined && state !== undefined) firstLaunch.current = state === null;
 
   if (state === undefined || !status) return <div className="splash"><Logo /></div>;
@@ -42,14 +44,37 @@ export function App() {
     );
   }
   if (state === null) return <div className="splash"><Logo /></div>;
+  // A new company: the same first launch, with a way back to the current one.
+  if (creating) {
+    return (
+      <div className="creating">
+        <button className="link creating-back" onClick={() => setCreating(false)}>
+          ← Retour à {state.company?.name}
+        </button>
+        <Seuil
+          onDone={() => {
+            setCreating(false);
+            setTab("Fil");
+            setAgentId(undefined);
+            refresh();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={`app platform-${window.narthex.platform}`}>
       <header className="topbar">
-        <div className="brand">
-          <Logo />
-          <span>narthex</span>
-        </div>
+        <CompanySwitcher
+          current={state.company?.name ?? ""}
+          onSwitch={() => {
+            setTab("Fil");
+            setAgentId(undefined);
+            refresh();
+          }}
+          onCreate={() => setCreating(true)}
+        />
         <nav className="tabs">
           {TABS.map((t) => (
             <button

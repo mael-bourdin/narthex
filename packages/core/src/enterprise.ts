@@ -142,7 +142,7 @@ export interface Overview {
   deadlines: { title: string; who: string; due: Timestamp }[];
 }
 
-const STAGE_LABEL: Record<Stage, string> = { idea: "Idée", research: "À l'étude", creation: "En création", launch: "En lancement", operating: "En activité" };
+export const STAGE_LABEL: Record<Stage, string> = { idea: "Idée", research: "À l'étude", creation: "En création", launch: "En lancement", operating: "En activité" };
 
 export function overview(state: CompanyState, now: Timestamp): Overview {
   const c = state.company!;

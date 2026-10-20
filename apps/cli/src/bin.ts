@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { ALWAYS_ASK, deliverableMarkdown, fmt, ROLES, type CompanyState, type LegalForm } from "@narthex/core";
+import { ALWAYS_ASK, deliverableMarkdown, fmt, ROLES, STAGE_LABEL, type CompanyState, type LegalForm } from "@narthex/core";
 import {
   archiveCompany,
   chooseRuntime,
@@ -19,7 +19,7 @@ import {
 } from "@narthex/engine";
 import * as render from "./render.ts";
 import { runSeuil } from "./seuil.ts";
-import { bold, clean, dim, red, rule } from "./style.ts";
+import { bold, clean, dim, red, rule, violet } from "./style.ts";
 
 const HELP = `${bold("narthex")} — une équipe d'agents IA qui crée et fait tourner ton entreprise.
 
@@ -41,6 +41,8 @@ ${bold("Regarder")}
   narthex memoire                   Ce que l'équipe sait (faits datés, tirés des livrables)
   narthex oublier <id> --oui            Effacer un fait de la mémoire et du journal (définitif)
   narthex pourquoi "<question>"     Retrouver une décision et sa raison dans le journal
+  narthex entreprises               Tes entreprises (toutes tournent ; « init » en crée une autre)
+  narthex choisir <nom>             Afficher une autre entreprise dans le CLI et l'app
   narthex livrable <id|dernier>     Lire un livrable (--fichier x.md pour l'enregistrer)
 
 ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
@@ -107,6 +109,7 @@ async function main(): Promise<void> {
       return recommencer();
   }
   await withClient(async (client) => {
+    if (command === "entreprises" || command === "choisir") return companies(client);
     const state = await client.call("state.get", {});
     if (!state) {
       print(`Pas encore d'entreprise ici. Commence par ${bold("narthex init")}.`);
@@ -266,6 +269,23 @@ async function init(): Promise<void> {
   return lancer();
 }
 
+// ---------- entreprises ----------
+
+async function companies(client: Client): Promise<void> {
+  const list = await client.call("companies.list", {});
+  if (command === "choisir") {
+    const wanted = args.join(" ").trim().toLowerCase();
+    const found = list.filter((c) => c.id === wanted || c.name.toLowerCase().includes(wanted));
+    if (!wanted || found.length !== 1) throw new Error(found.length > 1 ? "Plusieurs entreprises correspondent : précise le nom." : "Aucune entreprise ne correspond. Liste-les avec « narthex entreprises ».");
+    await client.call("company.select", { companyId: found[0]!.id });
+    return print(`${bold(clean(found[0]!.name))} est affichée. Les autres continuent de tourner.`);
+  }
+  if (list.length === 0) return print(`Pas encore d'entreprise. Commence par ${bold("narthex init")}.`);
+  print(bold("Tes entreprises"));
+  for (const c of list) print(`${c.active ? violet("●") : dim("○")} ${clean(c.name)} ${dim(`· ${STAGE_LABEL[c.stage]} · dépense IA ${fmt.dollars(c.spent)}`)}`);
+  print(dim(`\nToutes tournent. Changer : narthex choisir <nom> · en créer une : narthex init`));
+}
+
 // ---------- recommencer ----------
 
 async function recommencer(): Promise<void> {
@@ -273,7 +293,7 @@ async function recommencer(): Promise<void> {
   if (!opts.oui) {
     if (!process.stdin.isTTY) throw new Error("Ajoute --oui pour confirmer.");
     const rl = (await import("node:readline/promises")).createInterface({ input: process.stdin, output: process.stdout });
-    const answer = (await rl.question("L'entreprise actuelle sera archivée (rien n'est supprimé) et le premier lancement recommencera. On y va ? (o/n) ")).trim().toLowerCase();
+    const answer = (await rl.question("Toutes tes entreprises seront archivées (rien n'est supprimé) et le premier lancement recommencera. Pour en créer juste une autre : narthex init. On y va ? (o/n) ")).trim().toLowerCase();
     rl.close();
     if (!answer.startsWith("o")) return print("D'accord, rien n'a changé.");
   }

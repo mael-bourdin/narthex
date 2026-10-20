@@ -1,6 +1,6 @@
 import { createConnection, type Socket } from "node:net";
 import type { Method, Params, Result, RpcNotification, RpcResponse, StoredEvent } from "@narthex/core";
-import type { Engine } from "./engine.ts";
+import type { Serving } from "./server.ts";
 import { readLines, write } from "./server.ts";
 
 /** What every front end talks to, whether the engine runs in the same process or elsewhere. */
@@ -11,9 +11,9 @@ export interface Client {
 }
 
 export class InProcessClient implements Client {
-  private readonly engine: Engine;
+  private readonly engine: Serving;
 
-  constructor(engine: Engine) {
+  constructor(engine: Serving) {
     this.engine = engine;
   }
 

@@ -456,7 +456,7 @@ function Securite({ config }: { config: Config }) {
         </div>
         <Saved {...(message ? { message } : {})} />
       </MargauxSays>
-      <MargauxSays text="Tu veux repartir de zéro ? L'entreprise actuelle est rangée dans les archives (rien n'est supprimé) et le premier lancement recommence.">
+      <MargauxSays text="Tu veux repartir de zéro ? Toutes tes entreprises sont rangées dans les archives (rien n'est supprimé) et le premier lancement recommence. Pour en créer juste une autre, passe par le menu en haut à gauche.">
         <div className="actions">
           {confirm ? (
             <>

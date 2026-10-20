@@ -1,8 +1,8 @@
 import { AnthropicRuntime } from "./anthropic.ts";
 import { ClaudeCodeRuntime } from "./claude-code.ts";
 import { SimulatedClock, systemClock } from "./clock.ts";
-import { apiKey, chooseRuntime, loadConfig, type Config } from "./config.ts";
-import { Engine } from "./engine.ts";
+import { apiKey, chooseRuntime, loadConfig, saveConfig, type Config } from "./config.ts";
+import { Host } from "./host.ts";
 import { httpLinkCheck } from "./links.ts";
 import { acquireLock } from "./lock.ts";
 import { databasePath, dataDir } from "./paths.ts";
@@ -17,7 +17,7 @@ export interface OpenOptions {
 }
 
 /** Opens the player's company from their data folder, with the runtime their setup allows. */
-export function openEngine(options: OpenOptions = {}): { engine: Engine; dir: string; config: Config } {
+export function openEngine(options: OpenOptions = {}): { engine: Host; dir: string; config: Config } {
   const env = options.env ?? process.env;
   const dir = options.dir ?? dataDir(env);
   const config = options.config ?? loadConfig(dir);
@@ -31,23 +31,23 @@ export function openEngine(options: OpenOptions = {}): { engine: Engine; dir: st
   }
 }
 
-function build(dir: string, env: NodeJS.ProcessEnv, config: Config, onClose: () => void, passive: boolean): { engine: Engine; dir: string; config: Config } {
+function build(dir: string, env: NodeJS.ProcessEnv, config: Config, onClose: () => void, passive: boolean): { engine: Host; dir: string; config: Config } {
   const store = new SqliteEventStore(databasePath(dir));
   const runtimeName = chooseRuntime(config, env);
 
   if (runtimeName === "anthropic") {
     const key = apiKey(config, env);
     const runtime = new AnthropicRuntime({ ...(key ? { apiKey: key } : {}), ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) });
-    return { engine: new Engine({ store, runtime, clock: systemClock, passive, onClose, checkLink: httpLinkCheck }), dir, config };
+    return { engine: new Host({ store, runtime, clock: systemClock, passive, onClose, ...company(dir, config), checkLink: httpLinkCheck }), dir, config };
   }
 
   if (runtimeName === "claude-code") {
     const runtime = new ClaudeCodeRuntime({ ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) });
-    return { engine: new Engine({ store, runtime, clock: systemClock, passive, onClose, checkLink: httpLinkCheck }), dir, config };
+    return { engine: new Host({ store, runtime, clock: systemClock, passive, onClose, ...company(dir, config), checkLink: httpLinkCheck }), dir, config };
   }
 
   if (runtimeName === "none") {
-    return { engine: new Engine({ store, runtime: null, clock: systemClock, passive, onClose }), dir, config };
+    return { engine: new Host({ store, runtime: null, clock: systemClock, passive, onClose, ...company(dir, config) }), dir, config };
   }
 
   // The simulated clock never goes back in time, even after an `avancer`.
@@ -55,5 +55,16 @@ function build(dir: string, env: NodeJS.ProcessEnv, config: Config, onClose: () 
   const last = id ? store.read(id).at(-1)?.ts : undefined;
   // Simulated minutes per real second → simulated ms per real ms.
   const clock = new SimulatedClock(Math.max(Date.now(), (last ?? 0) + 1), (config.simulationSpeed ?? 0) * 60);
-  return { engine: new Engine({ store, runtime: new SimulationRuntime(), clock, tickMs: 1_000, passive, onClose }), dir, config };
+  return { engine: new Host({ store, runtime: new SimulationRuntime(), clock, tickMs: 1_000, passive, onClose, ...company(dir, config) }), dir, config };
+}
+
+/** The company shown first, and remembering the founder's choice. */
+function company(dir: string, config: Config): { activeCompany?: string; onSelect(id: string): void } {
+  return {
+    ...(config.activeCompany ? { activeCompany: config.activeCompany } : {}),
+    onSelect: (id) => {
+      const current = loadConfig(dir);
+      if (current.activeCompany !== id) saveConfig(dir, { ...current, activeCompany: id });
+    },
+  };
 }
