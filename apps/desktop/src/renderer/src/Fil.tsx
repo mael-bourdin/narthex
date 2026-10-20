@@ -296,20 +296,27 @@ export function firstTableRows(markdown: string, limit: number): string[][] {
     rows.push(line.replace(/^\||\|$/g, "").split("|").map((c) => c.trim().replace(/\*\*/g, "")));
     if (rows.length === limit) break;
   }
-  return rows;
+  // A leading « 1, 2, 3 » column says nothing in a two-cell preview: show what follows it.
+  const numbered = rows.length > 0 && rows.every((r) => /^(#|n°)?\s*\d+\.?$/i.test(r[0] ?? "") && r.length > 1);
+  return numbered ? rows.map((r) => r.slice(1)) : rows;
 }
 
 /** Short source names: « noel-a-lille.com, INSEE +3 ». Long page titles are cut to their first words. */
 function sourcesLabel(sources: string[]): string {
-  const short = [...new Set(sources)].map((s) => {
-    const name = s.split(/\s[:(|–—-]\s|\s\(/)[0]!.trim();
-    return name.length > 28 ? `${name.slice(0, 27).trimEnd()}…` : name;
-  });
+  // Several pages of one site (« API Recherche d'entreprises : … ») count once.
+  const short = [
+    ...new Set(
+      sources.map((s) => {
+        const name = s.split(/\s[:(|–—-]\s|\s\(/)[0]!.trim();
+        return name.length > 28 ? `${name.slice(0, 27).trimEnd()}…` : name;
+      }),
+    ),
+  ];
   return short.length <= 2 ? short.join(", ") : `${short.slice(0, 2).join(", ")} +${short.length - 2}`;
 }
 
 function hours(h: number): string {
-  return h === 0 ? "pas encore au travail" : h < 1 ? `${Math.round(h * 60)} min cette semaine` : `${Math.round(h)} h cette semaine`;
+  return h === 0 ? "pas encore au travail" : h < 1 ? `${Math.max(1, Math.round(h * 60))} min cette semaine` : `${Math.round(h)} h cette semaine`;
 }
 
 function lowerFirst(s: string): string {

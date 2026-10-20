@@ -275,27 +275,6 @@ function DomainPage({
   return (
     <>
       <h1>{page}</h1>
-      {section === "Ventes" && (
-        <section className="sales">
-          <p className="muted small">
-            {sales.length === 0
-              ? "Aucune vente enregistrée. La première fait passer l'entreprise en activité."
-              : `${sales.length} vente${sales.length > 1 ? "s" : ""} enregistrée${sales.length > 1 ? "s" : ""}, la dernière le ${fmt.day(sales.at(-1)!.at)}.`}
-          </p>
-          <button className="btn btn-secondary" onClick={() => setSelling(true)}>
-            J'ai fait une vente
-          </button>
-          {selling && (
-            <ActionModal
-              mission={{ id: "sale", kind: "rest", eyebrow: "Ventes", title: "Enregistrer une vente", why: "Le montant est facultatif. L'équipe s'en sert pour ses chiffres.", action: "sale", label: "" }}
-              state={state}
-              now={status.now}
-              onClose={() => setSelling(false)}
-              onDone={() => {}}
-            />
-          )}
-        </section>
-      )}
       <section className="owners">
         {v.owners.length > 0
           ? v.owners.map((a) => (
@@ -309,6 +288,35 @@ function DomainPage({
               </span>
             ))}
       </section>
+      {section === "Ventes" && page === "Commandes" && (
+        <section className="card sales">
+          <header className="card-head">
+            <span>Tes ventes</span>
+            <button className="btn btn-secondary" onClick={() => setSelling(true)}>
+              J'ai fait une vente
+            </button>
+          </header>
+          {sales.length === 0 && <p className="muted small">Aucune vente enregistrée. La première fait passer l'entreprise en activité.</p>}
+          {[...sales].reverse().slice(0, 8).map((v) => (
+            <div key={v.id} className="sale-line small">
+              <span>{v.note ?? "Vente"}</span>
+              <span className="muted">
+                {v.amountCents !== undefined ? `${(v.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} · ` : ""}
+                {fmt.day(v.at)}
+              </span>
+            </div>
+          ))}
+          {selling && (
+            <ActionModal
+              mission={{ id: "sale", kind: "rest", eyebrow: "Ventes", title: "Enregistrer une vente", why: "Le montant est facultatif. L'équipe s'en sert pour ses chiffres.", action: "sale", label: "" }}
+              state={state}
+              now={status.now}
+              onClose={() => setSelling(false)}
+              onDone={() => {}}
+            />
+          )}
+        </section>
+      )}
       {page === "Dépenses" && <SpendCard state={state} events={events} />}
       {v.tasks.length > 0 && (
         <section className="card">

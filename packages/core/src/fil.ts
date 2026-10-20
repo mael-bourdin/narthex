@@ -94,7 +94,8 @@ export function filView(state: CompanyState, now: Timestamp, limit = 60): FilVie
 
   const team = agents.map((agent): TeamRow => {
     const worked = tasks
-      .filter((t) => t.agentId === agent.id && t.startedAt !== undefined)
+      // A task cut by closing Narthex sat there until the next start: that wait is not work.
+      .filter((t) => t.agentId === agent.id && t.startedAt !== undefined && !t.interrupted && !(t.error ?? "").startsWith("Interrompue (Narthex"))
       .reduce((ms, t) => {
         const end = t.endedAt ?? (t.status === "running" ? now : t.startedAt!);
         return ms + Math.max(0, end - Math.max(t.startedAt!, now - WEEK));
@@ -105,7 +106,8 @@ export function filView(state: CompanyState, now: Timestamp, limit = 60): FilVie
       title: role(agent.role).title,
       status: agent.status === "working" ? "working" : waiting ? "waiting-you" : "idle",
       ...(agent.currentTaskId && state.tasks[agent.currentTaskId] ? { current: state.tasks[agent.currentTaskId] } : {}),
-      hoursThisWeek: Math.round((worked / 3_600_000) * 10) / 10,
+      // Minutes matter: a three-minute task is real work, not « pas encore au travail ».
+      hoursThisWeek: worked / 3_600_000,
     };
   });
 
