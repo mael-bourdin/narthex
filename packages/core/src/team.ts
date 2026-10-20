@@ -2,7 +2,7 @@ import type { StoredEvent } from "./events.ts";
 import { filView, xpFor, type TeamRow } from "./fil.ts";
 import { staffingOf } from "./policy.ts";
 import { role, type RoleDef } from "./roles.ts";
-import type { Agent, CompanyState, Id, Stage, Task, Timestamp } from "./types.ts";
+import type { Agent, CompanyState, Id, Lesson, Stage, Task, Timestamp } from "./types.ts";
 
 /** Read models of the Équipe tab. Pure, from real events only. */
 
@@ -51,6 +51,8 @@ export interface AgentSheet {
   next: Task[];
   finished: { task: Task; result?: string; deliverableId?: Id }[];
   sources: string[];
+  /** L4: what this role learnt from its work, most useful first. */
+  lessons: Lesson[];
 }
 
 export function agentSheet(state: CompanyState, agentId: Id, now: Timestamp): AgentSheet {
@@ -76,6 +78,7 @@ export function agentSheet(state: CompanyState, agentId: Id, now: Timestamp): Ag
       return { task, ...(d ? { result: d.summary, deliverableId: d.id } : {}) };
     }),
     sources,
+    lessons: [...(state.playbooks?.[agent.role] ?? [])].sort((a, b) => b.helpful - b.harmful - (a.helpful - a.harmful) || b.learntAt - a.learntAt),
   };
 }
 

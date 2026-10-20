@@ -231,6 +231,7 @@ export function agentView(s: CompanyState, agentId: string, now: number): string
     "",
     bold("Terminées"),
     ...(sheet.finished.length ? sheet.finished.map((f) => `  ✓ ${clean(f.task.title)}${f.deliverableId ? dim(` · narthex livrable ${f.deliverableId}`) : ""}`) : [dim("  Pas encore.")]),
+    ...(sheet.lessons.length ? ["", bold("Ce qu'il a appris"), ...sheet.lessons.map((l) => `  · ${clean(l.text)}`)] : []),
   ];
   return out.join("\n");
 }

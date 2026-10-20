@@ -116,6 +116,8 @@ function reduce(state: CompanyState, event: DomainEvent): CompanyState {
       if (!o) return state;
       return { ...state, obligations: { ...state.obligations, [o.id]: { ...o, status: "done", doneAt: event.at } } };
     }
+    case "playbook.updated":
+      return { ...state, playbooks: { ...state.playbooks, [event.role]: event.lessons } };
     case "sale.recorded":
       return { ...state, sales: [...(state.sales ?? []), event.sale] };
     case "facts.extracted":
