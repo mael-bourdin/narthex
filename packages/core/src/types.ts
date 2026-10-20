@@ -245,6 +245,8 @@ export interface CompanyState {
   memory: string;
   /** L2 memory: facts extracted from deliverables. */
   facts: Record<Id, Fact>;
+  /** The Bureau's level (0: the little house); grows with real results. */
+  office?: 0 | 1 | 2 | 3 | 4;
   /** L4 memory: lessons per role, in every agent's cached prefix. */
   playbooks?: Partial<Record<RoleId, Lesson[]>>;
   /** Last Paris day (YYYY-MM-DD) whose notes were tidied at the end of the day. */

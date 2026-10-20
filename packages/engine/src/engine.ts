@@ -5,6 +5,7 @@ import {
   fmt,
   declinedByFounder,
   MAX_ATTEMPTS,
+  OFFICES,
   METHODS,
   overBudget as dayOverBudget,
   spentOn,
@@ -561,6 +562,13 @@ export class Engine {
       case "start-task":
         if (this.runtime) this.startTask(intent.taskId);
         return;
+      case "move-office": {
+        this.emit({ type: "office.moved", tier: intent.tier, at: now });
+        const margaux = Object.values(this.state.agents).find((a) => a.role === "cofondateur");
+        const line = OFFICES[intent.tier]?.line;
+        if (margaux && line) this.post(margaux.id, "update", line);
+        return;
+      }
       case "escalate": {
         const o = this.state.obligations[intent.obligationId];
         this.emit({ type: "obligation.stuck", obligationId: intent.obligationId, at: now, error: intent.error });
@@ -800,6 +808,8 @@ function key(intent: Intent): string {
       return `start:${intent.taskId}`;
     case "escalate":
       return `escalate:${intent.obligationId}`;
+    case "move-office":
+      return `office:${intent.tier}`;
   }
 }
 
