@@ -114,12 +114,14 @@ export function journalEntries(state: CompanyState, events: readonly StoredEvent
       }
       case "task.failed": {
         const t = state.tasks[e.taskId];
+        // Cut by closing Narthex: not the agent's failure, it will be taken up again.
+        if (e.interrupted || e.error.startsWith("Interrompue (Narthex")) return [{ at: e.ts, text: `« ${title(e.taskId)} » interrompue, reprise plus tard`, detail: e.error, ...(t ? { agentId: t.agentId } : {}), kind: "work" }];
         return [{ at: e.ts, text: `« ${title(e.taskId)} » n'a pas abouti`, detail: e.error, ...(t ? { agentId: t.agentId } : {}), kind: "problem" }];
       }
       case "task.cancelled":
         return [{ at: e.ts, text: `${e.by === "founder" ? "Tu as annulé" : "L'équipe a annulé"} « ${title(e.taskId)} »`, kind: "founder" }];
       case "obligation.fulfilled":
-        return [{ at: e.ts, text: `${e.by === "founder" ? "Tu as fait" : `${name(e.by)} a fait`} « ${state.obligations[e.obligationId]?.title ?? ""} »`, kind: e.by === "founder" ? "founder" : "work", ...(e.by !== "founder" ? { agentId: e.by } : {}) }];
+        return [{ at: e.ts, text: e.by === "founder" ? `Tu as fait « ${state.obligations[e.obligationId]?.title ?? ""} »` : `Obligation remplie : « ${state.obligations[e.obligationId]?.title ?? ""} »`, kind: e.by === "founder" ? "founder" : "work", ...(e.by !== "founder" ? { agentId: e.by } : {}) }];
       case "sale.recorded":
         return [{ at: e.ts, text: `Tu as enregistré une vente${e.sale.amountCents !== undefined ? ` de ${(e.sale.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}` : ""}${e.sale.note ? ` · ${e.sale.note}` : ""}`, kind: "founder" }];
       case "obligation.stuck":

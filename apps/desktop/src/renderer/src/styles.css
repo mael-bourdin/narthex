@@ -321,6 +321,14 @@ a { color: var(--accent); }
 
 /* ---------- Recrutements, journal ---------- */
 .recruit-row > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.sales .card-head { align-items: center; }
+.sale-line { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border-subtle); }
+.recruit-next { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--border-subtle); }
+.recruit-next:first-child { border-top: 0; }
+.recruit-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.recruit-head > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.cal-scroll { max-height: 560px; overflow-y: auto; }
+.recruit-why { padding-left: 28px; white-space: normal; }
 .lessons { text-align: left; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 4px; }
 .lessons ul { margin: 6px 0; padding-left: 16px; color: var(--text-secondary); display: grid; gap: 4px; }
 .memory-title { font-size: 17px; font-weight: 500; margin: 24px 0 10px; }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   agentSheet,
   calendar,
@@ -122,7 +122,19 @@ function OrgNode({ row, onClick }: { row: TeamRow; onClick(): void }) {
 
 type Scope = "Jour" | "Semaine" | "Mois";
 const DAY = 86_400_000;
-const HOURS = Array.from({ length: 12 }, (_, i) => 8 + i);
+/** Office hours by default, widened to whatever the team really did: agents also work at night. */
+function hoursFor(tasks: readonly Task[], visible: (t: Task) => boolean): number[] {
+  let first = 8;
+  let last = 19;
+  for (const t of tasks) {
+    if (!visible(t)) continue;
+    // Start hours only: an interrupted task « ends » whenever Narthex reopened, often the next day.
+    const start = new Date(t.startedAt ?? t.scheduledAt);
+    first = Math.min(first, start.getHours());
+    last = Math.max(last, start.getHours() + 3);
+  }
+  return Array.from({ length: Math.min(24, last + 1) - first }, (_, i) => first + i);
+}
 
 function startOfDay(ts: number): number {
   const d = new Date(ts);
@@ -258,6 +270,13 @@ function HourGrid({
   onSelect(t: Task): void;
 }) {
   const ROW = 44;
+  const HOURS = hoursFor(tasks, (t) => columns.some((c) => c.filter(t)));
+  // Open on the latest work shown (or the morning), not on empty night hours.
+  const scroller = useRef<HTMLDivElement>(null);
+  const latest = Math.max(8, ...tasks.filter((t) => columns.some((c) => c.filter(t))).map((t) => new Date(t.startedAt ?? t.scheduledAt).getHours()));
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: Math.max(0, (latest - 2 - HOURS[0]!) * ROW) });
+  }, [latest, HOURS[0]]);
   const hourOf = (ts: number) => {
     const d = new Date(ts);
     return d.getHours() + d.getMinutes() / 60;
@@ -273,6 +292,7 @@ function HourGrid({
           </span>
         ))}
       </div>
+      <div className="cal-scroll" ref={scroller}>
       <div className="cal-body" style={{ height: HOURS.length * ROW }}>
         {HOURS.map((h, i) => (
           <span key={h} className="cal-hour" style={{ top: i * ROW }}>
@@ -285,7 +305,9 @@ function HourGrid({
             .filter(c.filter)
             .map((t) => {
               const start = Math.min(Math.max(hourOf(t.startedAt ?? t.scheduledAt), HOURS[0]!), HOURS.at(-1)! + 0.5);
-              const end = Math.max(t.endedAt ? hourOf(t.endedAt) : start + 1, start + 0.75);
+              // An interrupted task « ends » when Narthex reopened: draw it short, not across the night.
+              const cut = t.interrupted || (t.error ?? "").startsWith("Interrompue (Narthex");
+              const end = Math.max(t.endedAt && !cut && t.endedAt - (t.startedAt ?? t.scheduledAt) < DAY ? hourOf(t.endedAt) : start + 1, start + 0.75);
               return { t, start, end, lane: 0 };
             })
             .sort((a, b) => a.start - b.start);
@@ -330,6 +352,7 @@ function HourGrid({
           const style = today < 0 ? { top: (hourOf(now) - HOURS[0]!) * ROW } : { top: (hourOf(now) - HOURS[0]!) * ROW, left: `calc(44px + ${col} * ${today})`, width: `calc(${col})`, right: "auto" };
           return <span className="cal-now" style={style} />;
         })()}
+      </div>
       </div>
     </section>
   );
@@ -391,14 +414,14 @@ function Recrutements({ state }: { state: CompanyState }) {
               <span className="attachment-title">À venir</span>
               <span className="attachment-table">
                 {r.planned.map((p) => (
-                  <span key={p.role.id} className="attachment-row recruit-row">
-                    <span>
-                      <PixelAvatar role={p.role.id} size={20} dim /> {p.role.defaultName} · {p.role.title}
+                  <span key={p.role.id} className="recruit-next">
+                    <span className="recruit-head">
+                      <span>
+                        <PixelAvatar role={p.role.id} size={20} dim /> {p.role.defaultName} · {p.role.title}
+                      </span>
+                      <span className="muted small">{p.when}</span>
                     </span>
-                    <span className="muted">
-                      {p.when}
-                      {p.why ? ` · ${p.why}` : ""}
-                    </span>
+                    {p.why && <span className="muted small recruit-why">{p.why}</span>}
                   </span>
                 ))}
               </span>

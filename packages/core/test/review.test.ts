@@ -143,3 +143,51 @@ describe("revision: one clock for money", () => {
 });
 
 void emptyState;
+
+describe("revision: a few minutes of work still count", () => {
+  it("does not round three minutes down to nothing", async () => {
+    const { filView } = await import("../src/index.ts");
+    const s = replay([
+      founded,
+      hire("m", "cofondateur"),
+      { type: "task.planned", task: { id: "t", agentId: "m", title: "Plan", why: "", kind: "internal", status: "planned", createdAt: NOW, scheduledAt: NOW } },
+      { type: "task.started", taskId: "t", at: NOW },
+      { type: "task.completed", taskId: "t", at: NOW + 3 * 60_000 },
+    ]);
+    expect(filView(s, NOW + HOUR).team.find((r) => r.agent.id === "m")!.hoursThisWeek).toBeCloseTo(0.05, 2);
+  });
+});
+
+describe("revision: journal wording", () => {
+  it("does not show a task cut by closing Narthex as a failure, and says when an obligation is met", async () => {
+    const { journalEntries } = await import("../src/index.ts");
+    const list = [
+      founded,
+      hire("h", "juridique"),
+      { type: "obligation.opened", obligation: { id: "o", code: "A1", title: "Vérifier que le nom est libre", why: "", owner: "juridique", status: "open", openedAt: NOW } },
+      { type: "task.planned", task: { id: "t", agentId: "h", title: "Vérifier que le nom est libre", why: "", kind: "internal", status: "planned", tag: "A1", createdAt: NOW, scheduledAt: NOW } },
+      { type: "task.started", taskId: "t", at: NOW },
+      { type: "task.failed", taskId: "t", at: NOW, error: "Interrompue (Narthex a été fermé).", interrupted: true },
+      { type: "obligation.fulfilled", obligationId: "o", at: NOW, by: "h" },
+    ] as DomainEvent[];
+    const events = list.map((e, i) => ({ ...e, seq: i + 1, ts: NOW + i, companyId: "c" }) as StoredEvent);
+    const entries = journalEntries(replay(events), events);
+    const cut = entries.find((e) => e.text.includes("interrompue"))!;
+    expect(cut.kind).not.toBe("problem");
+    expect(entries.some((e) => e.text === "Obligation remplie : « Vérifier que le nom est libre »")).toBe(true);
+  });
+});
+
+describe("revision: closing Narthex is not work", () => {
+  it("does not count the time a task sat interrupted as hours worked", async () => {
+    const { filView } = await import("../src/index.ts");
+    const s = replay([
+      founded,
+      hire("h", "juridique"),
+      { type: "task.planned", task: { id: "t", agentId: "h", title: "Statuts", why: "", kind: "internal", status: "planned", createdAt: NOW, scheduledAt: NOW } },
+      { type: "task.started", taskId: "t", at: NOW },
+      { type: "task.failed", taskId: "t", at: NOW + 5 * HOUR, error: "Interrompue (Narthex a été fermé).", interrupted: true },
+    ]);
+    expect(filView(s, NOW + 6 * HOUR).team.find((r) => r.agent.id === "h")!.hoursThisWeek).toBe(0);
+  });
+});
