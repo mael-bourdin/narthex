@@ -18,6 +18,7 @@ import {
 } from "@narthex/core";
 import { ActionModal } from "./ActionModal.tsx";
 import { DeliverableView } from "./Deliverable.tsx";
+import { Donnees } from "./Donnees.tsx";
 import { firstTableRows, Sign } from "./Fil.tsx";
 import { PixelAvatar } from "./PixelAvatar.tsx";
 import { SectionTabs } from "./SectionTabs.tsx";
@@ -62,6 +63,7 @@ export function Entreprise({
           </div>
         )}
         {section === "Vue d'ensemble" && <Overview state={state} status={status} onAct={setActing} onOpen={setOpen} />}
+        {section === "Données" && <Donnees state={state} status={status} events={events} />}
         {section === "Obligations" && <Obligations state={state} now={status.now} onAct={setActing} />}
         {section === "Tableaux" && <Tables state={state} onOpen={setOpen} />}
         {current && (

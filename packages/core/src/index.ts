@@ -18,3 +18,4 @@ export * from "./memory.ts";
 export * from "./playbook.ts";
 export * from "./avatar.ts";
 export * from "./chatter.ts";
+export * from "./analytics.ts";

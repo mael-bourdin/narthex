@@ -25,8 +25,8 @@ const events: DomainEvent[] = [
 ];
 
 describe("ENTERPRISE", () => {
-  it("has the sections and pages of the Figma file", () => {
-    expect(ENTERPRISE.map((s) => s.section)).toEqual(["Vue d'ensemble", "Finances", "Ventes", "Marketing", "Juridique", "Obligations", "Tableaux"]);
+  it("has the sections and pages of the Figma file, plus Données", () => {
+    expect(ENTERPRISE.map((s) => s.section)).toEqual(["Vue d'ensemble", "Données", "Finances", "Ventes", "Marketing", "Juridique", "Obligations", "Tableaux"]);
     expect(ENTERPRISE.find((s) => s.section === "Finances")!.pages.map((p) => p.page)).toEqual(["Trésorerie", "Factures", "Dépenses", "Prévisionnel", "Compta et TVA"]);
   });
 });

@@ -15,6 +15,8 @@ import {
   cancellable,
   fmt,
   MAX_ATTEMPTS,
+  analytics,
+  STAGE_LABEL as STAGES_SAID,
   isValid,
   searchJournal,
   forFounder,
@@ -307,4 +309,35 @@ export function pourquoi(s: CompanyState, question: string): string {
       return [`${bold(clean(h.title))}`, ...(h.why ? [`  Pourquoi : ${clean(h.why)}`] : []), dim(`  ${kind}${who ? ` · ${who}` : ""} · ${fmt.day(h.at)}`)].join("\n");
     })
     .join("\n\n");
+}
+
+/** ▁▂▃▅▇ for a series of numbers (zero stays at the floor). */
+function sparkline(values: number[]): string {
+  const marks = "▁▂▃▄▅▆▇█";
+  const max = Math.max(...values, 0);
+  return values.map((v) => (max === 0 || v === 0 ? "▁" : marks[Math.min(7, Math.round((v / max) * 7))]!)).join("");
+}
+
+/** « narthex data »: the company's numbers, from real events only. */
+export function data(s: CompanyState, events: StoredEvent[], now: number, days = 30): string {
+  const a = analytics(s, events, now, days);
+  const euros = (c: number) => (c / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+  const pct = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)} %`);
+  const out = [
+    bold("Données"),
+    `Chiffre d'affaires ${bold(euros(a.money.revenue))} ${dim(`· ${a.money.sales} vente${a.money.sales > 1 ? "s" : ""}`)}   Dépense IA ${bold(fmt.dollars(a.money.spend))}   Par livrable ${bold(a.money.costPerDeliverable === null ? "—" : fmt.dollars(a.money.costPerDeliverable))}`,
+    `Livrables ${a.quality.deliverables} ${dim(`· ${a.quality.sourcesPerDeliverable?.toLocaleString("fr-FR") ?? "—"} sources en moyenne · liens qui répondent ${pct(a.quality.linksAnswering)} · ${a.quality.facts} faits en mémoire`)}`,
+    "",
+    `${dim(`${a.days.length} jour${a.days.length > 1 ? "s" : ""}`.padEnd(12))}`,
+    `  Ventes     ${green(sparkline(a.days.map((d) => d.revenue)))}`,
+    `  Dépense    ${violet(sparkline(a.days.map((d) => d.spend)))}`,
+    `  Missions   ${sparkline(a.days.map((d) => d.done))}`,
+    "",
+    bold("L'équipe"),
+    ...a.team.map((t) => `  ${t.name.padEnd(10)} ${String(t.done).padStart(3)} terminée${t.done > 1 ? "s" : ""} ${dim(`· réussite ${pct(t.successRate)} · ${t.xp} XP · ${fmt.dollars(t.spend)}`)}`),
+    "",
+    bold("Progression"),
+    ...a.stages.map((st) => `  ${violet("●")} ${STAGES_SAID[st.stage]} ${dim(`· ${fmt.day(st.at)}`)}`),
+  ];
+  return out.join("\n");
 }
