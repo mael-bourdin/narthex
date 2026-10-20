@@ -209,6 +209,7 @@ export interface Fact {
   subject: string;
   /** 1 (detail) to 10 (changes decisions), rated at extraction. */
   importance: number;
+  /** The deliverable it comes from; empty for a reflection drawn from several facts. */
   deliverableId: Id;
   validFrom: Timestamp;
   invalidAt?: Timestamp;
@@ -231,6 +232,8 @@ export interface CompanyState {
   memory: string;
   /** L2 memory: facts extracted from deliverables. */
   facts: Record<Id, Fact>;
+  /** Last Paris day (YYYY-MM-DD) whose notes were tidied at the end of the day. */
+  consolidatedThrough?: string;
   /** Sales recorded by the founder. */
   sales?: Sale[];
   lastSeq: number;

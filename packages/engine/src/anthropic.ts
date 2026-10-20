@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { fmt, recallFacts, role, ROLES, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
-import type { AgentRuntime, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
+import type { AgentRuntime, ConsolidationInput, ConsolidationResult, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
 type Tool = Anthropic.Beta.BetaToolUnion;
 type MessageParam = Anthropic.Beta.BetaMessageParam;
@@ -92,6 +92,24 @@ export class AnthropicRuntime implements AgentRuntime {
     addUsage(usage, response.usage, MEMORY_MODEL);
     const call = response.content.find((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === "record_facts");
     return { ...factsFrom(call?.input), usage };
+  }
+
+  async consolidateFacts(input: ConsolidationInput): Promise<ConsolidationResult> {
+    const response = await this.client.beta.messages.create(
+      {
+        model: MEMORY_MODEL,
+        max_tokens: 8000,
+        system: TIDY_SYSTEM,
+        tools: [TIDY_FACTS],
+        tool_choice: { type: "tool", name: "tidy_facts" },
+        messages: [{ role: "user", content: tidyPrompt(input) }],
+      },
+      { signal: input.signal },
+    );
+    const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
+    addUsage(usage, response.usage, response.model || MEMORY_MODEL);
+    const call = response.content.find((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === "tidy_facts");
+    return { ...tidyFrom(call?.input), usage };
   }
 
   async run(ctx: WorkContext): Promise<WorkResult> {
@@ -428,6 +446,70 @@ export function factsFrom(value: unknown): Omit<FactsResult, "usage"> {
     : [];
   const invalidated = Array.isArray(v.invalidated) ? v.invalidated.filter((x): x is string => typeof x === "string") : [];
   return { added, invalidated };
+}
+
+export const TIDY_SYSTEM = [
+  "Tu ranges, en fin de journée, la mémoire d'une petite entreprise française. On te donne tous les faits encore vrais, chacun avec son identifiant entre crochets.",
+  "merged : les faits qui disent la même chose (doublons, reformulations) deviennent un seul, plus précis ; from = leurs identifiants (deux au moins). Garde chiffres, dates et lieux.",
+  "invalidated : les identifiants des faits qu'un autre fait de la liste, plus récent, contredit.",
+  "reflections : 0 à 3 conclusions utiles qui relient plusieurs faits (« le prix lillois laisse de la marge face au dépôt-vente ») ; from = les identifiants des faits qui la fondent (deux au moins). Chaque mot doit être vrai d'après ces faits : ne déduis rien qu'ils ne disent pas, ne résume pas un fait en le déformant.",
+  "Ne fusionne pas ce qui est seulement proche. Si rien n'est à ranger, renvoie des listes vides.",
+].join("\n");
+
+export function tidyPrompt(input: ConsolidationInput): string {
+  return `Nous sommes le ${fmt.day(input.now)}. Faits encore vrais :\n${input.facts.map((f) => `[${f.id}] (${f.subject}, importance ${f.importance}${f.sensitive ? ", sensible" : ""}) ${f.text}`).join("\n")}`;
+}
+
+export const TIDY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["merged", "invalidated", "reflections"],
+  properties: {
+    merged: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["from", "text", "subject", "importance", "sensitive"],
+        properties: { from: { type: "array", items: { type: "string" } }, text: { type: "string" }, subject: { type: "string" }, importance: { type: "integer" }, sensitive: { type: "boolean" } },
+      },
+    },
+    invalidated: { type: "array", items: { type: "string" } },
+    reflections: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["from", "text", "importance"],
+        properties: { from: { type: "array", items: { type: "string" } }, text: { type: "string" }, importance: { type: "integer" } },
+      },
+    },
+  },
+} as const;
+
+const TIDY_FACTS: Tool = {
+  name: "tidy_facts",
+  description: "Range la mémoire : doublons fusionnés, faits contredits, réflexions.",
+  strict: true,
+  input_schema: TIDY_SCHEMA as unknown as Anthropic.Beta.BetaTool.InputSchema,
+};
+
+export function tidyFrom(value: unknown): Omit<ConsolidationResult, "usage"> {
+  const v = (value ?? {}) as { merged?: unknown; invalidated?: unknown; reflections?: unknown };
+  const strings = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === "string") : []);
+  const merged = Array.isArray(v.merged)
+    ? v.merged.flatMap((m) => {
+        const o = (m ?? {}) as Record<string, unknown>;
+        return typeof o.text === "string" ? [{ from: strings(o.from), text: o.text, subject: typeof o.subject === "string" ? o.subject : "", importance: typeof o.importance === "number" ? o.importance : 5, sensitive: o.sensitive === true }] : [];
+      })
+    : [];
+  const reflections = Array.isArray(v.reflections)
+    ? v.reflections.flatMap((r) => {
+        const o = (r ?? {}) as Record<string, unknown>;
+        return typeof o.text === "string" ? [{ from: strings(o.from), text: o.text, importance: typeof o.importance === "number" ? o.importance : 5 }] : [];
+      })
+    : [];
+  return { merged, invalidated: strings(v.invalidated), reflections };
 }
 
 // ---------- Tools ----------

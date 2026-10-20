@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { role, ROLES, type FirstLook, type RoleId } from "@narthex/core";
-import { brief, companySheet, DEFAULT_MODEL, FACTS_SCHEMA, FACTS_SYSTEM, factsFrom, factsPrompt, MEMORY_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
-import type { AgentRuntime, FactsInput, FactsResult, WorkContext, WorkResult } from "./runtime.ts";
+import { TIDY_SCHEMA, TIDY_SYSTEM, tidyFrom, tidyPrompt, brief, companySheet, DEFAULT_MODEL, FACTS_SCHEMA, FACTS_SYSTEM, factsFrom, factsPrompt, MEMORY_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
+import type { AgentRuntime, ConsolidationInput, ConsolidationResult, FactsInput, FactsResult, WorkContext, WorkResult } from "./runtime.ts";
 
 /**
  * DEVELOPMENT ONLY. The developer's own Claude Code (`claude -p`), on their own claude.ai subscription,
@@ -59,6 +59,15 @@ export class ClaudeCodeRuntime implements AgentRuntime {
       () => {},
     );
     return { ...factsFrom(out.value), usage: out.usage };
+  }
+
+  async consolidateFacts(input: ConsolidationInput): Promise<ConsolidationResult> {
+    const out = await this.ask(
+      { system: TIDY_SYSTEM, prompt: tidyPrompt(input), schema: TIDY_SCHEMA, model: MEMORY_MODEL, effort: "low", web: false },
+      input.signal,
+      () => {},
+    );
+    return { ...tidyFrom(out.value), usage: out.usage };
   }
 
   async run(ctx: WorkContext): Promise<WorkResult> {

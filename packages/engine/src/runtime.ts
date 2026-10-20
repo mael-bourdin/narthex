@@ -56,6 +56,23 @@ export interface FactsResult {
   usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
 }
 
+/** End of day: every fact still true, to tidy (research: sleep-time consolidation). */
+export interface ConsolidationInput {
+  facts: { id: string; text: string; subject: string; importance: number; sensitive: boolean }[];
+  now: number;
+  signal: AbortSignal;
+}
+
+export interface ConsolidationResult {
+  /** Several facts saying the same thing become one; the old ones are dated, not erased. */
+  merged: { from: string[]; text: string; subject: string; importance: number; sensitive: boolean }[];
+  /** Facts another, newer fact contradicts. */
+  invalidated: string[];
+  /** At most three insights that link several facts, with the facts they rest on. */
+  reflections: { from: string[]; text: string; importance: number }[];
+  usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; credits: number };
+}
+
 /** Something that can make an agent work: Claude, the offline simulation, or a test double. */
 export interface AgentRuntime {
   readonly name: Exclude<RuntimeName, "none">;
@@ -64,4 +81,6 @@ export interface AgentRuntime {
   firstLook(input: { idea: string; founderName: string; now: number; signal: AbortSignal }): Promise<FirstLook>;
   /** L2 memory: facts from a finished deliverable, with a small model, off the critical path. Absent in simulation. */
   extractFacts?(input: FactsInput): Promise<FactsResult>;
+  /** End-of-day tidying of L2 memory, with a small model. Absent in simulation. */
+  consolidateFacts?(input: ConsolidationInput): Promise<ConsolidationResult>;
 }
