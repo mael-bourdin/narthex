@@ -11,7 +11,7 @@ export async function linkWhatsApp(dir: string): Promise<boolean> {
     return false;
   }
   print(dim(WHATSAPP_RISK));
-  print(`Sur ton téléphone : WhatsApp › ${bold("Appareils connectés")} › Connecter un appareil, puis scanne :`);
+  print(`On your phone: WhatsApp › ${bold("Linked devices")} › Link a device, then scan:`);
   const code = await new Promise<number>((resolve) => {
     // The terminal QR is drawn by wacli; arguments go straight to it, no shell.
     const child = spawn(process.env.NARTHEX_WACLI_BIN || "wacli", ["--store", whatsappStore(dir), "auth", "--idle-exit", "10s", "--history-days", "1"], { stdio: "inherit" });
@@ -20,12 +20,12 @@ export async function linkWhatsApp(dir: string): Promise<boolean> {
   });
   const status = await whatsappStatus(dir);
   if (code !== 0 || !status.linked || !status.phone) {
-    print("La liaison n'a pas abouti. Réessaie avec : narthex whatsapp");
+    print("Linking did not go through. Try again with: narthex whatsapp");
     return false;
   }
   saveConfig(dir, { ...loadConfig(dir), whatsapp: { phone: status.phone } });
-  await sendWhatsApp(dir, status.phone, "*Margaux* · Co-fondatrice\nC'est branché : l'équipe t'écrira ici, dans tes messages à toi-même.").catch(() => undefined);
-  print(`${bold("C'est branché.")} L'équipe t'écrira sur WhatsApp, dans « Messages à moi-même ».`);
+  await sendWhatsApp(dir, status.phone, "*Margaux* · Co-founder\nYou're connected: the team will write to you here, in your messages to yourself.").catch(() => undefined);
+  print(`${bold("Connected.")} The team will write to you on WhatsApp, in “Message yourself”.`);
   return true;
 }
 
@@ -36,8 +36,8 @@ export async function whatsappCommand(dir: string, arg?: string): Promise<void> 
     await unlinkWhatsApp(dir);
     const { whatsapp: _gone, ...rest } = config;
     saveConfig(dir, rest);
-    return print("WhatsApp débranché. Tes messages restent sur ton téléphone.");
+    return print("WhatsApp disconnected. Your messages stay on your phone.");
   }
-  if (config.whatsapp?.phone && arg !== "relier") return print(`WhatsApp : relié au +${config.whatsapp.phone}. ${dim("Débrancher : narthex whatsapp off · relier un autre numéro : narthex whatsapp relier")}`);
+  if (config.whatsapp?.phone && arg !== "relink" && arg !== "relier") return print(`WhatsApp: linked to +${config.whatsapp.phone}. ${dim("Disconnect: narthex whatsapp off · link another number: narthex whatsapp relink")}`);
   await linkWhatsApp(dir);
 }

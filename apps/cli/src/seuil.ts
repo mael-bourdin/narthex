@@ -38,7 +38,7 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
   const ask = async (given: string | undefined, flag: string): Promise<string> => {
     if (given?.trim()) return given.trim();
     const r = reader();
-    if (!r) throw new Error(`Il manque --${flag} (pas de terminal interactif).`);
+    if (!r) throw new Error(`Missing --${flag} (no interactive terminal).`);
     for (;;) {
       const answer = (await r.question(`  ${violet("›")} `)).trim();
       if (answer) return answer;
@@ -48,7 +48,7 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
   try {
     // Several companies can live side by side: « init » founds one more, the others keep running.
     const others = await client.call("companies.list", {});
-    if (others.length) print(dim(`  Une entreprise de plus, à côté de : ${others.map((c) => c.name).join(", ")}.`));
+    if (others.length) print(dim(`  One more company, next to: ${others.map((c) => c.name).join(", ")}.`));
     print();
     print(violet("     ╭──╮"));
     print(violet("     │░░│"));
@@ -60,7 +60,7 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
     if (options.interactive && needsKey(loadConfig(options.dir))) {
       await say(SEUIL.askKey);
       print(dim(`  ${SEUIL.keyAside}`));
-      print(dim("  Entrée sans rien : plus tard (l'équipe attendra ta clé)."));
+      print(dim("  Press Enter with nothing: later (the team will wait for your key)."));
       for (;;) {
         const raw = await readMasked(`  ${violet("›")} `);
         if (!raw.trim()) {
@@ -82,9 +82,9 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
     } else {
       await say(SEUIL.askNameNoKey);
     }
-    const name = await ask(options.given.prenom, "prenom");
+    const name = await ask(options.given.prenom, "first-name");
     await say(SEUIL.askIdea(name));
-    const idea = await ask(options.given.idee, "idee");
+    const idea = await ask(options.given.idee, "idea");
 
     await say(SEUIL.searching);
     const look: FirstLook = await client.call("onboarding.firstLook", { idea, founderName: name });
@@ -110,15 +110,15 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
     print();
     await say(SEUIL.askCompany);
     for (let given = options.given.nom; ; given = undefined) {
-      const company = await ask(given, "nom");
+      const company = await ask(given, "name");
       try {
         await client.call("company.found", { name: company, idea, founderName: name, firstLook: look });
         print();
         await say(SEUIL.welcome(company));
         if (options.interactive) {
           await say(SEUIL.askWhatsApp);
-          const answer = (await reader()!.question(`  ${violet("›")} (o/n) `)).trim().toLowerCase();
-          if (answer.startsWith("o")) {
+          const answer = (await reader()!.question(`  ${violet("›")} (y/n) `)).trim().toLowerCase();
+          if (answer.startsWith("y") || answer.startsWith("o")) {
             io.rl?.close();
             io.rl = null;
             await linkWhatsApp(options.dir);
