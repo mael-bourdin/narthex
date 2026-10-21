@@ -376,9 +376,6 @@ a { color: var(--accent); }
 .timeline li { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 10px; }
 .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.ranking { margin-top: 12px; }
-.ranking .rg-line.own { color: var(--accent); }
-.ranking .rank { color: var(--text-secondary); }
 .pill.credits.waiting { color: var(--status-waiting); border-color: var(--status-waiting); }
 .lessons { text-align: left; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 4px; }
 .lessons ul { margin: 6px 0; padding-left: 16px; color: var(--text-secondary); display: grid; gap: 4px; }

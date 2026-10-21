@@ -24,7 +24,7 @@ export const OFFICES: readonly Office[] = [
   {
     tier: 1,
     name: "Le petit local",
-    line: "Surprise : avec ce qu'on a construit, l'équipe peut quitter la petite maison. Bienvenue dans le petit local, un vrai bureau pour chacun. Va voir le Bureau.",
+    line: "Surprise : avec ce qu'on a construit, l'équipe peut quitter la petite maison. Bienvenue dans le petit local, un vrai bureau pour chacun.",
     when: (s) => atLeast(s, "launch") || revenue(s) >= 50_000,
   },
   {

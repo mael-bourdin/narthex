@@ -1,9 +1,6 @@
 import { useRef, useState } from "react";
 import { fmt } from "@narthex/core";
-import { Bureau } from "./Bureau.tsx";
-import { Classement } from "./Classement.tsx";
 import { CompanySwitcher } from "./CompanySwitcher.tsx";
-import { Entreprise } from "./Entreprise.tsx";
 import { Reglages, type ReglagesView } from "./Reglages.tsx";
 import { Equipe, type EquipeView } from "./Equipe.tsx";
 import { Fil } from "./Fil.tsx";
@@ -13,8 +10,8 @@ import { PixelAvatar } from "./PixelAvatar.tsx";
 import { Logo } from "./ui.tsx";
 import { useCompany } from "./useCompany.ts";
 
-type Tab = "Fil" | "Bureau" | "Équipe" | "Entreprise" | "Classement" | "Réglages";
-const TABS: Tab[] = ["Fil", "Bureau", "Équipe", "Entreprise", "Classement"];
+type Tab = "Fil" | "Équipe" | "Réglages";
+const TABS: Tab[] = ["Fil", "Équipe"];
 
 export function App() {
   const { state, status, refresh } = useCompany();
@@ -22,7 +19,6 @@ export function App() {
   const [equipeView, setEquipeView] = useState<EquipeView>("Organigramme");
   const [agentId, setAgentId] = useState<string>();
   const [reglages, setReglages] = useState<ReglagesView>("Profil");
-  const [entreprise, setEntreprise] = useState<{ section: string; page?: string }>({ section: "Vue d'ensemble" });
   const openAgent = (id?: string) => {
     setAgentId(id);
     if (id) setTab("Équipe");
@@ -113,22 +109,9 @@ export function App() {
       <main className="page">
         {tab === "Fil" && <Fil state={state} status={status} onChange={refresh} onAgent={openAgent} />}
         {tab === "Équipe" && (
-          <Equipe state={state} status={status} view={equipeView} agentId={agentId} onView={setEquipeView} onAgent={openAgent} onBureau={() => { setTab("Bureau"); setAgentId(undefined); }} onChange={refresh} />
-        )}
-        {tab === "Entreprise" && (
-          <Entreprise
-            state={state}
-            status={status}
-            section={entreprise.section}
-            {...(entreprise.page ? { page: entreprise.page } : {})}
-            onNavigate={(section, page) => setEntreprise({ section, ...(page ? { page } : {}) })}
-            onAgent={openAgent}
-            onChange={refresh}
-          />
+          <Equipe state={state} status={status} view={equipeView} agentId={agentId} onView={setEquipeView} onAgent={openAgent} onChange={refresh} />
         )}
         {tab === "Réglages" && <Reglages state={state} status={status} view={reglages} onView={setReglages} onChange={refresh} />}
-        {tab === "Classement" && <Classement state={state} />}
-        {tab === "Bureau" && <Bureau state={state} status={status} onAgent={openAgent} onChange={refresh} />}
       </main>
     </div>
   );
