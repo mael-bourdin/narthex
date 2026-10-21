@@ -361,7 +361,7 @@ function workSchema(cofounder: boolean): object {
 }
 
 const PICK = { type: "object", required: ["role", "why"], properties: { role: { type: "string", enum: ROLE_IDS }, why: { type: "string" } } };
-const FIRST_LOOK_SCHEMA = {
+export const FIRST_LOOK_SCHEMA = {
   type: "object",
   required: ["reaction", "findings", "team", "later"],
   properties: {

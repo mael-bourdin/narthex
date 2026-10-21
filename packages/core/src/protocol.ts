@@ -100,7 +100,8 @@ export const PROTOCOL_VERSION = 1;
  * Who does the work: Claude with the player's key, nobody yet (no key), or, for development only,
  * the offline simulation or the developer's own Claude Code (`NARTHEX_RUNTIME=claude-code`).
  */
-export type RuntimeName = "simulation" | "anthropic" | "claude-code" | "none";
+/** Who does the work: Claude with the player's key, another provider with theirs (OpenRouter, OpenAI, a compatible API), nobody yet, or development runtimes. */
+export type RuntimeName = "simulation" | "anthropic" | "openrouter" | "openai" | "compatible" | "claude-code" | "none";
 
 /** One company of the player, for the switcher (app) and « narthex entreprises » (CLI). */
 export interface CompanySummary {
