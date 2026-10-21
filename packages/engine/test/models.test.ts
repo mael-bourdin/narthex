@@ -42,7 +42,7 @@ describe("company.update", () => {
     await e.handle("company.found", { name: "M", idea: "I", founderName: "Inès" });
     const s = await e.handle("company.update", { name: "Maison Lumen", founderName: "Inès Martin", city: "Lille" });
     expect(s.company).toMatchObject({ name: "Maison Lumen", city: "Lille", founder: { name: "Inès Martin" } });
-    await expect(e.handle("company.update", { name: "  " })).rejects.toThrow(/nom/);
+    await expect(e.handle("company.update", { name: "  " })).rejects.toThrow(/name/);
   });
 });
 

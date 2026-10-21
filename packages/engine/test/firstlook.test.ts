@@ -33,7 +33,7 @@ describe("first look", () => {
     const look = await engine().handle("onboarding.firstLook", { idea: "Des bougies", founderName: "Inès" });
     expect(look.simulated).toBe(true);
     expect(look.findings).toHaveLength(4);
-    expect(look.findings.every((f) => f.source.endsWith("(exemple)"))).toBe(true);
+    expect(look.findings.every((f) => f.source.endsWith("(example)"))).toBe(true);
   });
 
   it("firstLook failure falls back", async () => {

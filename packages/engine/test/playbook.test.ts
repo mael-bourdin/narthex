@@ -60,7 +60,7 @@ describe("playbook reflection", () => {
 
   it("puts the role's lessons in its identity", () => {
     const text = identity(role("juridique"), "Hugo", [{ id: "a", text: "Interroger le registre avant les noms de domaine", helpful: 2, harmful: 0, learntAt: START }]);
-    expect(text).toContain("Ce que tu as appris");
+    expect(text).toContain("What you have learnt");
     expect(text).toContain("Interroger le registre avant les noms de domaine");
   });
 });

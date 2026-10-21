@@ -56,7 +56,7 @@ export class SocketClient implements Client {
       else waiter.resolve(message.result);
     });
     socket.on("close", () => {
-      for (const w of this.pending.values()) w.reject(new Error("Connexion au moteur perdue."));
+      for (const w of this.pending.values()) w.reject(new Error("Lost the connection to the engine."));
       this.pending.clear();
     });
   }
@@ -83,7 +83,7 @@ export class SocketClient implements Client {
   call<M extends Method>(method: M, params: Params<M>): Promise<Result<M>> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      if (this.socket.destroyed) return reject(new Error("Connexion au moteur perdue."));
+      if (this.socket.destroyed) return reject(new Error("Lost the connection to the engine."));
       this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
       write(this.socket, { id, method, params });
     });

@@ -48,7 +48,7 @@ function privateRuntimeDir(): string {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const st = lstatSync(dir);
   if (st.isSymbolicLink() || !st.isDirectory() || st.uid !== uid || (st.mode & 0o077) !== 0) {
-    throw new Error(`Dossier non sûr pour le socket de Narthex : ${dir}. Supprime-le ou définis NARTHEX_HOME vers un dossier plus court.`);
+    throw new Error(`Unsafe folder for Narthex's socket: ${dir}. Delete it or set NARTHEX_HOME to a shorter folder.`);
   }
   return dir;
 }

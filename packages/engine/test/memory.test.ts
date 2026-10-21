@@ -81,7 +81,7 @@ describe("brief", () => {
       },
     ]);
     const text = brief({ state: s, agent: s.agents["s"]!, task: s.tasks["t"]!, now: START + 1 } as WorkContext);
-    expect(text).toContain("Ce que l'équipe sait déjà");
+    expect(text).toContain("What the team already knows");
     expect(text).toContain("Kraft à Lille");
     expect(text).not.toContain("Marge");
   });

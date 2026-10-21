@@ -7,19 +7,19 @@ import type { CompatibleFetch } from "./compatible.ts";
 export type KeyCheck = { ok: true; key: string } | { ok: false; message: string };
 export type ProviderName = "anthropic" | "openrouter" | "openai";
 
-export const PROVIDER_LABEL: Record<ProviderName | "compatible", string> = { anthropic: "Anthropic (Claude)", openrouter: "OpenRouter", openai: "OpenAI", compatible: "API compatible" };
+export const PROVIDER_LABEL: Record<ProviderName | "compatible", string> = { anthropic: "Anthropic (Claude)", openrouter: "OpenRouter", openai: "OpenAI", compatible: "compatible API" };
 
 /**
  * Checks a pasted key with a call that costs nothing (listing models).
  * The founder sees Margaux's words, never an HTTP error.
  */
-const UNREACHABLE = "Je n'arrive pas à joindre Anthropic. Vérifie ta connexion et recolle la clé.";
+const UNREACHABLE = "I can't reach Anthropic. Check your connection and paste the key again.";
 
 export async function verifyAnthropicKey(raw: string, client?: Pick<Anthropic, "models">, timeoutMs = 15_000): Promise<KeyCheck> {
   const key = raw.trim();
   if (!key.startsWith("sk-ant-")) return { ok: false, message: SEUIL.badKey };
   let timer: NodeJS.Timeout | undefined;
-  // A half-dead network (captive portal) must never leave the founder staring at « Vérification… ».
+  // A half-dead network (captive portal) must never leave the founder staring at "Checking…".
   const giveUp = new Promise<"timeout">((resolve) => (timer = setTimeout(() => resolve("timeout"), timeoutMs)));
   try {
     const api = client ?? new Anthropic({ apiKey: key, baseURL: "https://api.anthropic.com", authToken: null, timeout: timeoutMs, maxRetries: 1 });
@@ -28,7 +28,7 @@ export async function verifyAnthropicKey(raw: string, client?: Pick<Anthropic, "
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) return { ok: false, message: SEUIL.badKey };
     if (e instanceof Anthropic.APIConnectionError) return { ok: false, message: UNREACHABLE };
-    return { ok: false, message: "Anthropic ne répond pas correctement pour l'instant. Réessaie dans un moment." };
+    return { ok: false, message: "Anthropic is not answering properly right now. Try again in a moment." };
   } finally {
     clearTimeout(timer);
   }
@@ -72,9 +72,9 @@ export async function verifyKey(raw: string, options: { fetch?: CompatibleFetch;
     const res = await call(url, { method: "GET", headers: { authorization: `Bearer ${key}` }, body: undefined as never, signal: AbortSignal.timeout(options.timeoutMs ?? 15_000) });
     if (res.ok) return { ok: true, key, provider };
     if (res.status === 401 || res.status === 403) return { ok: false, message: SEUIL.badKey };
-    return { ok: false, message: "Le fournisseur ne répond pas correctement pour l'instant. Réessaie dans un moment." };
+    return { ok: false, message: "The provider is not answering properly right now. Try again in a moment." };
   } catch {
-    return { ok: false, message: `Je n'arrive pas à joindre ${provider === "openrouter" ? "OpenRouter" : "OpenAI"}. Vérifie ta connexion et recolle la clé.` };
+    return { ok: false, message: `I can't reach ${provider === "openrouter" ? "OpenRouter" : "OpenAI"}. Check your connection and paste the key again.` };
   }
 }
 

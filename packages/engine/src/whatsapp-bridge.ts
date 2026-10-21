@@ -49,7 +49,7 @@ export class WhatsAppBridge {
   }
 }
 
-/** « *Hugo* · Juridique · Lumen » then the message, in WhatsApp's own formatting (*gras*). */
+/** "*Hugo* · Legal · Lumen" then the message, in WhatsApp's own formatting (*bold*). */
 export function whatsappText(company: string, as: { name: string; role: Parameters<typeof role>[0] }, text: string): string {
   return `*${as.name}* · ${role(as.role).title} · ${company}\n${text.replace(/\*\*(.+?)\*\*/g, "*$1*")}`;
 }

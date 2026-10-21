@@ -87,6 +87,6 @@ describe("pinnedLookup", () => {
 
   it("refuses the connection if the name now points inside (rebinding)", async () => {
     const r = await ask(pinnedLookup(resolve(["93.184.215.14", "127.0.0.1"])), "example.org");
-    expect(r.err?.message).toMatch(/réseau local/);
+    expect(r.err?.message).toMatch(/local network/);
   });
 });

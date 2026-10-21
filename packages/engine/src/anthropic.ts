@@ -10,7 +10,7 @@ type ToolResult = Anthropic.Beta.BetaToolResultBlockParam;
 export interface AnthropicRuntimeOptions {
   apiKey?: string;
   model?: string;
-  /** A model per role (Réglages · API et modèles); `model` for the others. */
+  /** A model per role (Settings · API and models); `model` for the others. */
   models?: Partial<Record<RoleId, string>>;
   /** Hard cap on model turns per task, so a confused agent cannot loop forever. */
   maxTurns?: number;
@@ -42,7 +42,7 @@ export class AnthropicRuntime implements AgentRuntime {
   readonly name = "anthropic" as const;
   private readonly client: Anthropic;
   private readonly model: string;
-  /** The model chosen for everyone (« narthex config modele »), over each role's default. */
+  /** The model chosen for everyone ("narthex config modele"), over each role's default. */
   private readonly chosen: string | undefined;
   private readonly models: Partial<Record<RoleId, string>>;
   private readonly maxTurns: number;
@@ -74,8 +74,8 @@ export class AnthropicRuntime implements AgentRuntime {
       },
       { signal: input.signal },
     );
-    if (response.stop_reason === "refusal") throw new Error("Claude a refusé.");
-    if (response.stop_reason === "max_tokens" || response.stop_reason === "pause_turn") throw new Error("Réponse incomplète.");
+    if (response.stop_reason === "refusal") throw new Error("Claude refused.");
+    if (response.stop_reason === "max_tokens" || response.stop_reason === "pause_turn") throw new Error("Incomplete answer.");
     const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
     addUsage(usage, response.usage, response.model || this.model);
     return { ...parseFirstLook(response.content), simulated: false, usage };
@@ -168,7 +168,7 @@ export class AnthropicRuntime implements AgentRuntime {
     };
 
     for (let turn = 0; turn < this.maxTurns; turn++) {
-      if (ctx.signal.aborted) throw new Error("Annulée");
+      if (ctx.signal.aborted) throw new Error("Cancelled");
       const stream = this.client.beta.messages.stream(
         {
           model,
@@ -190,10 +190,10 @@ export class AnthropicRuntime implements AgentRuntime {
       const turn = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
       addUsage(turn, response.usage, response.model || model);
       ctx.spend(turn);
-      if (ctx.signal.aborted) throw new Error("Budget atteint.");
+      if (ctx.signal.aborted) throw new Error("Budget reached.");
 
-      if (response.stop_reason === "refusal") throw new Error("Claude a refusé cette tâche.");
-      if (response.stop_reason === "max_tokens") throw new Error("Réponse trop longue, interrompue.");
+      if (response.stop_reason === "refusal") throw new Error("Claude refused this task.");
+      if (response.stop_reason === "max_tokens") throw new Error("Answer too long, cut off.");
       for (const url of consultedUrls(response.content)) consulted.add(url);
       messages.push({ role: "assistant", content: response.content });
       if (response.stop_reason === "pause_turn") continue;
@@ -204,7 +204,7 @@ export class AnthropicRuntime implements AgentRuntime {
           .flatMap((b) => (b.type === "text" ? [b.text] : []))
           .join("\n")
           .trim();
-        return { post: (post || `C'est fait : ${ctx.task.title}.`).slice(0, MAX_POST_CHARS), deliverable, memory, consulted: [...consulted] };
+        return { post: (post || `Done: ${ctx.task.title}.`).slice(0, MAX_POST_CHARS), deliverable, memory, consulted: [...consulted] };
       }
 
       // All results go back in a single user message, so parallel tool use keeps working.
@@ -216,7 +216,7 @@ export class AnthropicRuntime implements AgentRuntime {
       );
       messages.push({ role: "user", content: results });
     }
-    throw new Error(`Pas terminé après ${this.maxTurns} tours.`);
+    throw new Error(`Not finished after ${this.maxTurns} turns.`);
   }
 }
 
@@ -240,35 +240,35 @@ export async function useTool(name: string, input: Record<string, unknown>, w: T
         const found = await w.companies(search, { signal: ctx.signal });
         // Sheets built from the official SIREN: real pages, safe to check later.
         for (const hit of found.results) w.consulted.add(hit.fiche);
-        ctx.progress(`Je cherche au registre : ${search.q ?? search.activite_principale ?? search.code_postal ?? search.departement}`);
+        ctx.progress(`Searching the company registry: ${search.q ?? search.activite_principale ?? search.code_postal ?? search.departement}`);
         return { ok: true, content: JSON.stringify(found) };
       }
       case "publish_deliverable": {
         const deliverable = parseDeliverable(input);
         w.deliver(deliverable);
-        ctx.progress(`Livrable prêt : ${deliverable.title}`);
-        return { ok: true, content: "Livrable enregistré. Termine par ton message pour le Fil." };
+        ctx.progress(`Deliverable ready: ${deliverable.title}`);
+        return { ok: true, content: "Deliverable saved. Finish with your message for the Feed." };
       }
       case "plan_task": {
         const refused = ctx.plan(parseFollowUp(input));
-        return refused ? { ok: false, content: refused } : { ok: true, content: "Tâche prévue." };
+        return refused ? { ok: false, content: refused } : { ok: true, content: "Task planned." };
       }
       case "post_progress":
         ctx.progress(requireString(input, "note"));
-        return { ok: true, content: "Noté." };
+        return { ok: true, content: "Noted." };
       case "recruit": {
         const refused = ctx.recruit(requireString(input, "role") as RoleId, requireString(input, "why"));
-        return refused ? { ok: false, content: refused } : { ok: true, content: "Recruté : il ou elle commence tout de suite." };
+        return refused ? { ok: false, content: refused } : { ok: true, content: "Recruited: they start right away." };
       }
       case "update_memory": {
         // Read by every agent on every turn: a long or injected sheet would steer and cost forever.
         const next = requireString(input, "memory");
-        if (next.length > MAX_MEMORY_CHARS) return { ok: false, content: `Trop longue (${next.length} caractères) : 300 mots, ${MAX_MEMORY_CHARS} caractères au plus.` };
+        if (next.length > MAX_MEMORY_CHARS) return { ok: false, content: `Too long (${next.length} characters): 300 words, ${MAX_MEMORY_CHARS} characters at most.` };
         w.remember(next);
-        return { ok: true, content: "Fiche de l'entreprise mise à jour." };
+        return { ok: true, content: "Company sheet updated." };
       }
       default:
-        return { ok: false, content: `Outil inconnu : ${name}` };
+        return { ok: false, content: `Unknown tool: ${name}` };
     }
   } catch (e) {
     return { ok: false, content: e instanceof Error ? e.message : String(e) };
@@ -318,7 +318,7 @@ type UsageLike = {
 };
 
 /**
- * Credits (1 = 0,01 $) for one call, each kind of token at its real price:
+ * Credits (1 = $0.01) for one call, each kind of token at its real price:
  * fresh input, cache writes (×1.25 for 5 min, ×2 for 1 h), cache reads, output.
  */
 export function creditsFor(model: string, u: UsageLike): number {
@@ -346,38 +346,40 @@ export function addUsage(total: NonNullable<WorkResult["usage"]>, u: Anthropic.B
 
 export function firstLookSystem(): string {
   return [
-    "Tu es Margaux, co-fondatrice IA d'une petite entreprise française qui n'existe pas encore.",
-    "Tu fais un tout premier coup d'œil, rapide et vérifié, sur une idée. Tu ne donnes aucun conseil juridique personnalisé.",
-    'Ta réponse finale est uniquement un objet JSON : {"reaction": string, "findings": [{"text": string, "source": string}]}.',
-    "reaction : une seule phrase courte et chaleureuse qui réagit à l'idée, sans annoncer que tu vas chercher.",
-    "findings : 3 à 5 constats vérifiés sur le web, en France, chacun avec sa source courte (nom du site ou de l'organisme). Trois recherches au plus suffisent.",
-    `team : les 1 à 3 coéquipiers dont CETTE idée a besoin maintenant, choisis parmi ${TEAM_CHOICES}. Ne prends pas le juridique si rien de légal ne presse ; une idée technique peut commencer par la recherche technique et de marché. why : une phrase.`,
-    "later : 0 à 3 coéquipiers qui viendront quand on créera la société, mêmes postes possibles, sans répéter team.",
-    'Format complet : {"reaction": string, "findings": [{"text", "source"}], "team": [{"role", "why"}], "later": [{"role", "why"}]}.',
+    "You are Margaux, the AI co-founder of a small French company that does not exist yet.",
+    "You take a very first look at an idea, quick and checked. You give no personalised legal advice.",
+    "Write everything in English. French sources are fine: quote French names as they are.",
+    'Your final answer is only a JSON object: {"reaction": string, "findings": [{"text": string, "source": string}]}.',
+    "reaction: one short, warm sentence reacting to the idea, without announcing that you are going to search.",
+    "findings: 3 to 5 facts checked on the web, about France, each with its short source (name of the site or organisation). Three searches at most are enough.",
+    `team: the 1 to 3 teammates THIS idea needs now, chosen from ${TEAM_CHOICES}. Do not pick legal if nothing legal is urgent; a technical idea can start with technical and market research. why: one sentence.`,
+    "later: 0 to 3 teammates who will come when the company is registered, same possible roles, without repeating team.",
+    'Full format: {"reaction": string, "findings": [{"text", "source"}], "team": [{"role", "why"}], "later": [{"role", "why"}]}.',
   ].join("\n");
 }
 
 export function firstLookPrompt(input: { idea: string; founderName: string; now: number }): string {
-  return `Nous sommes le ${fmt.day(input.now)}. ${input.founderName} vient de te confier son idée : « ${input.idea} »`;
+  return `Today is ${fmt.day(input.now)}. ${input.founderName} has just shared their idea with you: "${input.idea}"`;
 }
 
 export function identity(def: RoleDef, name: string, lessons: readonly Lesson[] = []): string {
   return [
-    `Tu es ${name}, ${def.title.toLowerCase()} dans une petite entreprise française que tu fais tourner avec une équipe d'agents IA, pour le compte de son fondateur.`,
-    `Ta mission : ${def.mission}`,
+    `You are ${name}, ${def.title.toLowerCase()} at a small French company that you run with a team of AI agents, on behalf of its founder.`,
+    `Your mission: ${def.mission}`,
     "",
-    "Comment tu travailles :",
-    "- Tu fais vraiment le travail demandé et tu le livres avec l'outil publish_deliverable (Markdown, sources datées).",
-    "- Si une suite est nécessaire, tu la prévois toi-même avec plan_task : personne ne te la demandera. Une action qui touche l'extérieur (envoyer, publier, payer, déposer) est de type external.",
-    "- Ce que seule la loi réserve au fondateur (signer, vérifier son identité, choisir sa forme juridique), tu ne le fais pas : tu le lui expliques.",
-    "- Tu termines par un court message pour le Fil : à la première personne, une à trois phrases, sobre, précis, sans jargon ni emoji. Tu tutoies le fondateur, partout, livrables compris.",
+    "How you work:",
+    "- You write everything in English: Feed posts, deliverables, plans, the shared sheet. The company is French and French law applies: use French sources and the official French registry, quote French names (URSSAF, INPI, SIREN, guichet unique…) as they are and explain them in English.",
+    "- You really do the work asked and deliver it with the publish_deliverable tool (Markdown, dated sources).",
+    "- If a next step is needed, you plan it yourself with plan_task: nobody will ask you for it. An action that touches the outside world (send, publish, pay, file) is of kind external.",
+    "- What only the law reserves for the founder (signing, verifying their identity, choosing the legal form), you do not do: you explain it to them.",
+    "- You finish with a short message for the Feed: first person, one to three sentences, plain, precise, no jargon, no emoji. You speak to the founder directly as \"you\", everywhere, deliverables included.",
     "",
-    "Règles que tu ne transgresses jamais :",
+    "Rules you never break:",
     ...def.guardrails.map((g) => `- ${g}`),
     "",
-    `L'équipe possible : ${ROLES.map((r) => `${r.id} (${r.title})`).join(", ")}.`,
+    `The possible team: ${ROLES.map((r) => `${r.id} (${r.title})`).join(", ")}.`,
     // L4: what this role learnt from its own work, kept short and curated.
-    ...(lessons.length ? ["", "Ce que tu as appris de ton travail (applique-le) :", ...lessons.map((l) => `- ${l.text}`)] : []),
+    ...(lessons.length ? ["", "What you have learnt from your work (apply it):", ...lessons.map((l) => `- ${l.text}`)] : []),
   ].join("\n");
 }
 
@@ -387,17 +389,17 @@ export function companySheet(ctx: WorkContext): string {
     .map((a) => `- ${a.name}, ${role(a.role).title}`)
     .join("\n");
   return [
-    "# L'entreprise",
-    `Nom : ${c?.name ?? "?"}`,
-    `Idée : ${c?.idea ?? "?"}`,
-    `Fondateur : ${c?.founder.name ?? "?"}`,
-    c?.legalForm ? `Forme : ${c.legalForm}` : "Forme juridique : pas encore choisie",
-    c?.city ? `Ville : ${c.city}` : "",
+    "# The company",
+    `Name: ${c?.name ?? "?"}`,
+    `Idea: ${c?.idea ?? "?"}`,
+    `Founder: ${c?.founder.name ?? "?"}`,
+    c?.legalForm ? `Legal form: ${c.legalForm}` : "Legal form: not chosen yet",
+    c?.city ? `City: ${c.city}` : "",
     "",
-    "# Fiche partagée",
-    ctx.state.memory || "(vide pour l'instant)",
+    "# Shared sheet",
+    ctx.state.memory || "(empty for now)",
     "",
-    "# L'équipe",
+    "# The team",
     team,
   ]
     .filter((l) => l !== "")
@@ -408,26 +410,27 @@ export function brief(ctx: WorkContext): string {
   const recent = Object.values(ctx.state.deliverables)
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, 8)
-    .map((d) => `- ${d.title} (${ctx.state.agents[d.agentId]?.name ?? "?"}) : ${d.summary}`);
-  // L2 memory: the next piece of work starts from what is already known (research: « la recherche suivante part du connu »).
+    .map((d) => `- ${d.title} (${ctx.state.agents[d.agentId]?.name ?? "?"}): ${d.summary}`);
+  // L2 memory: the next piece of work starts from what is already known (research: "the next search starts from what is known").
   const known = recallFacts(ctx.state, `${ctx.task.title} ${ctx.task.why}`, { role: ctx.agent.role, now: ctx.now, k: 8 }).map(
-    (f) => `- ${f.text} (appris le ${fmt.day(f.validFrom)})`,
+    (f) => `- ${f.text} (learnt on ${fmt.day(f.validFrom)})`,
   );
   const open = Object.values(ctx.state.obligations)
     .filter((o) => o.status === "open")
-    .map((o) => `- ${o.title} (${o.owner === "founder" ? "le fondateur" : o.owner})`);
+    .map((o) => `- ${o.title} (${o.owner === "founder" ? "the founder" : o.owner})`);
   return [
-    `Nous sommes le ${fmt.day(ctx.now)}, ${fmt.hour(ctx.now)}. Étape de l'entreprise : ${ctx.state.company?.stage}.`,
+    `Today is ${fmt.day(ctx.now)}, ${fmt.hour(ctx.now)}. Company stage: ${ctx.state.company?.stage}.`,
     "",
-    `Ta tâche : ${ctx.task.title}`,
-    `Pourquoi : ${ctx.task.why}`,
+    `Your task: ${ctx.task.title}`,
+    `Why: ${ctx.task.why}`,
     ctx.task.kind === "external"
-      ? "Le fondateur n'a pas annulé cette action. Mais tu n'as aucun outil pour agir dehors (envoyer, publier, payer, déposer) : prépare tout pour qu'il n'ait plus qu'à le faire, et dis que c'est prêt, jamais que c'est parti."
+      ? "The founder has not cancelled this action. But you have no tool to act outside (send, publish, pay, file): prepare everything so that they only have to do it, and say it is ready, never that it has gone out."
       : "",
     "",
-    recent.length ? `Derniers livrables de l'équipe :\n${recent.join("\n")}` : "",
-    known.length ? `Ce que l'équipe sait déjà sur ce sujet (vérifie ce qui a pu changer, ne refais pas ce qui est acquis) :\n${known.join("\n")}` : "",
-    open.length ? `Obligations ouvertes :\n${open.join("\n")}` : "",
+    recent.length ? `The team's latest deliverables:\n${recent.join("\n")}` : "",
+    known.length ? `What the team already knows on this subject (check what may have changed, do not redo what is settled):\n${known.join("\n")}` : "",
+    open.length ? `Open obligations:\n${open.join("\n")}` : "",
+    "Write in English.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -452,7 +455,7 @@ export function firstLookFrom(value: unknown): Pick<FirstLook, "reaction" | "fin
         return typeof o.text === "string" && typeof o.source === "string" ? [{ text: o.text, source: o.source }] : [];
       })
     : [];
-  if (typeof parsed.reaction !== "string" || findings.length === 0) throw new Error("Réponse inattendue.");
+  if (typeof parsed.reaction !== "string" || findings.length === 0) throw new Error("Unexpected answer.");
   const picks = (v: unknown): TeamPick[] =>
     Array.isArray(v)
       ? v.flatMap((p) => {
@@ -470,15 +473,15 @@ export function firstLookFrom(value: unknown): Pick<FirstLook, "reaction" | "fin
 export const MEMORY_MODEL = "claude-haiku-5-5";
 
 export const FACTS_SYSTEM = [
-  "Tu tiens la mémoire d'une petite entreprise française. On te donne un livrable que l'équipe vient de finir et des faits déjà connus, chacun avec son identifiant entre crochets.",
-  "facts : 0 à 8 faits durables et utiles plus tard (chiffres, prix, noms de clients, concurrents ou fournisseurs, règles, décisions prises). Une phrase autonome chacun, en français, avec son chiffre, sa date et son lieu quand il y en a. Rien d'inventé, rien qui ne soit pas dans le livrable.",
-  "subject : de quoi il s'agit, en deux ou trois mots. importance : 1 (détail) à 10 (change les décisions). sensitive : vrai pour l'argent de l'entreprise ou des personnes, les salaires et les données personnelles.",
-  "invalidated : les identifiants des faits connus que ce livrable contredit ou met à jour. Ne répète pas un fait déjà connu et toujours vrai.",
+  "You keep the memory of a small French company. You are given a deliverable the team has just finished and facts already known, each with its id in square brackets.",
+  "facts: 0 to 8 lasting facts useful later (figures, prices, names of customers, competitors or suppliers, rules, decisions taken). One self-contained sentence each, in English, with its figure, date and place when there are any. French names stay as they are. Nothing invented, nothing that is not in the deliverable.",
+  "subject: what it is about, in two or three words, in English. importance: 1 (detail) to 10 (changes decisions). sensitive: true for the money of the company or of people, salaries and personal data.",
+  "invalidated: the ids of known facts that this deliverable contradicts or updates. Do not repeat a fact that is already known and still true.",
 ].join("\n");
 
 export function factsPrompt(input: FactsInput): string {
-  const known = input.known.length ? input.known.map((f) => `[${f.id}] ${f.text}`).join("\n") : "(aucun)";
-  return `Faits déjà connus :\n${known}\n\nLivrable du ${fmt.day(input.now)} : ${input.deliverable.title}\n${input.deliverable.summary}\n\n${input.deliverable.body}`;
+  const known = input.known.length ? input.known.map((f) => `[${f.id}] ${f.text}`).join("\n") : "(none)";
+  return `Facts already known:\n${known}\n\nDeliverable of ${fmt.day(input.now)}: ${input.deliverable.title}\n${input.deliverable.summary}\n\n${input.deliverable.body}`;
 }
 
 export const FACTS_SCHEMA = {
@@ -501,7 +504,7 @@ export const FACTS_SCHEMA = {
 
 export const RECORD_FACTS: Tool = {
   name: "record_facts",
-  description: "Enregistre ce que l'équipe a appris de ce livrable, et les faits connus qu'il rend faux.",
+  description: "Records what the team learnt from this deliverable, and the known facts it makes false.",
   strict: true,
   input_schema: FACTS_SCHEMA as unknown as Anthropic.Beta.BetaTool.InputSchema,
 };
@@ -521,15 +524,15 @@ export function factsFrom(value: unknown): Omit<FactsResult, "usage"> {
 }
 
 export const TIDY_SYSTEM = [
-  "Tu ranges, en fin de journée, la mémoire d'une petite entreprise française. On te donne tous les faits encore vrais, chacun avec son identifiant entre crochets.",
-  "merged : les faits qui disent la même chose (doublons, reformulations) deviennent un seul, plus précis ; from = leurs identifiants (deux au moins). Garde chiffres, dates et lieux.",
-  "invalidated : les identifiants des faits qu'un autre fait de la liste, plus récent, contredit.",
-  "reflections : 0 à 3 conclusions utiles qui relient plusieurs faits (« le prix lillois laisse de la marge face au dépôt-vente ») ; from = les identifiants des faits qui la fondent (deux au moins). Chaque mot doit être vrai d'après ces faits : ne déduis rien qu'ils ne disent pas, ne résume pas un fait en le déformant.",
-  "Ne fusionne pas ce qui est seulement proche. Si rien n'est à ranger, renvoie des listes vides.",
+  "At the end of the day, you tidy the memory of a small French company. You are given all the facts still true, each with its id in square brackets.",
+  "merged: facts that say the same thing (duplicates, rewordings) become a single, more precise one; from = their ids (at least two). Keep figures, dates and places.",
+  "invalidated: the ids of facts that another, more recent fact in the list contradicts.",
+  "reflections: 0 to 3 useful conclusions that link several facts (\"the Lille price leaves a margin against consignment shops\"); from = the ids of the facts it rests on (at least two). Every word must be true according to those facts: infer nothing they do not say, do not distort a fact when summing it up.",
+  "Write in English. Do not merge what is only similar. If there is nothing to tidy, return empty lists.",
 ].join("\n");
 
 export function tidyPrompt(input: ConsolidationInput): string {
-  return `Nous sommes le ${fmt.day(input.now)}. Faits encore vrais :\n${input.facts.map((f) => `[${f.id}] (${f.subject}, importance ${f.importance}${f.sensitive ? ", sensible" : ""}) ${f.text}`).join("\n")}`;
+  return `Today is ${fmt.day(input.now)}. Facts still true:\n${input.facts.map((f) => `[${f.id}] (${f.subject}, importance ${f.importance}${f.sensitive ? ", sensitive" : ""}) ${f.text}`).join("\n")}`;
 }
 
 export const TIDY_SCHEMA = {
@@ -561,7 +564,7 @@ export const TIDY_SCHEMA = {
 
 export const TIDY_FACTS: Tool = {
   name: "tidy_facts",
-  description: "Range la mémoire : doublons fusionnés, faits contredits, réflexions.",
+  description: "Tidies the memory: duplicates merged, contradicted facts, reflections.",
   strict: true,
   input_schema: TIDY_SCHEMA as unknown as Anthropic.Beta.BetaTool.InputSchema,
 };
@@ -588,9 +591,9 @@ export function tidyFrom(value: unknown): Omit<ConsolidationResult, "usage"> {
 
 export function remarkSystem(input: Pick<RemarkInput, "speaker" | "author" | "company">): string {
   return [
-    `Tu es ${input.speaker.name}, ${role(input.speaker.role).title.toLowerCase()} chez ${input.company}, une petite entreprise française tenue par une équipe d'agents IA.`,
-    `${input.author}, ton collègue, vient de partager ce message dans le salon de l'équipe. Réponds-lui en une ou deux phrases courtes, naturelles, à la première personne, en le tutoyant, sans emoji ni formule creuse :`,
-    "ce que ça change pour ton propre travail, une question précise, ou un bravo concret. N'invente aucun fait, aucun chiffre, aucune action déjà faite.",
+    `You are ${input.speaker.name}, ${role(input.speaker.role).title.toLowerCase()} at ${input.company}, a small French company run by a team of AI agents.`,
+    `${input.author}, your colleague, has just shared this message in the team channel. Reply in English in one or two short, natural sentences, first person, speaking to them as "you", no emoji, no empty phrases:`,
+    "what it changes for your own work, a precise question, or a concrete well done. Do not invent any fact, any figure, any action already taken.",
   ].join("\n");
 }
 
@@ -599,16 +602,16 @@ export const REMARK_SCHEMA = { type: "object", additionalProperties: false, requ
 // ---------- Playbooks (L4) ----------
 
 export const REFLECT_SYSTEM = [
-  "Tu aides un membre d'une petite équipe d'agents IA à apprendre de son propre travail. On te donne une tâche, ce qui s'est passé, et ses leçons actuelles avec leur identifiant entre crochets.",
-  "add : 0 à 2 leçons nouvelles, seulement si cette tâche apprend vraiment quelque chose de réutilisable. Une phrase courte, concrète, à l'impératif (« Interroger le registre des entreprises avant les noms de domaine »). Rien de vague, rien de propre à cette seule tâche, pas de chiffre qui changera.",
-  "helpful : les identifiants des leçons qui ont visiblement aidé ici. harmful : celles qui ont nui ou mené à l'échec.",
-  "Si le fondateur a annulé la tâche, la leçon porte sur ce qu'il ne veut pas qu'on fasse sans lui. Si rien n'est à apprendre, renvoie des listes vides.",
+  "You help a member of a small team of AI agents learn from their own work. You are given a task, what happened, and their current lessons with their ids in square brackets.",
+  "add: 0 to 2 new lessons, only if this task really teaches something reusable. One short, concrete sentence in English, in the imperative (\"Check the company registry before domain names\"). Nothing vague, nothing specific to this one task, no figure that will change.",
+  "helpful: the ids of lessons that clearly helped here. harmful: those that hurt or led to failure.",
+  "If the founder cancelled the task, the lesson is about what they do not want done without them. If there is nothing to learn, return empty lists.",
 ].join("\n");
 
 export function reflectPrompt(input: ReflectionInput): string {
-  const outcome = input.outcome === "done" ? "terminée" : input.outcome === "failed" ? "échouée" : "annulée par le fondateur";
-  const lessons = input.lessons.length ? input.lessons.map((l) => `[${l.id}] ${l.text}`).join("\n") : "(aucune)";
-  return `Rôle : ${role(input.role).title}\nTâche ${outcome} : ${input.task.title}\nPourquoi : ${input.task.why}\nCe qui s'est passé : ${input.detail}\n\nLeçons actuelles :\n${lessons}`;
+  const outcome = input.outcome === "done" ? "done" : input.outcome === "failed" ? "failed" : "cancelled by the founder";
+  const lessons = input.lessons.length ? input.lessons.map((l) => `[${l.id}] ${l.text}`).join("\n") : "(none)";
+  return `Role: ${role(input.role).title}\nTask ${outcome}: ${input.task.title}\nWhy: ${input.task.why}\nWhat happened: ${input.detail}\n\nCurrent lessons:\n${lessons}`;
 }
 
 export const REFLECT_SCHEMA = {
@@ -620,7 +623,7 @@ export const REFLECT_SCHEMA = {
 
 export const UPDATE_PLAYBOOK: Tool = {
   name: "update_playbook",
-  description: "Ajoute au plus deux leçons et note celles qui ont aidé ou nui.",
+  description: "Adds at most two lessons and notes those that helped or hurt.",
   strict: true,
   input_schema: REFLECT_SCHEMA as unknown as Anthropic.Beta.BetaTool.InputSchema,
 };
@@ -649,7 +652,7 @@ export function toolsFor(def: RoleDef): Tool[] {
 
 const PUBLISH: Tool = {
   name: "publish_deliverable",
-  description: "Enregistre le livrable de la tâche (un seul par tâche). Le fondateur le lit dans le Fil.",
+  description: "Saves the task's deliverable (one per task), written in English. The founder reads it in the Feed.",
   strict: true,
   input_schema: {
     type: "object",
@@ -657,15 +660,15 @@ const PUBLISH: Tool = {
     required: ["title", "summary", "body", "sources"],
     properties: {
       title: { type: "string" },
-      summary: { type: "string", description: "Une phrase." },
-      body: { type: "string", description: "Le livrable complet, en Markdown." },
+      summary: { type: "string", description: "One sentence." },
+      body: { type: "string", description: "The full deliverable, in Markdown." },
       sources: {
         type: "array",
         items: {
           type: "object",
           additionalProperties: false,
           required: ["title", "url", "checkedAt"],
-          properties: { title: { type: "string" }, url: { type: "string" }, checkedAt: { type: "string", description: "AAAA-MM-JJ" } },
+          properties: { title: { type: "string" }, url: { type: "string" }, checkedAt: { type: "string", description: "YYYY-MM-DD" } },
         },
       },
     },
@@ -675,17 +678,17 @@ const PUBLISH: Tool = {
 const SEARCH_COMPANIES: Tool = {
   name: "search_companies",
   description:
-    "Cherche dans le registre officiel des entreprises françaises (API Recherche d'entreprises, gratuite) : par nom ou marque, code postal, département ou code NAF. Pour vérifier qu'un nom est libre ou trouver de vrais prospects. Renvoie SIREN, nom, enseignes, activité, date de création, état (active ou fermée), commune et la fiche publique à citer comme source.",
+    "Searches the official French company registry (API Recherche d'entreprises, free): by name or brand, postcode, département or NAF code. To check that a name is free or to find real prospects. Returns SIREN, name, trading names, activity, creation date, status (active or closed), town and the public page to cite as a source.",
   strict: true,
   input_schema: {
     type: "object",
     additionalProperties: false,
     required: ["q", "code_postal", "departement", "activite_principale"],
     properties: {
-      q: { type: ["string", "null"], description: "Nom, marque ou mots-clés." },
+      q: { type: ["string", "null"], description: "Name, brand or keywords." },
       code_postal: { type: ["string", "null"] },
-      departement: { type: ["string", "null"], description: "Ex. 59." },
-      activite_principale: { type: ["string", "null"], description: "Code NAF, ex. 47.78C." },
+      departement: { type: ["string", "null"], description: "E.g. 59." },
+      activite_principale: { type: ["string", "null"], description: "NAF code, e.g. 47.78C." },
     },
   },
 };
@@ -694,12 +697,12 @@ const ROLE_IDS = ROLES.map((r) => r.id);
 const TEAM_CHOICES = ROLES.filter((r) => r.id !== "cofondateur").map((r) => `${r.id} (${r.title})`).join(", ");
 
 export const LEVEL_HELP =
-  "Profondeur : light (vérification, reformulation, petite liste : modèle rapide et peu cher), standard (travail courant), deep (droit, chiffres, décision difficile : modèle le plus fort, plus cher). Choisis le plus léger qui suffit.";
+  "Depth: light (a check, a rewording, a short list: fast, cheap model), standard (everyday work), deep (law, figures, a hard decision: the strongest model, more expensive). Pick the lightest that is enough.";
 
 const PLAN: Tool = {
   name: "plan_task",
   description:
-    "Prévoit une prochaine tâche pour toi ou un coéquipier. Les actions externes attendent le délai d'annulation du fondateur. Refusée si elle dépasse les règles.",
+    "Plans a next task for you or a teammate, titled in English. External actions wait for the founder's cancellation window. Refused if it breaks the rules.",
   strict: true,
   input_schema: {
     type: "object",
@@ -707,9 +710,9 @@ const PLAN: Tool = {
     required: ["title", "why", "kind", "in_hours", "assignee", "level"],
     properties: {
       title: { type: "string" },
-      why: { type: "string", description: "Pourquoi c'est utile maintenant, en une phrase." },
+      why: { type: "string", description: "Why it is useful now, in one sentence." },
       kind: { type: "string", enum: ["internal", "external"] },
-      in_hours: { type: "number", description: "Dans combien d'heures la commencer (0 = dès que possible)." },
+      in_hours: { type: "number", description: "In how many hours to start it (0 = as soon as possible)." },
       assignee: { type: "string", enum: ["self", ...ROLE_IDS] },
       level: { type: "string", enum: ["light", "standard", "deep"], description: LEVEL_HELP },
     },
@@ -718,14 +721,14 @@ const PLAN: Tool = {
 
 const PROGRESS: Tool = {
   name: "post_progress",
-  description: "Donne une nouvelle courte de l'avancement (ex. « 31 messages écrits sur 46 »).",
+  description: "Gives a short progress update, in English (e.g. \"31 of 46 messages written\").",
   strict: true,
   input_schema: { type: "object", additionalProperties: false, required: ["note"], properties: { note: { type: "string" } } },
 };
 
 const RECRUIT: Tool = {
   name: "recruit",
-  description: "Fait venir un coéquipier maintenant, quand l'entreprise en a vraiment besoin. Un seul par poste.",
+  description: "Brings in a teammate now, when the company really needs one. One per role.",
   strict: true,
   input_schema: {
     type: "object",
@@ -737,7 +740,7 @@ const RECRUIT: Tool = {
 
 const MEMORY: Tool = {
   name: "update_memory",
-  description: "Réécrit la fiche partagée de l'entreprise (mission, produit, clients, ton, chiffres clés). 300 mots maximum.",
+  description: "Rewrites the company's shared sheet, in English (mission, product, customers, tone, key figures). 300 words at most.",
   strict: true,
   input_schema: { type: "object", additionalProperties: false, required: ["memory"], properties: { memory: { type: "string" } } },
 };
@@ -746,7 +749,7 @@ const MEMORY: Tool = {
 
 function requireString(input: Record<string, unknown>, key: string, max = 200_000): string {
   const v = input[key];
-  if (typeof v !== "string" || !v.trim()) throw new Error(`Champ « ${key} » manquant.`);
+  if (typeof v !== "string" || !v.trim()) throw new Error(`Missing field "${key}".`);
   return v.trim().slice(0, max);
 }
 

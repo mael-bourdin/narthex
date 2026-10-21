@@ -137,7 +137,7 @@ export async function withdrawFromLeaderboard(s: LeaderboardSettings, companyId:
 /** The public ranking, read by the app and the CLI (any edition can look). */
 export async function fetchLeaderboard(url: string, fetchImpl: (u: string, i: { signal: AbortSignal }) => Promise<{ ok: boolean; json(): Promise<unknown> }> = globalThis.fetch as never): Promise<{ rank: number; entry: LeaderboardEntry }[]> {
   const res = await fetchImpl(`${url.replace(/\/$/, "")}/v1/leaderboard?limit=100`, { signal: AbortSignal.timeout(10_000) });
-  if (!res.ok) throw new Error("Le classement ne répond pas pour l'instant.");
+  if (!res.ok) throw new Error("The leaderboard is not answering right now.");
   const body = (await res.json()) as { entries?: unknown };
   // The service is remote: keep only well-formed entries (no control characters, known stages and bands).
   return Array.isArray(body.entries) ? body.entries.filter((r): r is { rank: number; entry: LeaderboardEntry } => !!r && Number.isInteger(r.rank) && validEntry(r.entry)) : [];

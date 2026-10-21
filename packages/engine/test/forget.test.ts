@@ -43,6 +43,6 @@ describe("forget a fact (RGPD: effective erasure)", () => {
   it("refuses an unknown fact", async () => {
     const store = new MemoryEventStore();
     seed(store);
-    await expect(new Engine({ store, runtime: null, clock: new SimulatedClock(START) }).handle("fact.forget", { factId: "nope" })).rejects.toThrow(/inconnu/);
+    await expect(new Engine({ store, runtime: null, clock: new SimulatedClock(START) }).handle("fact.forget", { factId: "nope" })).rejects.toThrow(/Unknown fact/);
   });
 });

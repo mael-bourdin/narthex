@@ -17,21 +17,21 @@ export class SimulationRuntime implements AgentRuntime {
 
   async firstLook(): Promise<FirstLook> {
     return {
-      reaction: "J'aime beaucoup l'idée.",
+      reaction: "I really like the idea.",
       findings: [
-        { text: "Des centaines d'artisans vendent déjà quelque chose de proche en France", source: "Registre des entreprises (exemple)" },
-        { text: "Les clients achètent surtout pour offrir", source: "Avis clients (exemple)" },
-        { text: "Les prix se tiennent dans une fourchette resserrée", source: "Boutiques en ligne (exemple)" },
-        { text: "Pour démarrer : micro-entreprise ou SASU", source: "Légifrance (exemple)" },
+        { text: "Hundreds of craftspeople already sell something similar in France", source: "Company registry (example)" },
+        { text: "Customers mostly buy to give as a gift", source: "Customer reviews (example)" },
+        { text: "Prices sit within a narrow range", source: "Online shops (example)" },
+        { text: "To start: micro-entreprise or SASU", source: "Légifrance (example)" },
       ],
       simulated: true,
       team: [
-        { role: "recherche", why: "Avant de créer quoi que ce soit, il faut connaître le marché." },
-        { role: "juridique", why: "Il faut vérifier le nom et l'activité, puis créer la société." },
+        { role: "recherche", why: "Before creating anything, we need to know the market." },
+        { role: "juridique", why: "We need to check the name and the activity, then register the company." },
       ],
       later: [
-        { role: "prospection", why: "Pour trouver les premiers clients." },
-        { role: "redaction", why: "Pour le site et les posts." },
+        { role: "prospection", why: "To find the first customers." },
+        { role: "redaction", why: "For the website and the posts." },
       ],
     };
   }
@@ -39,28 +39,28 @@ export class SimulationRuntime implements AgentRuntime {
   async run(ctx: WorkContext): Promise<WorkResult> {
     const { task, agent, state } = ctx;
     const company = state.company;
-    ctx.progress("Au travail…");
+    ctx.progress("Getting to work…");
     if (this.delayMs) await new Promise((r) => setTimeout(r, this.delayMs));
-    if (ctx.signal.aborted) throw new Error("Annulée");
+    if (ctx.signal.aborted) throw new Error("Cancelled");
 
     const script = SCRIPTS[task.tag ?? ""];
-    const idea = company?.idea ?? "ton idée";
+    const idea = company?.idea ?? "your idea";
     const body = script
-      ? script.body(idea, company?.name ?? "ton entreprise")
-      : `Travail simulé pour « ${task.title} ».\n\nEn mode réel, ${agent.name} ferait ce travail avec Claude et citerait ses sources.`;
+      ? script.body(idea, company?.name ?? "your company")
+      : `Simulated work for "${task.title}".\n\nIn real mode, ${agent.name} would do this work with Claude and cite their sources.`;
 
     for (const f of script?.followUps ?? []) ctx.plan(f);
 
     const effort = role(agent.role).effort;
     return {
-      post: script?.post ?? `C'est fait : ${lower(task.title)}.`,
+      post: script?.post ?? `Done: ${lower(task.title)}.`,
       deliverable: {
         title: task.title,
-        summary: script?.summary ?? "Livrable de démonstration (mode simulation).",
-        body: `> Mode simulation : contenu d'exemple, sans recherche réelle.\n\n${body}`,
+        summary: script?.summary ?? "Demo deliverable (simulation mode).",
+        body: `> Simulation mode: example content, no real research.\n\n${body}`,
         sources: [],
       },
-      ...(task.tag === "plan" ? { memory: `${company?.name} — ${idea}. Lancement visé : dans six semaines.` } : {}),
+      ...(task.tag === "plan" ? { memory: `${company?.name} — ${idea}. Target launch: in six weeks.` } : {}),
       usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: effort === "high" ? 40 : effort === "medium" ? 15 : 5 },
     };
   }
@@ -79,28 +79,28 @@ interface Script {
 
 const SCRIPTS: Record<string, Script> = {
   plan: {
-    post: "J'ai écrit la fiche de l'entreprise et le plan des 30 premiers jours. Léa commence l'étude de marché, Hugo vérifie le nom.",
-    summary: "Fiche de l'entreprise, objectifs, plan sur 30 jours.",
+    post: "I've written the company sheet and the plan for the first 30 days. Léa is starting the market study, Hugo is checking the name.",
+    summary: "Company sheet, goals, 30-day plan.",
     body: (idea, name) =>
-      `# ${name}\n\n**L'idée :** ${idea}\n\n## Les 30 premiers jours\n1. Étude de marché (Léa)\n2. Nom et activité vérifiés (Hugo)\n3. Création de la société\n4. Premiers prospects et site\n`,
+      `# ${name}\n\n**The idea:** ${idea}\n\n## The first 30 days\n1. Market study (Léa)\n2. Name and activity checked (Hugo)\n3. Registering the company\n4. First prospects and website\n`,
   },
   "market-study": {
-    post: "L'étude de marché est prête. Il y a de la place, surtout pour les cadeaux. Je te mets l'essentiel en pièce jointe.",
-    summary: "Taille du marché, clientes, concurrents, prix moyens.",
+    post: "The market study is ready. There is room, especially for gifts. I've attached the key points for you.",
+    summary: "Market size, customers, competitors, average prices.",
     body: (idea) =>
-      `# Étude de marché\n\n**Idée étudiée :** ${idea}\n\n| Point | Ce qu'on retient |\n|---|---|\n| Clientes | Achètent surtout pour offrir |\n| Concurrents | Nombreux, peu différenciés |\n| Prix | Dans la moyenne haute du marché |\n`,
+      `# Market study\n\n**Idea studied:** ${idea}\n\n| Point | What we take away |\n|---|---|\n| Customers | Mostly buy to give as a gift |\n| Competitors | Many, little differentiated |\n| Prices | In the upper middle of the market |\n`,
   },
   prospects: {
-    post: "J'ai trouvé 50 entreprises à qui écrire. Je prépare un message pour chacune ; l'envoi part demain, tu peux l'annuler d'ici là.",
-    summary: "50 prospects qualifiés, avec la raison de chaque choix.",
-    body: () => "# Prospects\n\n50 entreprises locales, classées par probabilité de réponse.\n",
+    post: "I've found 50 businesses to write to. I'm preparing a message for each; the send is planned for tomorrow, and you can cancel it until then.",
+    summary: "50 qualified prospects, with the reason for each pick.",
+    body: () => "# Prospects\n\n50 local businesses, ranked by likelihood of replying.\n",
     followUps: [
-      { title: "Envoyer les messages de prospection", why: "Pour avoir les premiers rendez-vous avant le lancement.", kind: "external", tag: "outreach", inHours: 20 },
+      { title: "Send the outreach messages", why: "To get the first meetings before the launch.", kind: "external", tag: "outreach", inHours: 20 },
     ],
   },
   outreach: {
-    post: "Les messages sont prêts (exemple, mode simulation). Rien n'est parti : c'est à toi de les envoyer.",
-    summary: "Messages envoyés, suivi des réponses.",
-    body: () => "# Envoi\n\nMessages personnalisés envoyés. Relance prévue dans 4 jours.\n",
+    post: "The messages are ready (example, simulation mode). Nothing has gone out: sending them is up to you.",
+    summary: "Messages ready to send, replies to follow up.",
+    body: () => "# Outreach\n\nPersonalised messages ready to send. Follow-up planned in 4 days.\n",
   },
 };

@@ -79,7 +79,7 @@ describe("Engine (simulation)", () => {
     await engine.handle("company.found", { name: "Maison Lumen", idea: "Bougies", founderName: "Inès" });
     let s = await settle(engine);
     const form = forFounder(s).find((o) => o.code === "A3-forme")!;
-    await expect(engine.handle("obligation.fulfill", { obligationId: form.id })).rejects.toThrow(/forme/);
+    await expect(engine.handle("obligation.fulfill", { obligationId: form.id })).rejects.toThrow(/legal form/);
     s = await engine.handle("obligation.fulfill", { obligationId: form.id, legalForm: "SASU" });
     s = await settle(engine);
     expect(s.company?.legalForm).toBe("SASU");
@@ -143,7 +143,7 @@ describe("persistence and transport", () => {
     client!.subscribe((e) => seen.push(e.type));
     const s = await client!.call("company.found", { name: "Maison Lumen", idea: "Bougies", founderName: "Inès" });
     expect(s.company?.name).toBe("Maison Lumen");
-    await expect(client!.call("company.found", { name: "B", idea: "C", founderName: "D" })).rejects.toThrow(/existe déjà/);
+    await expect(client!.call("company.found", { name: "B", idea: "C", founderName: "D" })).rejects.toThrow(/already exists/);
     await settle(engine);
     expect(seen).toContain("agent.hired");
     await client!.close();
