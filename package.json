@@ -26,5 +26,25 @@
     "tsx": "^4.23.0",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"
-  }
+  },
+  "homepage": "https://github.com/mael-bourdin/narthex#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mael-bourdin/narthex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mael-bourdin/narthex/issues"
+  },
+  "keywords": [
+    "agents",
+    "ai",
+    "claude",
+    "anthropic",
+    "entreprise",
+    "startup",
+    "game",
+    "electron",
+    "cli",
+    "event-sourcing"
+  ]
 }
