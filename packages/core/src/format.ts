@@ -36,11 +36,6 @@ export function dollars(cents: number): string {
   return `${new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100).replace(/[\u202f\u00a0]/g, " ")} $`;
 }
 
-/** Revenue, in euros (cents in the events): « 1 250 € ». */
-export function euros(cents: number): string {
-  return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(cents / 100).replace(/[\u202f\u00a0]/g, " ")} €`;
-}
-
 /** « 3 », « 1,50 », « 2.5 $ » → cents; NaN when it is not an amount. */
 export function parseDollars(text: string): number {
   const cleaned = text.replace(/\$/g, "").replace(/\s/g, "").replace(",", ".");
