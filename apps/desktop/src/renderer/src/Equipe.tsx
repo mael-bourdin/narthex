@@ -45,7 +45,6 @@ export function Equipe({
   agentId,
   onView,
   onAgent,
-  onBureau,
   onChange,
 }: {
   state: CompanyState;
@@ -54,11 +53,9 @@ export function Equipe({
   agentId?: string;
   onView(v: EquipeView): void;
   onAgent(id?: string): void;
-  /** Opens the Bureau, where the founder walks up to an agent to talk. */
-  onBureau?(): void;
   onChange(): void;
 }) {
-  if (agentId && state.agents[agentId]) return <AgentPage state={state} status={status} agentId={agentId} onBack={() => onAgent(undefined)} onBureau={onBureau} onChange={onChange} />;
+  if (agentId && state.agents[agentId]) return <AgentPage state={state} status={status} agentId={agentId} onBack={() => onAgent(undefined)} onChange={onChange} />;
   const page = (side: ReactNode, main: ReactNode) => (
     <div className="columns">
       <div className="main eq-main">
@@ -69,11 +66,11 @@ export function Equipe({
     </div>
   );
   if (view === "Calendrier") return <Calendrier state={state} status={status} page={page} onAgent={onAgent} onChange={onChange} />;
-  if (view === "Recrutements prévus") return <Recrutements state={state} status={status} page={page} onBureau={onBureau} />;
+  if (view === "Recrutements prévus") return <Recrutements state={state} status={status} page={page} />;
   if (view === "Journal") return <Journal state={state} status={status} page={page} onAgent={onAgent} />;
   if (view === "Mémoire")
     return page(<MemoireNumbers state={state} status={status} />, <Memoire state={state} status={status} onAgent={onAgent} onChange={onChange} />);
-  return <Organigramme state={state} status={status} page={page} onAgent={onAgent} onView={onView} onBureau={onBureau} onChange={onChange} />;
+  return <Organigramme state={state} status={status} page={page} onAgent={onAgent} onView={onView} onChange={onChange} />;
 }
 
 type Page = (side: ReactNode, main: ReactNode) => ReactNode;
@@ -200,7 +197,6 @@ function Organigramme({
   page,
   onAgent,
   onView,
-  onBureau,
   onChange,
 }: {
   state: CompanyState;
@@ -208,7 +204,6 @@ function Organigramme({
   page: Page;
   onAgent(id: string): void;
   onView(v: EquipeView): void;
-  onBureau?(): void;
   onChange(): void;
 }) {
   const o = orgChart(state, status.now);
@@ -248,7 +243,6 @@ function Organigramme({
             : `${rows.length} agent${rows.length > 1 ? "s" : ""} ${rows.length > 1 ? "travaillent" : "travaille"} pour ${company?.name ?? "toi"}`
         }
         sub={`Organisation à plat · ${status.runtime === "none" ? "attend ta clé pour se mettre au travail" : working ? `${working} au travail en ce moment` : `${margaux?.name ?? "Margaux"} recrute quand le besoin arrive`}`}
-        {...(onBureau && margaux ? { action: { label: `Parler à ${margaux.name}`, onClick: onBureau } } : {})}
       />
       <section className="fil-list eq-list">
         {forYou[0] && (
@@ -825,7 +819,7 @@ function MonthGrid({
 
 // ---------- Recrutements prévus (Figma 208:28150) ----------
 
-function Recrutements({ state, status, page, onBureau }: { state: CompanyState; status: EngineStatus; page: Page; onBureau?(): void }) {
+function Recrutements({ state, status, page }: { state: CompanyState; status: EngineStatus; page: Page }) {
   const r = recruitments(state);
   const margaux = margauxOf(state);
   const [next, ...later] = r.planned;
@@ -858,7 +852,6 @@ function Recrutements({ state, status, page, onBureau }: { state: CompanyState; 
         tone="on"
         title={`${name} recrute quand le besoin arrive`}
         sub="Pas avant : chaque agent ajoute de la dépense IA"
-        {...(onBureau && margaux ? { action: { label: `Parler à ${name}`, onClick: onBureau } } : {})}
       />
       <section className="fil-list">
         {!next && (
@@ -1066,7 +1059,7 @@ function Journal({ state, status, page, onAgent }: { state: CompanyState; status
 
 // ---------- Fiche agent (Figma 167:16930) ----------
 
-function AgentPage({ state, status, agentId, onBack, onBureau, onChange }: { state: CompanyState; status: EngineStatus; agentId: string; onBack(): void; onBureau?(): void; onChange(): void }) {
+function AgentPage({ state, status, agentId, onBack, onChange }: { state: CompanyState; status: EngineStatus; agentId: string; onBack(): void; onChange(): void }) {
   const sheet = agentSheet(state, agentId, status.now);
   const [open, setOpen] = useState<Deliverable>();
   const [cancelling, setCancelling] = useState<Task>();
@@ -1112,11 +1105,6 @@ function AgentPage({ state, status, agentId, onBack, onBureau, onChange }: { sta
               ))}
               {sheet.sourceSites.length > 6 && <span className="chip static muted">+ {sheet.sourceSites.length - 6}</span>}
             </div>
-          )}
-          {onBureau && (
-            <button className="btn btn-secondary wide" onClick={onBureau}>
-              Lui parler dans le bureau
-            </button>
           )}
         </section>
       </aside>
