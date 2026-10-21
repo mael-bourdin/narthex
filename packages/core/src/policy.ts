@@ -333,9 +333,12 @@ export const ALWAYS_ASK: readonly { tag: string; label: string; words: RegExp }[
   },
 ];
 
-/** Acting on the outside world (not preparing it): send, publish, order, pay, call, file, put online. */
+/**
+ * Acting on the outside world (not preparing it): send, publish, share, order, pay, call, file, register, put online.
+ * Read from the first words of the title, English or French; when in doubt the task counts as external.
+ */
 const OUTSIDE =
-  /^\s*(envoyer|expedier|publier|poster|diffuser|commander|acheter|payer|regler|virer|appeler|telephoner|relancer|contacter|ecrire a|deposer|souscrire|signer|resilier|mettre en ligne|lancer la campagne|repondre a|send|ship|publish|post (a|an|the|on|to|our|it|them)|broadcast|order|buy|pay|transfer|wire|call|phone|follow up with|contact|write to|email|e-mail|file|submit|subscribe|take out|sign|terminate|put (.{0,40} )?online|go live|launch the campaign|reply to|respond to)\b/;
+  /^\s*(envoyer|expedier|publier|poster|diffuser|commander|acheter|payer|regler|virer|appeler|telephoner|relancer|contacter|ecrire a|deposer|souscrire|signer|resilier|mettre en ligne|lancer la campagne|repondre a|send|ship|mail|email|e-mail|publish|post(?!-)|tweet|broadcast|announce|release|deploy|upload|share(?! of\b)|message(?! (for|of|on|about)\b)|text(?! (for|of|on|about)\b)|dm|notify|invite|reach out|contact|write to|reply to|respond to|call|phone|follow up|book|order|buy|purchase|pay|transfer|wire|sell|quote (a |the |our )?(price|rate|fee)s?|list (.{0,40} )?on|register|apply (for|to)|file|submit|subscribe|renew|take out|sign|terminate|put (.{0,40} )?online|go live|launch the campaign)\b/;
 const PREPARING = /\b(brouillons?|preparer|rediger|projet de|ebauche|drafts?|drafting|prepare|preparing|outline)\b/;
 
 export function touchesOutside(title: string): boolean {

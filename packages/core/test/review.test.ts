@@ -108,13 +108,37 @@ describe("revision: guard on external actions", () => {
     "Put the home page online",
     "Write to the Lille concept stores",
     "Post the launch video on TikTok",
+    "Post today's update on LinkedIn",
+    "Reach out to the three concept stores",
+    "Purchase 200 jars from the supplier",
+    "Share the launch video with the press list",
+    "Message the shop owners on Instagram",
+    "Text the supplier about the delivery",
+    "DM the five best leads",
+    "Upload the catalogue to the website",
+    "Notify customers of the new opening hours",
+    "Invite the first customers to the launch",
+    "Book a meeting with the bank",
+    "Renew the domain name",
+    "Deploy the new home page",
+    "Release the spring collection",
+    "Announce the launch on social media",
+    "Tweet the launch date",
+    "Mail the catalogue to the shops",
+    "Sell the first 20 candles at the market",
+    "Quote a price to Maison Verte",
+    "Register the trademark with the INPI",
+    "Apply for the BPI innovation grant",
+    "List the candles on Etsy",
+    "Follow up with the three shops",
+    "Email the supplier",
   ])("never lets « %s » leave without a cancel window, whatever the agent says", (title) => {
     const r = guardTask(s, { agentId: "s", title, why: "", kind: "internal" }, NOW);
     expect(r.ok && r.task.kind).toBe("external");
     expect(r.ok && r.task.cancellableUntil).toBeGreaterThan(NOW);
   });
 
-  it.each(["Rédiger les e-mails de prospection (brouillons)", "Send the prospecting emails (drafts)", "Write the launch post", "Post-launch review of the first week"])(
+  it.each(["Rédiger les e-mails de prospection (brouillons)", "Send the prospecting emails (drafts)", "Write the launch post", "Post-launch review of the first week", "Draft a reply", "Research competitors", "Analyse prices", "List the first 50 qualified prospects", "Share of voice analysis", "Message for the home page", "Text for the about page", "Prepare the release notes"])(
     "keeps preparing work like « %s » internal",
     (title) => {
       const r = guardTask(s, { agentId: "s", title, why: "", kind: "internal" }, NOW);
