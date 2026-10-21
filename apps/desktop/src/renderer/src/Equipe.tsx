@@ -1,30 +1,43 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   agentSheet,
   calendar,
+  calendarSummary,
   fmt,
+  forFounder,
   journalEntries,
+  journalSummary,
+  missions,
   orgChart,
+  overview,
   recruitments,
+  role,
   type CompanyState,
-  type RoleId,
   type Deliverable,
   type EngineStatus,
+  type JournalEntry,
+  type Mission,
+  type RoleId,
   type StoredEvent,
   type Task,
   type TeamRow,
 } from "@narthex/core";
 import { ActionModal } from "./ActionModal.tsx";
 import { DeliverableView } from "./Deliverable.tsx";
-import { Chevron } from "./icons.tsx";
-import { Memoire } from "./Memoire.tsx";
+import { Check, DownloadIcon, FilterIcon, SearchIcon } from "./equipe-icons.tsx";
+import { Chevron, Clock } from "./icons.tsx";
+import { Memoire, MemoireNumbers } from "./Memoire.tsx";
 import { PixelAvatar } from "./PixelAvatar.tsx";
 import { SectionTabs } from "./SectionTabs.tsx";
+import "./equipe.css";
 
 export type EquipeView = "Organigramme" | "Calendrier" | "Recrutements prévus" | "Journal" | "Mémoire";
 const VIEWS: EquipeView[] = ["Organigramme", "Calendrier", "Recrutements prévus", "Journal", "Mémoire"];
 
-/** The Équipe tab (Figma section 4): who works, when, who comes next, and everything they did. */
+/** Roles whose default teammate is a woman: French agreement (« arrivée », « elle »). */
+const SHE: readonly RoleId[] = ["cofondateur", "recherche", "redaction", "technique"];
+
+/** The Équipe tab (Figma « Équipe · … » frames): who works, when, who comes next, and everything they did. */
 export function Equipe({
   state,
   status,
@@ -32,6 +45,7 @@ export function Equipe({
   agentId,
   onView,
   onAgent,
+  onBureau,
   onChange,
 }: {
   state: CompanyState;
@@ -40,88 +54,320 @@ export function Equipe({
   agentId?: string;
   onView(v: EquipeView): void;
   onAgent(id?: string): void;
+  /** Opens the Bureau, where the founder walks up to an agent to talk. */
+  onBureau?(): void;
   onChange(): void;
 }) {
-  if (agentId && state.agents[agentId]) return <AgentPage state={state} status={status} agentId={agentId} onBack={() => onAgent(undefined)} onChange={onChange} />;
-  return (
+  if (agentId && state.agents[agentId]) return <AgentPage state={state} status={status} agentId={agentId} onBack={() => onAgent(undefined)} onBureau={onBureau} onChange={onChange} />;
+  const page = (side: ReactNode, main: ReactNode) => (
     <div className="columns">
-      <div className="main">
+      <div className="main eq-main">
         <SectionTabs items={VIEWS} active={view} onSelect={onView} />
-        {view === "Organigramme" && <Organigramme state={state} status={status} onAgent={onAgent} />}
-        {view === "Calendrier" && <Calendrier state={state} status={status} onChange={onChange} />}
-        {view === "Recrutements prévus" && <Recrutements state={state} />}
-        {view === "Journal" && <Journal state={state} onAgent={onAgent} />}
-        {view === "Mémoire" && <Memoire state={state} status={status} onAgent={onAgent} onChange={onChange} />}
+        {main}
       </div>
-      <aside className="side">
-        <TeamNumbers state={state} status={status} />
-        <NowCard state={state} status={status} onAgent={onAgent} />
-      </aside>
+      <aside className="side">{side}</aside>
     </div>
   );
+  if (view === "Calendrier") return <Calendrier state={state} status={status} page={page} onAgent={onAgent} onChange={onChange} />;
+  if (view === "Recrutements prévus") return <Recrutements state={state} status={status} page={page} onBureau={onBureau} />;
+  if (view === "Journal") return <Journal state={state} status={status} page={page} onAgent={onAgent} />;
+  if (view === "Mémoire")
+    return page(<MemoireNumbers state={state} status={status} />, <Memoire state={state} status={status} onAgent={onAgent} onChange={onChange} />);
+  return <Organigramme state={state} status={status} page={page} onAgent={onAgent} onView={onView} onBureau={onBureau} onChange={onChange} />;
 }
 
-// ---------- Organigramme ----------
+type Page = (side: ReactNode, main: ReactNode) => ReactNode;
 
-function Organigramme({ state, status, onAgent }: { state: CompanyState; status: EngineStatus; onAgent(id: string): void }) {
-  const o = orgChart(state, status.now);
+// ---------- Shared pieces (Figma « Narthex — Components ») ----------
+
+/** The status card at the top of a page (same grammar as the Fil's pilot): a dot, a line, a quiet action. */
+function StatusCard({ tone, title, sub, action }: { tone: "on" | "waiting"; title: string; sub: string; action?: { label: string; onClick(): void } }) {
   return (
-    <>
-      <h1>Ton équipe</h1>
-      <section className="card org">
-        <div className="org-node founder">
-          <PixelAvatar founder size={32} />
-          <div>
-            <div className="name">{o.founder}</div>
-            <div className="muted small">Fondatrice · toi</div>
-          </div>
-        </div>
-        {o.cofounder && (
-          <>
-            <span className="org-line" />
-            <OrgNode row={o.cofounder} onClick={() => onAgent(o.cofounder!.agent.id)} />
-          </>
-        )}
-        {(o.members.length > 0 || o.upcoming.length > 0) && <span className="org-line" />}
-        <div className="org-grid">
-          {o.members.map((m) => (
-            <OrgNode key={m.agent.id} row={m} onClick={() => onAgent(m.agent.id)} />
-          ))}
-          {o.upcoming.map((u) => (
-            <div key={u.role.id} className="org-node ghost">
-              <PixelAvatar role={u.role.id} size={32} dim />
-              <div>
-                <div className="name">{u.role.defaultName}</div>
-                <div className="muted small">{u.role.title} · arrive {u.when}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-    </>
+    <section className="pilot eq-status">
+      <span className={`pilot-dot ${tone}`} />
+      <div className="eq-status-text">
+        <div>{title}</div>
+        <div className="muted small">{sub}</div>
+      </div>
+      {action && (
+        <button className="btn btn-quiet" onClick={action.onClick}>
+          {action.label}
+        </button>
+      )}
+    </section>
   );
 }
 
-function OrgNode({ row, onClick }: { row: TeamRow; onClick(): void }) {
-  const what = row.current ? row.current.progress && row.current.progress !== "Au travail…" ? row.current.progress : row.current.title : row.status === "waiting-you" ? "T'attend" : "Au repos";
+/** « Les chiffres »: a titled card of label / sub-label / big value rows. */
+function Numbers({ title, aside, rows }: { title: string; aside?: string; rows: { label: string; sub?: string; value: ReactNode; text?: boolean }[] }) {
   return (
-    <button className="org-node" onClick={onClick}>
-      <PixelAvatar role={row.agent.role} size={32} />
-      <div>
-        <div className="name">{row.agent.name}</div>
-        <div className="muted small">{row.title}</div>
-        <div className="small org-what">
-          <span className={`status-dot ${row.status}`} /> {what}
+    <section className="card eq-numbers">
+      <header className="card-head">
+        <span>{title}</span>
+        {aside && <span className="muted eq-aside">{aside}</span>}
+      </header>
+      {rows.map((r) => (
+        <div key={r.label} className="eq-number">
+          <div>
+            <div>{r.label}</div>
+            {r.sub && <div className="muted small">{r.sub}</div>}
+          </div>
+          <div className={r.text ? "eq-number-text" : "eq-number-value"}>{r.value}</div>
         </div>
-      </div>
+      ))}
+    </section>
+  );
+}
+
+/** A list of people (« En ce moment », « Arrivés »): avatar, name, one muted line; resting people fade. */
+function People({ title, aside, rows }: { title: string; aside?: string; rows: { id: string; role: RoleId; name: string; line: string; resting?: boolean; onClick?(): void }[] }) {
+  return (
+    <section className="card eq-people">
+      <header className="card-head">
+        <span>{title}</span>
+        {aside && <span className="muted eq-aside">{aside}</span>}
+      </header>
+      {rows.map((r) => (
+        <button key={r.id} className={`eq-person${r.resting ? " resting" : ""}`} onClick={r.onClick} disabled={!r.onClick}>
+          <PixelAvatar role={r.role} size={32} />
+          <span className="eq-person-text">
+            <span>{r.name}</span>
+            <span className="muted small">{r.line}</span>
+          </span>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function hours(h: number): string {
+  return h < 1 ? `${Math.round(h * 60)} min` : `${Math.round(h)} h`;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function lowerFirst(s: string): string {
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+function teamRows(state: CompanyState, now: number): TeamRow[] {
+  const o = orgChart(state, now);
+  return [o.cofounder, ...o.members].filter(Boolean) as TeamRow[];
+}
+
+/** What an agent is doing, in one line: the task, what it waits for, or when it starts again. */
+function statusLine(row: TeamRow, state: CompanyState, status: EngineStatus): string {
+  if (row.current) return row.current.progress && row.current.progress !== "Au travail…" ? row.current.progress : row.current.title;
+  if (row.status === "waiting-you") return "T'attend";
+  if (state.company?.paused) return "En pause";
+  const next = Object.values(state.tasks)
+    .filter((t) => t.agentId === row.agent.id && t.status === "planned" && t.kind !== "founder")
+    .map((t) => Math.max(t.scheduledAt, t.cancellableUntil ?? 0))
+    .sort((a, b) => a - b)[0];
+  if (next === undefined) return "Au repos";
+  if (status.runtime === "none") return "Attend ta clé";
+  if (next <= status.now) return "Reprend dès que possible";
+  return fmt.dayKey(next) === fmt.dayKey(status.now) ? `Au repos jusqu'à ${fmt.hour(next)}` : `Au repos, reprend ${fmt.day(next)}`;
+}
+
+function NowCard({ state, status, onAgent }: { state: CompanyState; status: EngineStatus; onAgent(id: string): void }) {
+  return (
+    <People
+      title="En ce moment"
+      rows={teamRows(state, status.now).map((r) => ({
+        id: r.agent.id,
+        role: r.agent.role,
+        name: r.agent.name,
+        line: statusLine(r, state, status),
+        resting: r.status === "idle",
+        onClick: () => onAgent(r.agent.id),
+      }))}
+    />
+  );
+}
+
+function margauxOf(state: CompanyState) {
+  return Object.values(state.agents).find((a) => a.role === "cofondateur");
+}
+
+/** A message from Margaux, in the Fil's publication grammar. */
+function MargauxPost({ state, children, time }: { state: CompanyState; children: ReactNode; time?: string }) {
+  const margaux = margauxOf(state);
+  return (
+    <article className="publication">
+      <header className="post-head">
+        <PixelAvatar role="cofondateur" size={36} />
+        <span className="name">{margaux?.name ?? role("cofondateur").defaultName}</span>
+        <span className="muted">· {role("cofondateur").title}</span>
+        {time && <span className="muted time">{time}</span>}
+      </header>
+      {children}
+    </article>
+  );
+}
+
+// ---------- Organigramme (Figma 208:27577) ----------
+
+function Organigramme({
+  state,
+  status,
+  page,
+  onAgent,
+  onView,
+  onBureau,
+  onChange,
+}: {
+  state: CompanyState;
+  status: EngineStatus;
+  page: Page;
+  onAgent(id: string): void;
+  onView(v: EquipeView): void;
+  onBureau?(): void;
+  onChange(): void;
+}) {
+  const o = orgChart(state, status.now);
+  const rows = teamRows(state, status.now);
+  const [legal, setLegal] = useState<Mission>();
+  const forYou = forFounder(state);
+  const legalMission = missions(state, status.now, status.runtime).find((m) => m.kind === "legal");
+  const margaux = margauxOf(state);
+  const company = state.company;
+  const paused = company?.paused;
+  const working = rows.filter((r) => r.status === "working").length;
+  const hoursWeek = rows.reduce((h, r) => h + r.hoursThisWeek, 0);
+  const team = [...o.members.map((m) => ({ kind: "member" as const, m })), ...o.upcoming.map((u) => ({ kind: "upcoming" as const, u }))];
+  const firstRow = Math.min(3, team.length);
+
+  const side = (
+    <>
+      <Numbers
+        title="Les chiffres"
+        aside="cette semaine"
+        rows={[
+          { label: "Agents", sub: o.upcoming[0] ? `${capitalize(o.upcoming[0].role.title.toLowerCase())} : arrive ${o.upcoming[0].when}` : "Toute l'équipe prévue est là", value: rows.length },
+          { label: "Travail de l'équipe", sub: "Sans toi", value: hours(hoursWeek) },
+          { label: "Dépense IA", sub: company ? `Depuis le ${fmt.day(company.foundedAt)}` : "Depuis le début", value: fmt.dollars(state.usage.credits) },
+        ]}
+      />
+      <NowCard state={state} status={status} onAgent={onAgent} />
+    </>
+  );
+
+  return page(
+    side,
+    <>
+      <h1>Ton équipe</h1>
+      <StatusCard
+        tone={paused || status.runtime === "none" ? "waiting" : "on"}
+        title={
+          paused
+            ? `L'équipe de ${company?.name ?? "ton entreprise"} est en pause`
+            : `${rows.length} agent${rows.length > 1 ? "s" : ""} ${rows.length > 1 ? "travaillent" : "travaille"} pour ${company?.name ?? "toi"}`
+        }
+        sub={`Organisation à plat · ${status.runtime === "none" ? "attend ta clé pour se mettre au travail" : working ? `${working} au travail en ce moment` : `${margaux?.name ?? "Margaux"} recrute quand le besoin arrive`}`}
+        {...(onBureau && margaux ? { action: { label: `Parler à ${margaux.name}`, onClick: onBureau } } : {})}
+      />
+      <section className="card eq-org">
+        <button className={`eq-node founder${legalMission ? " clickable" : ""}`} onClick={() => legalMission && setLegal(legalMission)} disabled={!legalMission}>
+          <span className="eq-node-head">
+            <PixelAvatar founder size={32} />
+            <span>
+              <span className="eq-node-name">{o.founder}</span>
+              <span className="muted small">Fondatrice · toi</span>
+            </span>
+          </span>
+          {forYou[0] && (
+            <span className="eq-node-what">
+              <span className="status-dot waiting-you" />
+              {forYou[0].title} t'attend{forYou.length > 1 ? ` (+ ${forYou.length - 1})` : ""}
+            </span>
+          )}
+        </button>
+        {o.cofounder && (
+          <>
+            <span className="eq-org-line" />
+            <OrgNode row={o.cofounder} line={statusLine(o.cofounder, state, status)} onClick={() => onAgent(o.cofounder!.agent.id)} />
+          </>
+        )}
+        {team.length > 0 && (
+          <>
+            <span className="eq-org-line" />
+            <span className="eq-org-branch" style={{ ["--n" as string]: firstRow }} />
+          </>
+        )}
+        <div className="eq-org-grid">
+          {team.map((t) =>
+            t.kind === "member" ? (
+              <OrgNode key={t.m.agent.id} row={t.m} line={statusLine(t.m, state, status)} onClick={() => onAgent(t.m.agent.id)} />
+            ) : (
+              <div key={t.u.role.id} className="eq-node ghost">
+                <span className="eq-node-head">
+                  <span className="eq-slot" />
+                  <span>
+                    <span className="eq-node-name">{t.u.role.title}</span>
+                    <span className="muted small">Arrive {t.u.when}</span>
+                  </span>
+                </span>
+                {t.u.why && (
+                  <span className="eq-node-what">
+                    <span className="status-dot" />
+                    {t.u.why}
+                  </span>
+                )}
+              </div>
+            ),
+          )}
+        </div>
+      </section>
+      {margaux && (
+        <section className="fil-list">
+          <MargauxPost state={state}>
+            <p className="text">
+              J'ai monté une petite équipe, chacun sur un domaine. Pas de chef intermédiaire : tout le monde me parle directement, et je te parle à toi. On grandira quand le travail le
+              demandera.
+            </p>
+            <div className="actions">
+              <button className="btn btn-secondary" onClick={() => onView("Recrutements prévus")}>
+                Recrutements prévus
+              </button>
+              <button className="btn btn-quiet" onClick={() => onView("Journal")}>
+                Ce qu'on a fait
+              </button>
+            </div>
+          </MargauxPost>
+        </section>
+      )}
+      {legal && <ActionModal mission={legal} state={state} now={status.now} onClose={() => setLegal(undefined)} onDone={onChange} />}
+    </>,
+  );
+}
+
+function OrgNode({ row, line, onClick }: { row: TeamRow; line: string; onClick(): void }) {
+  return (
+    <button className="eq-node clickable" onClick={onClick}>
+      <span className="eq-node-head">
+        <PixelAvatar role={row.agent.role} size={32} />
+        <span>
+          <span className="eq-node-name">{row.agent.name}</span>
+          <span className="muted small">{row.title}</span>
+        </span>
+      </span>
+      <span className="eq-node-what">
+        <span className={`status-dot ${row.status}`} />
+        {line}
+      </span>
     </button>
   );
 }
 
-// ---------- Calendrier ----------
+// ---------- Calendrier (Figma 205:26380 semaine, 205:27440 jour, 206:26380 mois, 206:27571 semaine d'un agent) ----------
 
 type Scope = "Jour" | "Semaine" | "Mois";
 const DAY = 86_400_000;
+const DATE = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("fr-FR", o);
+
 /** Office hours by default, widened to whatever the team really did: agents also work at night. */
 function hoursFor(tasks: readonly Task[], visible: (t: Task) => boolean): number[] {
   let first = 8;
@@ -142,47 +388,164 @@ function startOfDay(ts: number): number {
   return d.getTime();
 }
 
-function Calendrier({ state, status, onChange }: { state: CompanyState; status: EngineStatus; onChange(): void }) {
+function weekLabel(from: number): string {
+  const to = from + 6 * DAY;
+  const sameMonth = new Date(from).getMonth() === new Date(to).getMonth();
+  return `Semaine du ${DATE(sameMonth ? { day: "numeric" } : { day: "numeric", month: "long" }).format(from)} au ${DATE({ day: "numeric", month: "long" }).format(to)}`;
+}
+
+function blockClass(t: Task, now: number): string {
+  if (t.status === "done") return "done";
+  if (t.status === "running") return "running";
+  if (t.status === "failed") return "failed";
+  return t.kind === "external" && (t.cancellableUntil ?? 0) > now ? "external" : "planned";
+}
+
+function Calendrier({ state, status, page, onAgent, onChange }: { state: CompanyState; status: EngineStatus; page: Page; onAgent(id: string): void; onChange(): void }) {
   const [scope, setScope] = useState<Scope>("Semaine");
   const [anchor, setAnchor] = useState(() => startOfDay(status.now));
   const [agentId, setAgentId] = useState<string>();
-  const [selected, setSelected] = useState<Task>();
+  const [selectedId, setSelectedId] = useState<string>();
   const agents = Object.values(state.agents).sort((a, b) => a.hiredAt - b.hiredAt);
+  const filtered = scope === "Jour" ? undefined : agentId;
 
   const range = useMemo(() => {
-    if (scope === "Jour") return { from: anchor, to: anchor + DAY, label: fmt.day(anchor) };
+    if (scope === "Jour") return { from: anchor, to: anchor + DAY, label: capitalize(DATE({ weekday: "long", day: "numeric", month: "long" }).format(anchor)) };
     if (scope === "Semaine") {
       const from = anchor - ((new Date(anchor).getDay() + 6) % 7) * DAY;
-      return { from, to: from + 7 * DAY, label: `Semaine du ${fmt.day(from)} au ${fmt.day(from + 6 * DAY)}` };
+      return { from, to: from + 7 * DAY, label: weekLabel(from) };
     }
     const d = new Date(anchor);
     const from = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
     const to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
-    return { from, to, label: new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(from) };
+    return { from, to, label: capitalize(DATE({ month: "long", year: "numeric" }).format(from)) };
   }, [scope, anchor]);
-  const tasks = calendar(state, range.from, range.to, agentId);
+  const tasks = calendar(state, range.from, range.to, filtered);
+  const summary = calendarSummary(state, range.from, range.to, filtered);
+  // The selected task stays in the side column while it is on screen.
+  const selected = selectedId ? tasks.find((t) => t.id === selectedId) : undefined;
   const step = (dir: number) => {
     if (scope === "Mois") {
       const d = new Date(anchor);
       setAnchor(new Date(d.getFullYear(), d.getMonth() + dir, 1).getTime());
     } else setAnchor(anchor + dir * (scope === "Jour" ? 1 : 7) * DAY);
   };
+  const filteredAgent = filtered ? state.agents[filtered] : undefined;
+  const period = scope === "Jour" ? "Ce jour-là" : scope === "Semaine" ? "Cette semaine" : "Ce mois-ci";
+  const isCurrent = status.now >= range.from && status.now < range.to;
+  const periodTitle = isCurrent ? (scope === "Jour" ? "Aujourd'hui" : period) : scope === "Jour" ? "Ce jour-là" : scope === "Semaine" ? "Cette semaine-là" : "Ce mois-là";
+  const aside =
+    scope === "Jour"
+      ? fmt.day(range.from)
+      : scope === "Semaine"
+        ? `${DATE({ day: "numeric" }).format(range.from)} – ${DATE({ day: "numeric", month: "short" }).format(range.to - DAY)}`
+        : DATE({ month: "long" }).format(range.from);
+  const deadlines = scope === "Mois" && !filtered ? overview(state, status.now).deadlines.filter((d) => d.due >= status.now).slice(0, 4) : [];
 
-  return (
+  const side = (
+    <>
+      {selected && <TaskCard task={selected} state={state} status={status} onAgent={onAgent} onClose={() => setSelectedId(undefined)} onChange={onChange} />}
+      {filteredAgent ? (
+        <section className="card eq-numbers">
+          <header className="card-head">
+            <span>
+              {filteredAgent.name} {periodTitle.toLowerCase()}
+            </span>
+          </header>
+          <div className="eq-who">
+            <PixelAvatar role={filteredAgent.role} size={32} />
+            <span>
+              <span>
+                {filteredAgent.name} · {role(filteredAgent.role).title}
+              </span>
+              <span className="muted small">
+                {summary.total === 0
+                  ? "Rien de prévu sur cette période"
+                  : `${summary.total} tâche${summary.total > 1 ? "s" : ""}, ${summary.total > 1 ? "toutes décidées" : "décidée"} par ${SHE.includes(filteredAgent.role) ? "elle" : "lui"}`}
+              </span>
+            </span>
+          </div>
+          <div className="eq-number">
+            <div>
+              <div>Faites</div>
+              <div className="muted small">{summary.running ? `${summary.running} en cours` : "Aucune en cours"}</div>
+            </div>
+            <div className="eq-number-value">{summary.done}</div>
+          </div>
+        </section>
+      ) : (
+        <Numbers
+          title={periodTitle}
+          aside={aside}
+          rows={[
+            { label: "Tâches", sub: "Décidées seules par l'équipe", value: summary.total },
+            { label: "Faites", sub: summary.running ? `${summary.running} en cours` : "Aucune en cours", value: summary.done },
+            ...(summary.forYou.length
+              ? [{ label: "Pour toi", sub: summary.forYou.map((o) => capitalize(lowerFirst(o.title))).slice(0, 2).join(", "), value: summary.forYou.length }]
+              : []),
+          ]}
+        />
+      )}
+      {deadlines.length > 0 && (
+        <section className="card">
+          <header className="card-head">
+            <span>Prochaines grandes étapes</span>
+          </header>
+          {deadlines.map((d) => (
+            <div key={d.title} className="eq-deadline">
+              <span className="eq-deadline-date">
+                <b>{new Date(d.due).getDate()}</b>
+                <span className="muted small">{DATE({ month: "short" }).format(d.due)}</span>
+              </span>
+              <span>
+                <span>{d.title}</span>
+                <span className="muted small">{d.who}</span>
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
+      <section className="card">
+        <header className="card-head">
+          <span>Légende</span>
+        </header>
+        <div className="eq-legend">
+          <span>
+            <i className="eq-swatch done" /> Faite
+          </span>
+          <span>
+            <i className="eq-swatch running" /> En cours
+          </span>
+          <span>
+            <i className="eq-swatch planned" /> Prévue
+          </span>
+          <span>
+            <i className="eq-swatch external" /> Prévue, annulable
+          </span>
+          <span>
+            <i className="eq-swatch failed" /> Pas aboutie
+          </span>
+        </div>
+      </section>
+    </>
+  );
+
+  return page(
+    side,
     <>
       <h1>Calendrier de l'équipe</h1>
-      <div className="cal-bar">
+      <div className="eq-cal-bar">
         <button className="icon-btn" aria-label="Précédent" onClick={() => step(-1)}>
           <Chevron left />
         </button>
         <button className="icon-btn" aria-label="Suivant" onClick={() => step(1)}>
           <Chevron />
         </button>
-        <span className="cal-label">{range.label}</span>
+        <span className="eq-cal-label">{range.label}</span>
         <button className="btn btn-quiet" onClick={() => setAnchor(startOfDay(status.now))}>
           Aujourd'hui
         </button>
-        <span className="segmented">
+        <span className="segmented eq-segmented">
           {(["Jour", "Semaine", "Mois"] as Scope[]).map((s) => (
             <button key={s} className={s === scope ? "on" : ""} onClick={() => setScope(s)}>
               {s}
@@ -191,7 +554,7 @@ function Calendrier({ state, status, onChange }: { state: CompanyState; status: 
         </span>
       </div>
       {scope !== "Jour" && (
-        <div className="chips">
+        <div className="chips eq-chips">
           <button className={!agentId ? "chip on" : "chip"} onClick={() => setAgentId(undefined)}>
             Toute l'équipe
           </button>
@@ -203,73 +566,150 @@ function Calendrier({ state, status, onChange }: { state: CompanyState; status: 
         </div>
       )}
       {scope === "Mois" ? (
-        <MonthGrid tasks={tasks} from={range.from} to={range.to} now={status.now} state={state} onSelect={setSelected} />
+        <MonthGrid tasks={tasks} from={range.from} to={range.to} now={status.now} state={state} selectedId={selectedId} onSelect={(t) => setSelectedId(t.id)} />
       ) : (
         <HourGrid
           columns={
             scope === "Jour"
-              ? agents.map((a) => ({ key: a.id, label: a.name, role: a.role, filter: (t: Task) => t.agentId === a.id, day: range.from }))
+              ? agents.map((a) => ({ key: a.id, label: a.name, role: a.role, filter: (t: Task) => t.agentId === a.id, day: range.from, today: range.from === startOfDay(status.now) }))
               : Array.from({ length: 7 }, (_, i) => {
                   const day = range.from + i * DAY;
-                  return { key: String(day), label: fmt.day(day), filter: (t: Task) => startOfDay(t.startedAt ?? t.scheduledAt) === day, day, today: day === startOfDay(status.now) };
+                  return {
+                    key: String(day),
+                    label: DATE({ weekday: "short" }).format(day),
+                    sub: String(new Date(day).getDate()),
+                    filter: (t: Task) => startOfDay(t.startedAt ?? t.scheduledAt) === day,
+                    day,
+                    today: day === startOfDay(status.now),
+                  };
                 })
           }
+          byAgent={scope === "Jour"}
           tasks={tasks}
           state={state}
           now={status.now}
-          showAgent={scope !== "Jour"}
-          onSelect={setSelected}
+          showAgent={scope !== "Jour" && !agentId}
+          selectedId={selectedId}
+          onSelect={(t) => setSelectedId(t.id)}
         />
       )}
-      <p className="legend small muted">
-        <span className="lg done" /> Faite <span className="lg running" /> En cours <span className="lg planned" /> Prévue <span className="lg external" /> Prévue, annulable
-      </p>
-      {selected && (
-        <ActionModal
-          mission={{
-            id: selected.id,
-            kind: selected.status === "planned" && selected.kind === "external" && (selected.cancellableUntil ?? 0) > status.now ? "cancel" : "mission",
-            eyebrow: `${state.agents[selected.agentId]?.name ?? ""} · ${fmt.day(selected.startedAt ?? selected.scheduledAt)}, ${fmt.hour(selected.startedAt ?? selected.scheduledAt)}`,
-            title: selected.title,
-            why: selected.why,
-            speakerId: selected.agentId,
-            action: selected.status === "planned" && selected.kind === "external" && (selected.cancellableUntil ?? 0) > status.now ? "cancel" : "open",
-            label: "Voir",
-            taskId: selected.id,
-          }}
-          state={state}
-          now={status.now}
-          onClose={() => setSelected(undefined)}
-          onDone={onChange}
-        />
-      )}
-    </>
+    </>,
   );
 }
 
-function blockClass(t: Task, now: number): string {
-  if (t.status === "done") return "done";
-  if (t.status === "running") return "running";
-  if (t.status === "failed") return "failed";
-  return t.kind === "external" && (t.cancellableUntil ?? 0) > now ? "external" : "planned";
+/** The selected task, in the side column (Figma « Tâche » card): who, when, why, its state, and what can be done. */
+function TaskCard({ task, state, status, onAgent, onClose, onChange }: { task: Task; state: CompanyState; status: EngineStatus; onAgent(id: string): void; onClose(): void; onChange(): void }) {
+  const [cancelling, setCancelling] = useState(false);
+  const [open, setOpen] = useState<Deliverable>();
+  const agent = state.agents[task.agentId];
+  const now = status.now;
+  const start = task.startedAt ?? task.scheduledAt;
+  const cut = task.interrupted || (task.error ?? "").startsWith("Interrompue (Narthex");
+  const end = task.endedAt && !cut && task.endedAt - start < DAY ? task.endedAt : undefined;
+  const cancellable = task.status === "planned" && task.kind === "external" && (task.cancellableUntil ?? 0) > now;
+  const leaves = Math.max(task.scheduledAt, task.cancellableUntil ?? 0);
+  const deliverable = task.deliverableId ? state.deliverables[task.deliverableId] : undefined;
+  const stateLine =
+    task.status === "done"
+      ? `Faite · ${fmt.relative(task.endedAt ?? start, now)}`
+      : task.status === "running"
+        ? `En cours · depuis ${fmt.duration(now - start)}`
+        : task.status === "failed"
+          ? cut
+            ? "Interrompue · reprise plus tard"
+            : "Pas aboutie"
+          : cancellable
+            ? `Prévue · part ${fmt.relative(leaves, now)}, tu peux l'annuler`
+            : leaves <= now
+              ? "Prévue · dès que possible"
+              : `Prévue · ${fmt.relative(leaves, now)}`;
+  return (
+    <section className="card eq-task">
+      <header className="eq-task-head">
+        {agent && (
+          <button className="eq-who as-link" onClick={() => onAgent(agent.id)}>
+            <PixelAvatar role={agent.role} size={32} />
+            <span>
+              <span>{agent.name}</span>
+              <span className="muted small">{role(agent.role).title}</span>
+            </span>
+          </button>
+        )}
+        <button className="eq-close" onClick={onClose} aria-label="Fermer">
+          ×
+        </button>
+      </header>
+      <h2 className="eq-task-title">{task.title}</h2>
+      <div className="eq-field">
+        <span className="muted small">Quand</span>
+        <span>
+          {capitalize(DATE({ weekday: "long", day: "numeric", month: "long" }).format(start))}, {fmt.hour(start)}
+          {end ? ` – ${fmt.hour(end)}` : ""}
+        </span>
+      </div>
+      <div className="eq-field">
+        <span className="muted small">Pourquoi</span>
+        <span>{task.why}</span>
+      </div>
+      {deliverable && (
+        <div className="eq-field">
+          <span className="muted small">Résultat</span>
+          <span className="eq-clamp">{deliverable.summary}</span>
+        </div>
+      )}
+      <div className="eq-field">
+        <span className="muted small">État</span>
+        <span className={task.status === "failed" && !cut ? "error" : "accent"}>{stateLine}</span>
+      </div>
+      {(cancellable || deliverable) && (
+        <div className="actions">
+          {cancellable && (
+            <button className="btn btn-secondary" onClick={() => setCancelling(true)}>
+              Annuler
+            </button>
+          )}
+          {deliverable && (
+            <button className={cancellable ? "btn btn-quiet" : "btn btn-secondary"} onClick={() => setOpen(deliverable)}>
+              Voir le livrable
+            </button>
+          )}
+        </div>
+      )}
+      {open && <DeliverableView d={open} state={state} status={status} onClose={() => setOpen(undefined)} onChange={onChange} />}
+      {cancelling && (
+        <ActionModal
+          mission={{ id: task.id, kind: "cancel", eyebrow: `Part ${fmt.relative(task.cancellableUntil!, now)} · tu peux l'annuler`, title: task.title, why: task.why, speakerId: task.agentId, action: "cancel", label: "Voir", taskId: task.id }}
+          state={state}
+          now={now}
+          onClose={() => setCancelling(false)}
+          onDone={onChange}
+        />
+      )}
+    </section>
+  );
 }
 
 function HourGrid({
   columns,
+  byAgent,
   tasks,
   state,
   now,
   showAgent,
+  selectedId,
   onSelect,
 }: {
-  columns: { key: string; label: string; role?: RoleId; filter(t: Task): boolean; day: number; today?: boolean }[];
+  columns: { key: string; label: string; sub?: string; role?: RoleId; filter(t: Task): boolean; day: number; today?: boolean }[];
+  byAgent: boolean;
   tasks: Task[];
   state: CompanyState;
   now: number;
   showAgent: boolean;
+  selectedId?: string;
   onSelect(t: Task): void;
 }) {
-  const ROW = 44;
+  const ROW = 58;
+  const GUTTER = 44;
   const HOURS = hoursFor(tasks, (t) => columns.some((c) => c.filter(t)));
   // Open on the latest work shown (or the morning), not on empty night hours.
   const scroller = useRef<HTMLDivElement>(null);
@@ -281,107 +721,130 @@ function HourGrid({
     const d = new Date(ts);
     return d.getHours() + d.getMinutes() / 60;
   };
+  const col = `(100% - ${GUTTER}px) / ${columns.length}`;
   return (
-    <section className="card cal-grid" style={{ ["--cols" as string]: columns.length }}>
-      <div className="cal-head">
+    <section className="card eq-cal" style={{ ["--cols" as string]: columns.length }}>
+      <div className={`eq-cal-head${byAgent ? " by-agent" : ""}`}>
         <span />
         {columns.map((c) => (
-          <span key={c.key} className={c.today ? "today" : ""}>
-            {c.role && <PixelAvatar role={c.role} size={22} />}
-            {c.label}
+          <span key={c.key} className={c.today && !byAgent ? "today" : ""}>
+            {c.role && <PixelAvatar role={c.role} size={24} />}
+            <span className="eq-cal-day">{c.label}</span>
+            {c.sub && <span className="eq-cal-date">{c.sub}</span>}
           </span>
         ))}
       </div>
-      <div className="cal-scroll" ref={scroller}>
-      <div className="cal-body" style={{ height: HOURS.length * ROW }}>
-        {HOURS.map((h, i) => (
-          <span key={h} className="cal-hour" style={{ top: i * ROW }}>
-            {h} h
-          </span>
-        ))}
-        {columns.map((c, ci) => {
-          // Tasks that overlap share their column side by side instead of piling up.
-          const own = tasks
-            .filter(c.filter)
-            .map((t) => {
-              const start = Math.min(Math.max(hourOf(t.startedAt ?? t.scheduledAt), HOURS[0]!), HOURS.at(-1)! + 0.5);
-              // An interrupted task « ends » when Narthex reopened: draw it short, not across the night.
-              const cut = t.interrupted || (t.error ?? "").startsWith("Interrompue (Narthex");
-              const end = Math.max(t.endedAt && !cut && t.endedAt - (t.startedAt ?? t.scheduledAt) < DAY ? hourOf(t.endedAt) : start + 1, start + 0.75);
-              return { t, start, end, lane: 0 };
-            })
-            .sort((a, b) => a.start - b.start);
-          // Work that overlaps (often a few minutes each) is grouped in one block: « titre + 2 autres ».
-          const groups: { items: typeof own; start: number; end: number }[] = [];
-          for (const b of own) {
-            const last = groups.at(-1);
-            if (last && b.start < last.end) {
-              last.items.push(b);
-              last.end = Math.max(last.end, b.end);
-            } else groups.push({ items: [b], start: b.start, end: b.end });
-          }
-          const col = `(100% - 44px) / ${columns.length}`;
-          return groups.map(({ items, start, end }) => {
-            const t = items[0]!.t;
-            const height = Math.max((Math.min(end, HOURS.at(-1)! + 1) - start) * ROW - 4, items.length > 1 ? 54 : 34);
-            const agent = state.agents[t.agentId];
-            const status = items.some((i) => i.t.status === "running") ? items.find((i) => i.t.status === "running")!.t : t;
-            return (
-              <button
-                key={t.id}
-                className={`cal-block ${blockClass(status, now)}`}
-                style={{ left: `calc(44px + ${col} * ${ci} + 3px)`, width: `calc(${col} - 6px)`, top: (start - HOURS[0]!) * ROW + 2, height }}
-                onClick={() => onSelect(status)}
-                title={items.map((i) => i.t.title).join("\n")}
-              >
-                <span className="cal-block-top">
-                  {showAgent && agent && <PixelAvatar role={agent.role} size={14} />}
-                  {fmt.hour(t.startedAt ?? t.scheduledAt)}
-                </span>
-                <span>{status.title}</span>
-                {items.length > 1 && <span className="cal-more-inline">+ {items.length - 1} autre{items.length > 2 ? "s" : ""}</span>}
-              </button>
-            );
-          });
-        })}
-        {(() => {
-          // The « now » line spans the whole day view, or only today's column in the week view.
-          const today = columns.findIndex((c) => c.today);
-          if (today < 0 && !columns.every((c) => c.day === startOfDay(now))) return null;
-          const col = `(100% - 44px) / ${columns.length}`;
-          const style = today < 0 ? { top: (hourOf(now) - HOURS[0]!) * ROW } : { top: (hourOf(now) - HOURS[0]!) * ROW, left: `calc(44px + ${col} * ${today})`, width: `calc(${col})`, right: "auto" };
-          return <span className="cal-now" style={style} />;
-        })()}
-      </div>
+      <div className="eq-cal-scroll" ref={scroller}>
+        <div className="eq-cal-body" style={{ height: HOURS.length * ROW }}>
+          {HOURS.map((h, i) => (
+            <span key={h} className="eq-cal-hour" style={{ top: i * ROW }}>
+              <span>{h} h</span>
+            </span>
+          ))}
+          {columns.map((c, ci) => (
+            <span key={c.key} className="eq-cal-col" style={{ left: `calc(${GUTTER}px + ${col} * ${ci})`, width: `calc(${col})` }} />
+          ))}
+          {columns.map((c, ci) => {
+            const own = tasks
+              .filter(c.filter)
+              .map((t) => {
+                const start = Math.min(Math.max(hourOf(t.startedAt ?? t.scheduledAt), HOURS[0]!), HOURS.at(-1)! + 0.5);
+                // An interrupted task « ends » when Narthex reopened: draw it short, not across the night.
+                const cut = t.interrupted || (t.error ?? "").startsWith("Interrompue (Narthex");
+                const end = Math.max(t.endedAt && !cut && t.endedAt - (t.startedAt ?? t.scheduledAt) < DAY ? hourOf(t.endedAt) : start + 1, start + 0.75);
+                return { t, start, end };
+              })
+              .sort((a, b) => a.start - b.start);
+            // Work that overlaps (often a few minutes each) is grouped in one block: « titre + 2 autres ».
+            const groups: { items: typeof own; start: number; end: number }[] = [];
+            for (const b of own) {
+              const last = groups.at(-1);
+              if (last && b.start < last.end) {
+                last.items.push(b);
+                last.end = Math.max(last.end, b.end);
+              } else groups.push({ items: [b], start: b.start, end: b.end });
+            }
+            return groups.map(({ items, start, end }) => {
+              const t = items[0]!.t;
+              const height = Math.max((Math.min(end, HOURS.at(-1)! + 1) - start) * ROW - 4, items.length > 1 ? 92 : 66);
+              const shown = items.find((i) => i.t.id === selectedId)?.t ?? items.find((i) => i.t.status === "running")?.t ?? t;
+              const agent = state.agents[shown.agentId];
+              return (
+                <button
+                  key={t.id}
+                  className={`eq-block ${blockClass(shown, now)}${items.some((i) => i.t.id === selectedId) ? " selected" : ""}`}
+                  style={{ left: `calc(${GUTTER}px + ${col} * ${ci} + 3px)`, width: `calc(${col} - 6px)`, top: (start - HOURS[0]!) * ROW + 2, height }}
+                  onClick={() => onSelect(shown)}
+                  title={items.map((i) => i.t.title).join("\n")}
+                >
+                  <span className="eq-block-top">
+                    {showAgent && agent && <PixelAvatar role={agent.role} size={14} />}
+                    {fmt.hour(shown.startedAt ?? shown.scheduledAt)}
+                  </span>
+                  <span className="eq-block-title">{shown.title}</span>
+                  {items.length > 1 && <span className="eq-block-more">+ {items.length - 1} autre{items.length > 2 ? "s" : ""}</span>}
+                </button>
+              );
+            });
+          })}
+          {(() => {
+            // The « now » line spans the whole day view, or only today's column in the week view.
+            const today = byAgent ? (columns[0]?.today ? 0 : -1) : columns.findIndex((c) => c.today);
+            if (today < 0) return null;
+            const top = (hourOf(now) - HOURS[0]!) * ROW;
+            if (top < 0 || top > HOURS.length * ROW) return null;
+            const style = byAgent ? { top, left: GUTTER, right: 0 } : { top, left: `calc(${GUTTER}px + ${col} * ${today})`, width: `calc(${col})` };
+            return <span className="eq-now" style={style} />;
+          })()}
+        </div>
       </div>
     </section>
   );
 }
 
-function MonthGrid({ tasks, from, to, now, state, onSelect }: { tasks: Task[]; from: number; to: number; now: number; state: CompanyState; onSelect(t: Task): void }) {
+function MonthGrid({
+  tasks,
+  from,
+  to,
+  now,
+  state,
+  selectedId,
+  onSelect,
+}: {
+  tasks: Task[];
+  from: number;
+  to: number;
+  now: number;
+  state: CompanyState;
+  selectedId?: string;
+  onSelect(t: Task): void;
+}) {
   const first = from - ((new Date(from).getDay() + 6) % 7) * DAY;
   const days: number[] = [];
   for (let d = first; d < to || days.length % 7 !== 0; d += DAY) days.push(startOfDay(d + 3_600_000));
   return (
-    <section className="card month">
+    <section className="card eq-month">
       {["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."].map((d) => (
-        <span key={d} className="month-head muted small">
+        <span key={d} className="eq-month-head">
           {d}
         </span>
       ))}
       {days.map((d) => {
         const own = tasks.filter((t) => startOfDay(t.startedAt ?? t.scheduledAt) === d);
         const outside = d < from || d >= to;
+        const date = new Date(d);
         return (
-          <div key={d} className={`month-cell${outside ? " outside" : ""}`}>
-            <span className={d === startOfDay(now) ? "month-day today" : "month-day"}>{new Date(d).getDate()}</span>
+          <div key={d} className={`eq-month-cell${outside ? " outside" : ""}${own.length === 0 ? " empty" : ""}`}>
+            <span className={d === startOfDay(now) ? "eq-month-day today" : "eq-month-day"}>
+              {date.getDate() === 1 && outside ? DATE({ day: "numeric", month: "short" }).format(d) : date.getDate()}
+            </span>
             {own.slice(0, 2).map((t) => (
-              <button key={t.id} className={`month-task ${blockClass(t, now)}`} onClick={() => onSelect(t)}>
+              <button key={t.id} className={`eq-month-task ${blockClass(t, now)}${t.id === selectedId ? " selected" : ""}`} onClick={() => onSelect(t)} title={t.title}>
                 {state.agents[t.agentId] && <PixelAvatar role={state.agents[t.agentId]!.role} size={12} />}
                 <span>{t.title}</span>
               </button>
             ))}
-            {own.length > 2 && <span className="muted small">+ {own.length - 2} autre{own.length - 2 > 1 ? "s" : ""}</span>}
+            {own.length > 2 && <span className="eq-month-more">+ {own.length - 2} autre{own.length - 2 > 1 ? "s" : ""}</span>}
           </div>
         );
       })}
@@ -389,68 +852,98 @@ function MonthGrid({ tasks, from, to, now, state, onSelect }: { tasks: Task[]; f
   );
 }
 
-// ---------- Recrutements prévus ----------
+// ---------- Recrutements prévus (Figma 208:28150) ----------
 
-function Recrutements({ state }: { state: CompanyState }) {
+function Recrutements({ state, status, page, onBureau }: { state: CompanyState; status: EngineStatus; page: Page; onBureau?(): void }) {
   const r = recruitments(state);
-  const margaux = Object.values(state.agents).find((a) => a.role === "cofondateur");
-  return (
+  const margaux = margauxOf(state);
+  const [next, ...later] = r.planned;
+  const name = margaux?.name ?? role("cofondateur").defaultName;
+
+  const side = (
+    <>
+      <Numbers
+        title="Les chiffres"
+        aside="à venir"
+        rows={[
+          ...(next ? [{ label: "Prochain", sub: capitalize(next.when), value: next.role.title, text: true }] : []),
+          { label: "Équipe prévue", sub: `${r.arrived.length} déjà là`, value: r.arrived.length + r.planned.length },
+          { label: "Dépense IA", sub: "Toute l'équipe, depuis le début", value: fmt.dollars(state.usage.credits) },
+        ]}
+      />
+      <People
+        title="Arrivés"
+        aside={String(r.arrived.length)}
+        rows={r.arrived.map(({ agent, title }) => ({ id: agent.id, role: agent.role, name: agent.name, line: `${fmt.day(agent.hiredAt)} · ${title}` }))}
+      />
+    </>
+  );
+
+  return page(
+    side,
     <>
       <h1>Recrutements prévus</h1>
+      <StatusCard
+        tone="on"
+        title={`${name} recrute quand le besoin arrive`}
+        sub="Pas avant : chaque agent ajoute de la dépense IA"
+        {...(onBureau && margaux ? { action: { label: `Parler à ${name}`, onClick: onBureau } } : {})}
+      />
       <section className="fil-list">
-        <article className="publication">
-          <header className="post-head">
-            <PixelAvatar role="cofondateur" size={36} />
-            <span className="name">{margaux?.name ?? "Margaux"}</span>
-            <span className="muted">· Co-fondatrice</span>
-          </header>
-          <p className="text">
-            {r.planned.length === 0
-              ? "Toute l'équipe prévue est là. Je ferai venir quelqu'un d'autre seulement si l'entreprise en a vraiment besoin."
-              : "Je fais venir chacun quand l'entreprise en a besoin, pas avant : chaque coéquipier a un coût en dépense IA."}
-          </p>
-          {r.planned.length > 0 && (
-            <div className="attachment">
-              <span className="attachment-title">À venir</span>
-              <span className="attachment-table">
-                {r.planned.map((p) => (
-                  <span key={p.role.id} className="recruit-next">
-                    <span className="recruit-head">
-                      <span>
-                        <PixelAvatar role={p.role.id} size={20} dim /> {p.role.defaultName} · {p.role.title}
-                      </span>
-                      <span className="muted small">{p.when}</span>
-                    </span>
-                    {p.why && <span className="muted small recruit-why">{p.why}</span>}
-                  </span>
-                ))}
+        {!next && (
+          <MargauxPost state={state}>
+            <p className="text">Toute l'équipe prévue est là. Je ferai venir quelqu'un d'autre seulement si l'entreprise en a vraiment besoin.</p>
+          </MargauxPost>
+        )}
+        {next && (
+          <MargauxPost state={state}>
+            <p className="text">
+              Le prochain à rejoindre l'équipe, c'est {next.role.defaultName} ({next.role.title.toLowerCase()}). Je {SHE.includes(next.role.id) ? "la" : "le"} fais venir {next.when}.
+              {next.why ? ` ${next.why}` : ""}
+            </p>
+            <div className="attachment eq-recruit">
+              <span className="eq-slot" />
+              <span>
+                <span className="attachment-title">
+                  {next.role.defaultName} · {next.role.title}
+                </span>
+                <span className="muted small">Arrive {next.when}</span>
               </span>
             </div>
-          )}
-        </article>
-      </section>
-      <section className="card">
-        <header className="card-head">
-          <span>Arrivés</span>
-          <span className="muted">{r.arrived.length}</span>
-        </header>
-        {r.arrived.map(({ agent, title }) => (
-          <div key={agent.id} className="member-row">
-            <PixelAvatar role={agent.role} size={28} />
-            <div className="member-text">
-              <div>{agent.name}</div>
-              <div className="muted small">
-                {title} · arrivé{agent.role === "cofondateur" || agent.role === "recherche" || agent.role === "redaction" || agent.role === "technique" ? "e" : ""} le {fmt.day(agent.hiredAt)}
-              </div>
+            <div className="actions">
+              <span className="delay">
+                <Clock /> Arrive {next.when}
+              </span>
             </div>
-          </div>
-        ))}
+          </MargauxPost>
+        )}
+        {later.length > 0 && (
+          <MargauxPost state={state}>
+            <p className="text">Et ensuite, si tout se passe comme prévu :</p>
+            <div className="attachment eq-table">
+              <span className="attachment-title">Plus tard</span>
+              <div className="eq-table-row head">
+                <span>Rôle</span>
+                <span>Quand</span>
+                <span>Pourquoi</span>
+              </div>
+              {later.map((p) => (
+                <div key={p.role.id} className="eq-table-row">
+                  <span>{p.role.title}</span>
+                  <span>{capitalize(p.when)}</span>
+                  <span>{p.why}</span>
+                </div>
+              ))}
+              <span className="muted small eq-table-foot">Les dates suivent l'avancement de l'entreprise. {name} te prévient dans le Fil à chaque arrivée.</span>
+            </div>
+          </MargauxPost>
+        )}
       </section>
-    </>
+    </>,
   );
 }
 
-// ---------- Journal ----------
+// ---------- Journal (Figma 208:28557) ----------
 
 function useEvents(seq: number): StoredEvent[] {
   const [events, setEvents] = useState<StoredEvent[]>([]);
@@ -460,153 +953,237 @@ function useEvents(seq: number): StoredEvent[] {
   return events;
 }
 
-function Journal({ state, onAgent }: { state: CompanyState; onAgent(id: string): void }) {
+const KINDS: { id: JournalEntry["kind"]; label: string }[] = [
+  { id: "work", label: "Travail" },
+  { id: "team", label: "Équipe" },
+  { id: "company", label: "Entreprise" },
+  { id: "founder", label: "Toi" },
+  { id: "problem", label: "Problèmes" },
+];
+const PAGE = 60;
+
+function Journal({ state, status, page, onAgent }: { state: CompanyState; status: EngineStatus; page: Page; onAgent(id: string): void }) {
   const events = useEvents(state.lastSeq);
   const [search, setSearch] = useState("");
-  const [agentId, setAgentId] = useState<string>();
+  const [agentId, setAgentId] = useState("");
+  const [kind, setKind] = useState("");
+  const [shown, setShown] = useState(PAGE);
   const all = journalEntries(state, events);
+  const summary = journalSummary(state, all, status.now);
   const q = search.trim().toLowerCase();
-  const rows = all.filter((e) => (!agentId || e.agentId === agentId) && (!q || `${e.text} ${e.detail ?? ""}`.toLowerCase().includes(q)));
+  const rows = all.filter((e) => (!agentId || e.agentId === agentId) && (!kind || e.kind === kind) && (!q || `${e.text} ${e.detail ?? ""}`.toLowerCase().includes(q)));
+  const today = fmt.dayKey(status.now);
+  const yesterday = fmt.dayKey(status.now - DAY);
+  const dayLabel = (at: number) => (fmt.dayKey(at) === today ? "Aujourd'hui" : fmt.dayKey(at) === yesterday ? "Hier" : capitalize(fmt.day(at)));
+  const exportRows = () => {
+    const text = rows.map((e) => `${fmt.day(e.at)} ${fmt.hour(e.at)}\t${e.text}${e.detail ? `\t${e.detail.replace(/\s+/g, " ")}` : ""}`).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([`Journal · ${state.company?.name ?? ""}\n\n${text}\n`], { type: "text/plain;charset=utf-8" }));
+    a.download = "journal.txt";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
   let lastDay = "";
-  return (
+
+  const side = (
+    <>
+      <Numbers
+        title="Les chiffres"
+        {...(state.company ? { aside: `depuis le ${DATE({ day: "numeric", month: "short" }).format(state.company.foundedAt)}` } : {})}
+        rows={[
+          { label: "Actions", sub: "Tout ce qui s'est passé", value: summary.total },
+          { label: "Aujourd'hui", sub: summary.todayAgents ? `Par ${summary.todayAgents} agent${summary.todayAgents > 1 ? "s" : ""}` : "Personne n'a encore agi", value: summary.today },
+          { label: "Annulées par toi", sub: "Tu peux annuler une action prévue", value: summary.cancelledByYou },
+        ]}
+      />
+      {summary.byRole.length > 0 && (
+        <section className="card">
+          <header className="card-head">
+            <span>Par métier</span>
+          </header>
+          {summary.byRole.map((r) => (
+            <div key={r.role} className="eq-type">
+              <span>{r.title}</span>
+              <span className="muted small">
+                {r.count} action{r.count > 1 ? "s" : ""}
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
+    </>
+  );
+
+  return page(
+    side,
     <>
       <h1>Journal</h1>
-      <div className="journal-tools">
-        <input className="search" placeholder="Rechercher une action" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Rechercher dans le journal" />
-        <div className="chips">
-          <button className={!agentId ? "chip on" : "chip"} onClick={() => setAgentId(undefined)}>
-            Tous
-          </button>
-          {Object.values(state.agents).map((a) => (
-            <button key={a.id} className={agentId === a.id ? "chip on" : "chip"} onClick={() => setAgentId(a.id)}>
-              <PixelAvatar role={a.role} size={18} /> {a.name}
-            </button>
-          ))}
-        </div>
+      <div className="eq-tools">
+        <label className="eq-search">
+          <SearchIcon />
+          <input placeholder="Rechercher une action" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Rechercher dans le journal" />
+        </label>
+        <label className="eq-filter">
+          <FilterIcon />
+          <select value={agentId} onChange={(e) => setAgentId(e.target.value)} aria-label="Agent">
+            <option value="">Tous les agents</option>
+            {Object.values(state.agents).map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="eq-filter">
+          <FilterIcon />
+          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Type">
+            <option value="">Tous les types</option>
+            {KINDS.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="btn btn-secondary eq-export" onClick={exportRows} disabled={rows.length === 0}>
+          <DownloadIcon /> Exporter
+        </button>
       </div>
-      <section className="card journal">
+      <section className="card eq-journal">
         {rows.length === 0 && <p className="muted small">Rien ne correspond.</p>}
-        {rows.map((e, i) => {
-          const day = fmt.day(e.at);
+        {rows.slice(0, shown).map((e, i) => {
+          const day = dayLabel(e.at);
           const head = day !== lastDay;
           lastDay = day;
           const agent = e.agentId ? state.agents[e.agentId] : undefined;
           return (
             <div key={i}>
-              {head && <p className="journal-day muted small">{day}</p>}
-              <div className={`journal-row ${e.kind}`}>
-                <span className="muted small journal-hour">{fmt.hour(e.at)}</span>
+              {head && <p className="eq-journal-day">{day}</p>}
+              <div className={`eq-journal-row ${e.kind}`} title={e.detail}>
+                <span className="eq-journal-hour">{fmt.hour(e.at)}</span>
                 {agent ? (
                   <button className="journal-avatar" onClick={() => onAgent(agent.id)} aria-label={agent.name}>
-                    <PixelAvatar role={agent.role} size={24} />
+                    <PixelAvatar role={agent.role} size={28} />
                   </button>
                 ) : (
-                  <PixelAvatar founder size={24} />
+                  <PixelAvatar founder size={28} />
                 )}
-                <div>
-                  <div className="small">{e.text}</div>
+                <div className="eq-journal-text">
+                  <div>{e.text}</div>
                   {e.detail && <div className="muted small">{e.detail}</div>}
                 </div>
               </div>
             </div>
           );
         })}
+        {rows.length > 0 && (
+          <footer className="eq-journal-foot">
+            <span className="muted small">
+              {Math.min(shown, rows.length)} sur {rows.length} · survole une ligne pour lire le détail en entier
+            </span>
+            {rows.length > shown && (
+              <button className="btn btn-quiet" onClick={() => setShown(shown + PAGE)}>
+                Afficher plus
+              </button>
+            )}
+          </footer>
+        )}
       </section>
-    </>
+    </>,
   );
 }
 
-// ---------- Fiche agent ----------
+// ---------- Fiche agent (Figma 167:16930) ----------
 
-function AgentPage({ state, status, agentId, onBack, onChange }: { state: CompanyState; status: EngineStatus; agentId: string; onBack(): void; onChange(): void }) {
+function AgentPage({ state, status, agentId, onBack, onBureau, onChange }: { state: CompanyState; status: EngineStatus; agentId: string; onBack(): void; onBureau?(): void; onChange(): void }) {
   const sheet = agentSheet(state, agentId, status.now);
   const [open, setOpen] = useState<Deliverable>();
   const [cancelling, setCancelling] = useState<Task>();
   const { agent } = sheet;
-  const she = ["cofondateur", "recherche", "redaction", "technique"].includes(agent.role);
+  const she = SHE.includes(agent.role);
+  const margaux = margauxOf(state);
+  const recruited =
+    agent.role === "cofondateur" ? `Là depuis le début, le ${fmt.day(agent.hiredAt)}` : `Recruté${she ? "e" : ""} le ${fmt.day(agent.hiredAt)}${margaux ? ` par ${margaux.name}` : ""}`;
   return (
     <div className="columns agent-page">
-      <aside className="side agent-card-col">
-        <section className="card agent-card">
-          <div className="agent-portrait">
-            <PixelAvatar role={agent.role} size={96} />
+      <aside className="side">
+        <section className="card eq-agent-card">
+          <div className="eq-portrait">
+            <PixelAvatar role={agent.role} size={84} />
           </div>
           <h2>{agent.name}</h2>
-          <p className="muted">{sheet.title}</p>
-          <p className="muted small">
-            Arrivé{she ? "e" : ""} le {fmt.day(agent.hiredAt)}
-          </p>
-          <div className="kpi">
-            <span>Cette semaine</span>
-            <span>{sheet.stats.hoursThisWeek < 1 ? `${Math.round(sheet.stats.hoursThisWeek * 60)} min` : `${Math.round(sheet.stats.hoursThisWeek)} h`}</span>
-          </div>
-          <div className="kpi">
-            <span>XP apportée</span>
-            <span>{sheet.stats.xp}</span>
-          </div>
-          <div className="kpi">
-            <span>Missions terminées</span>
-            <span>{sheet.stats.done}</span>
-          </div>
-          <div className="kpi">
-            <span>Pas abouties</span>
-            <span>{sheet.stats.failed}</span>
-          </div>
-          {sheet.lessons.length > 0 && (
-            <div className="lessons">
-              <p className="small">Ce qu'{she ? "elle" : "il"} a appris</p>
-              <ul>
-                {sheet.lessons.map((l) => (
-                  <li key={l.id} className="small" title={`Utile ${l.helpful} fois · appris le ${fmt.day(l.learntAt)}`}>
-                    {l.text}
-                  </li>
-                ))}
-              </ul>
-              <p className="muted small">Partagé par tous les {sheet.title.toLowerCase()}, appliqué à chaque mission.</p>
+          <p className="eq-agent-role">{sheet.title}</p>
+          <p className="muted small">{recruited}</p>
+          <div className="eq-agent-stats">
+            <div>
+              <span>Cette semaine</span>
+              <span>{hours(sheet.stats.hoursThisWeek)}</span>
             </div>
-          )}
-          {sheet.sources.length > 0 && (
-            <div className="chips">
-              {sheet.sources.slice(0, 8).map((s) => (
-                <span key={s} className="chip static">
-                  {s.length > 24 ? `${s.slice(0, 23)}…` : s}
+            <div>
+              <span>XP apportée</span>
+              <span>{sheet.stats.xp}</span>
+            </div>
+            <div>
+              <span>Missions terminées</span>
+              <span>{sheet.stats.done}</span>
+            </div>
+            <div>
+              <span>Pas abouties</span>
+              <span>{sheet.stats.failed}</span>
+            </div>
+          </div>
+          {sheet.sourceSites.length > 0 && (
+            <div className="chips eq-agent-sources">
+              {sheet.sourceSites.slice(0, 6).map((s) => (
+                <span key={s} className="chip static" title={s}>
+                  {s.length > 18 ? `${s.slice(0, 17)}…` : s}
                 </span>
               ))}
+              {sheet.sourceSites.length > 6 && <span className="chip static muted">+ {sheet.sourceSites.length - 6}</span>}
             </div>
+          )}
+          {onBureau && (
+            <button className="btn btn-secondary wide" onClick={onBureau}>
+              Lui parler dans le bureau
+            </button>
           )}
         </section>
       </aside>
-      <div className="main">
+      <div className="main eq-main">
         <button className="link" onClick={onBack}>
           ← Équipe
         </button>
-        <h3 className="agent-h">En ce moment</h3>
+        <h3 className="eq-h">En ce moment</h3>
         {sheet.current ? (
-          <div className="agent-item">
-            <div>{sheet.current.title}</div>
+          <div className="eq-item">
+            <div className="eq-item-line">
+              <span>{sheet.current.title}</span>
+              {sheet.current.startedAt && <span className="muted small">depuis {fmt.duration(status.now - sheet.current.startedAt)}</span>}
+            </div>
             <div className="muted small">Pourquoi : {sheet.current.why}</div>
             {sheet.current.progress && sheet.current.progress !== "Au travail…" && <div className="small accent">{sheet.current.progress}</div>}
-            <div className="progress indeterminate" />
+            <div className="progress indeterminate eq-progress" />
           </div>
         ) : (
-          <p className="muted small">{status.runtime === "none" ? "Attend ta clé pour se mettre au travail." : "Au repos."}</p>
+          <p className="muted small eq-empty">{status.runtime === "none" ? "Attend ta clé pour se mettre au travail." : state.company?.paused ? "L'équipe est en pause." : "Au repos."}</p>
         )}
-        <h3 className="agent-h">
+        <h3 className="eq-h">
           Ce qu'{she ? "elle" : "il"} a décidé de faire ensuite <span className="muted small">Tu peux annuler une mission, jamais besoin d'en lancer une.</span>
         </h3>
-        {sheet.next.length === 0 && <p className="muted small">Rien de prévu pour l'instant.</p>}
+        {sheet.next.length === 0 && <p className="muted small eq-empty">Rien de prévu pour l'instant.</p>}
         {sheet.next.map((t) => {
           const cancellable = t.kind === "external" && (t.cancellableUntil ?? 0) > status.now;
+          const at = Math.max(t.scheduledAt, t.cancellableUntil ?? 0);
           return (
-            <div key={t.id} className="agent-item row">
-              <div>
-                <div>{t.title}</div>
-                <div className="muted small">Pourquoi : {t.why}</div>
+            <div key={t.id} className="eq-item">
+              <div className="eq-item-line">
+                <span>{t.title}</span>
+                <span className="small accent">{at <= status.now ? "dès que possible" : fmt.relative(at, status.now)}</span>
               </div>
-              <div className="agent-when">
-                <span className="small accent">{whenNext(Math.max(t.scheduledAt, t.cancellableUntil ?? 0), status.now)}</span>
+              <div className="eq-item-line">
+                <span className="muted small">Pourquoi : {t.why}</span>
                 {cancellable && (
-                  <button className="btn btn-quiet" onClick={() => setCancelling(t)}>
+                  <button className="btn btn-secondary eq-small-btn" onClick={() => setCancelling(t)}>
                     Annuler
                   </button>
                 )}
@@ -614,15 +1191,37 @@ function AgentPage({ state, status, agentId, onBack, onChange }: { state: Compan
             </div>
           );
         })}
-        <h3 className="agent-h">Terminées</h3>
-        {sheet.finished.length === 0 && <p className="muted small">Pas encore de mission terminée.</p>}
+        <h3 className="eq-h">Ce qu'{she ? "elle" : "il"} a appris</h3>
+        {sheet.lessons.length === 0 ? (
+          <p className="muted small eq-empty">Rien encore : après chaque mission, l'équipe note ce qui a aidé ou gêné.</p>
+        ) : (
+          <>
+            {sheet.lessons.map((l) => (
+              <div key={l.id} className="eq-lesson">
+                <span className="eq-lesson-check">
+                  <Check />
+                </span>
+                <div>
+                  <div>{l.text}</div>
+                  <div className="muted small">
+                    Appris le {fmt.day(l.learntAt)}
+                    {l.helpful > 0 ? ` · utile ${l.helpful} fois` : ""}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <p className="muted small">Partagé par tous les agents {lowerFirst(sheet.title)}, appliqué à chaque mission.</p>
+          </>
+        )}
+        <h3 className="eq-h">Terminées</h3>
+        {sheet.finished.length === 0 && <p className="muted small eq-empty">Pas encore de mission terminée.</p>}
         {sheet.finished.map(({ task, result, deliverableId }) => (
-          <button key={task.id} className="agent-item row clickable" onClick={() => deliverableId && setOpen(state.deliverables[deliverableId])} disabled={!deliverableId}>
-            <div>
-              <div>{task.title}</div>
-              {result && <div className="muted small">Résultat : {result}</div>}
+          <button key={task.id} className="eq-item clickable" onClick={() => deliverableId && setOpen(state.deliverables[deliverableId])} disabled={!deliverableId}>
+            <div className="eq-item-line">
+              <span>{task.title}</span>
+              <span className="muted small">{fmt.relative(task.endedAt ?? task.createdAt, status.now)}</span>
             </div>
-            <span className="muted small">{fmt.relative(task.endedAt ?? task.createdAt, status.now)}</span>
+            {result && <div className="muted small eq-clamp">Résultat : {result}</div>}
           </button>
         ))}
       </div>
@@ -649,68 +1248,3 @@ function AgentPage({ state, status, agentId, onBack, onChange }: { state: Compan
     </div>
   );
 }
-
-/** A planned task whose time has passed waits for a free agent (or a key): say so, not « il y a 3 h ». */
-function whenNext(at: number, now: number): string {
-  return at <= now ? "dès que possible" : fmt.relative(at, now);
-}
-
-// ---------- Right column ----------
-
-function TeamNumbers({ state, status }: { state: CompanyState; status: EngineStatus }) {
-  const o = orgChart(state, status.now);
-  const rows = [o.cofounder, ...o.members].filter(Boolean) as TeamRow[];
-  const hours = rows.reduce((h, r) => h + r.hoursThisWeek, 0);
-  return (
-    <section className="card">
-      <header className="card-head">
-        <span>Les chiffres</span>
-        <span className="muted">cette semaine</span>
-      </header>
-      <div className="kpi">
-        <div>
-          <div>Agents</div>
-          <div className="muted small">{o.upcoming.length ? `${o.upcoming.length} à venir` : "Toute l'équipe prévue est là"}</div>
-        </div>
-        <div className="kpi-value">{rows.length}</div>
-      </div>
-      <div className="kpi">
-        <div>
-          <div>Travail de l'équipe</div>
-          <div className="muted small">Sans toi</div>
-        </div>
-        <div className="kpi-value">{hours < 1 ? `${Math.round(hours * 60)} min` : `${Math.round(hours)} h`}</div>
-      </div>
-      <div className="kpi">
-        <div>
-          <div>Dépense IA</div>
-          <div className="muted small">Depuis le début</div>
-        </div>
-        <div className="kpi-value">{fmt.dollars(state.usage.credits)}</div>
-      </div>
-    </section>
-  );
-}
-
-function NowCard({ state, status, onAgent }: { state: CompanyState; status: EngineStatus; onAgent(id: string): void }) {
-  const o = orgChart(state, status.now);
-  const rows = [o.cofounder, ...o.members].filter(Boolean) as TeamRow[];
-  return (
-    <section className="card">
-      <header className="card-head">
-        <span>En ce moment</span>
-      </header>
-      {rows.map((r) => (
-        <button key={r.agent.id} className={`member-row as-button${r.status === "idle" ? " resting" : ""}`} onClick={() => onAgent(r.agent.id)}>
-          <PixelAvatar role={r.agent.role} size={28} />
-          <div className="member-text">
-            <div>{r.agent.name}</div>
-            <div className="muted small">{r.current ? r.current.title : r.status === "waiting-you" ? "T'attend" : "Au repos"}</div>
-          </div>
-          <span className={`status-dot ${r.status}`} />
-        </button>
-      ))}
-    </section>
-  );
-}
-
