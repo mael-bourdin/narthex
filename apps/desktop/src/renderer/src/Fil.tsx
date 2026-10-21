@@ -15,7 +15,7 @@ import {
 import { ActionModal } from "./ActionModal.tsx";
 import { DeliverableView } from "./Deliverable.tsx";
 import { Chevron, Clock, Doc, Up } from "./icons.tsx";
-import { PixelAvatar } from "./PixelAvatar.tsx";
+import { Avatar } from "./Avatar.tsx";
 
 
 /** The Fil, as in Figma (163:17001): only what really happened, newest first. */
@@ -116,7 +116,7 @@ export function Sign({ signs, state, onAct }: { signs: Mission[]; state: Company
       <div className="pancarte-bottom">
         {speaker ? (
           <span className="who">
-            <PixelAvatar role={speaker.role} size={26} /> {speaker.name} · {role(speaker.role).title}
+            <Avatar role={speaker.role} size={26} /> {speaker.name} · {role(speaker.role).title}
           </span>
         ) : (
           <span />
@@ -163,7 +163,7 @@ function Publication({ item, now, onOpen, onTask }: { item: FilItem; now: number
   return (
     <article className={clickable ? "publication clickable" : "publication"} onClick={open}>
       <header className="post-head">
-        <PixelAvatar role={agent?.role} size={36} />
+        <Avatar role={agent?.role} size={36} />
         <span className="name">{agent?.name}</span>
         <span className="muted">· {agent ? role(agent.role).title : ""}</span>
         <span className="muted time">{fmt.relative(post.at, now)}</span>
@@ -240,7 +240,7 @@ function TeamCard({ view, onAgent }: { view: FilView; onAgent(id: string): void 
       </header>
       {view.team.map((m) => (
         <button key={m.agent.id} className="member-row as-button" onClick={() => onAgent(m.agent.id)}>
-          <PixelAvatar role={m.agent.role} size={32} />
+          <Avatar role={m.agent.role} size={32} />
           <div className="member-text">
             <div>{m.agent.name}</div>
             <div className="muted small">
@@ -252,7 +252,7 @@ function TeamCard({ view, onAgent }: { view: FilView; onAgent(id: string): void 
       ))}
       {view.upcoming && (
         <div className="member-row ghost">
-          <PixelAvatar size={32} />
+          <Avatar size={32} />
           <div className="member-text">
             <div>{view.upcoming.title}</div>
             <div className="muted small">Margaux le fera venir quand ce sera utile</div>

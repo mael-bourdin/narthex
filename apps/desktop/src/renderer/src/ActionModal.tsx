@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { fmt, role, type CompanyState, type LegalForm, type Mission } from "@narthex/core";
 
 const asDollars = (cents: number) => (cents / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-import { PixelAvatar } from "./PixelAvatar.tsx";
+import { Avatar } from "./Avatar.tsx";
 
 const FORMS: { form: LegalForm; hint: string }[] = [
   { form: "SASU", hint: "Seule associée, présidente assimilée salariée" },
@@ -63,7 +63,7 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
         <p className="modal-why">{mission.why}</p>
         {speaker && (
           <p className="modal-who">
-            <PixelAvatar role={speaker.role} size={24} /> {speaker.name} · {role(speaker.role).title}
+            <Avatar role={speaker.role} size={24} /> {speaker.name} · {role(speaker.role).title}
           </p>
         )}
 

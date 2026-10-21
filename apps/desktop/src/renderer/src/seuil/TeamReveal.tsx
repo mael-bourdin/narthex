@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ROLE_PROMISE, SEUIL, type RoleDef } from "@narthex/core";
-import { PixelAvatar } from "../PixelAvatar.tsx";
+import { Avatar } from "../Avatar.tsx";
 
 const LIGHT: Record<string, string> = {
   recherche: "#7fb3d9",
@@ -31,7 +31,7 @@ export function TeamReveal({ now, later, dimmed, onDone }: { now: RoleDef[]; lat
       {all.map(({ r, later: isLater }, i) => (
         <div key={r.id} className={`member${isLater ? " later" : ""}${i < count ? " in" : ""}`} style={{ ["--c" as string]: LIGHT[r.id] ?? "#cfc8ff" }}>
           <div className="spark">
-            <PixelAvatar role={r.id} size={56} dim={isLater} />
+            <Avatar role={r.id} size={56} dim={isLater} />
           </div>
           <div className="name">{r.defaultName}</div>
           <div className="role">{r.title}</div>

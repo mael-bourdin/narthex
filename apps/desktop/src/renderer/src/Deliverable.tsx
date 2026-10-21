@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { deliverableSheet, fmt, type CompanyState, type Deliverable, type EngineStatus, type Mission, type StoredEvent } from "@narthex/core";
 import { ActionModal } from "./ActionModal.tsx";
-import { PixelAvatar } from "./PixelAvatar.tsx";
+import { Avatar } from "./Avatar.tsx";
 
 const Markdown = ({ children }: { children: string }) => (
   <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer">{children}</a> }}>
@@ -53,7 +53,7 @@ export function DeliverableView({ d, state, status, onClose, onChange }: { d: De
             ← Retour
           </button>
           <div className="deliverable-head">
-            <PixelAvatar role={agent?.role} size={40} />
+            <Avatar role={agent?.role} size={40} />
             <div>
               <h1>{d.title}</h1>
               <p className="muted small">{sheet.meta.join(" · ")}</p>

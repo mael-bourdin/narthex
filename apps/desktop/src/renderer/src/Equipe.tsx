@@ -27,7 +27,7 @@ import { DeliverableView } from "./Deliverable.tsx";
 import { Check, DownloadIcon, FilterIcon, SearchIcon } from "./equipe-icons.tsx";
 import { Chevron, Clock } from "./icons.tsx";
 import { Memoire, MemoireNumbers } from "./Memoire.tsx";
-import { PixelAvatar } from "./PixelAvatar.tsx";
+import { Avatar } from "./Avatar.tsx";
 import { SectionTabs } from "./SectionTabs.tsx";
 import "./equipe.css";
 
@@ -126,7 +126,7 @@ function People({ title, aside, rows }: { title: string; aside?: string; rows: {
       </header>
       {rows.map((r) => (
         <button key={r.id} className={`eq-person${r.resting ? " resting" : ""}`} onClick={r.onClick} disabled={!r.onClick}>
-          <PixelAvatar role={r.role} size={32} />
+          <Avatar role={r.role} size={32} />
           <span className="eq-person-text">
             <span>{r.name}</span>
             <span className="muted small">{r.line}</span>
@@ -179,7 +179,7 @@ function MargauxPost({ state, children, time }: { state: CompanyState; children:
   return (
     <article className="publication">
       <header className="post-head">
-        <PixelAvatar role="cofondateur" size={36} />
+        <Avatar role="cofondateur" size={36} />
         <span className="name">{margaux?.name ?? role("cofondateur").defaultName}</span>
         <span className="muted">· {role("cofondateur").title}</span>
         {time && <span className="muted time">{time}</span>}
@@ -247,7 +247,7 @@ function Organigramme({
       <section className="fil-list eq-list">
         {forYou[0] && (
           <button className={`eq-row${legalMission ? " clickable" : ""}`} onClick={() => legalMission && setLegal(legalMission)} disabled={!legalMission}>
-            <PixelAvatar founder size={36} />
+            <Avatar founder size={36} />
             <span className="eq-row-who">
               <span className="eq-row-name">{o.founder}</span>
               <span className="muted small">Fondatrice · toi</span>
@@ -311,7 +311,7 @@ function AgentRow({ row, state, status, onClick }: { row: TeamRow; state: Compan
       : "";
   return (
     <button className="eq-row clickable" onClick={onClick}>
-      <PixelAvatar role={row.agent.role} size={36} />
+      <Avatar role={row.agent.role} size={36} />
       <span className="eq-row-who">
         <span className="eq-row-name">{row.agent.name}</span>
         <span className="muted small">{row.title}</span>
@@ -418,7 +418,7 @@ function Calendrier({ state, status, page, onAgent, onChange }: { state: Company
             </span>
           </header>
           <div className="eq-who">
-            <PixelAvatar role={filteredAgent.role} size={32} />
+            <Avatar role={filteredAgent.role} size={32} />
             <span>
               <span>
                 {filteredAgent.name} · {role(filteredAgent.role).title}
@@ -525,7 +525,7 @@ function Calendrier({ state, status, page, onAgent, onChange }: { state: Company
           </button>
           {agents.map((a) => (
             <button key={a.id} className={agentId === a.id ? "chip on" : "chip"} onClick={() => setAgentId(a.id)}>
-              <PixelAvatar role={a.role} size={20} /> {a.name}
+              <Avatar role={a.role} size={20} /> {a.name}
             </button>
           ))}
         </div>
@@ -593,7 +593,7 @@ function TaskCard({ task, state, status, onAgent, onClose, onChange }: { task: T
       <header className="eq-task-head">
         {agent && (
           <button className="eq-who as-link" onClick={() => onAgent(agent.id)}>
-            <PixelAvatar role={agent.role} size={32} />
+            <Avatar role={agent.role} size={32} />
             <span>
               <span>{agent.name}</span>
               <span className="muted small">{role(agent.role).title}</span>
@@ -693,7 +693,7 @@ function HourGrid({
         <span />
         {columns.map((c) => (
           <span key={c.key} className={c.today && !byAgent ? "today" : ""}>
-            {c.role && <PixelAvatar role={c.role} size={24} />}
+            {c.role && <Avatar role={c.role} size={24} />}
             <span className="eq-cal-day">{c.label}</span>
             {c.sub && <span className="eq-cal-date">{c.sub}</span>}
           </span>
@@ -743,7 +743,7 @@ function HourGrid({
                   title={items.map((i) => i.t.title).join("\n")}
                 >
                   <span className="eq-block-top">
-                    {showAgent && agent && <PixelAvatar role={agent.role} size={14} />}
+                    {showAgent && agent && <Avatar role={agent.role} size={14} />}
                     {fmt.hour(shown.startedAt ?? shown.scheduledAt)}
                   </span>
                   <span className="eq-block-title">{shown.title}</span>
@@ -805,7 +805,7 @@ function MonthGrid({
             </span>
             {own.slice(0, 2).map((t) => (
               <button key={t.id} className={`eq-month-task ${blockClass(t, now)}${t.id === selectedId ? " selected" : ""}`} onClick={() => onSelect(t)} title={t.title}>
-                {state.agents[t.agentId] && <PixelAvatar role={state.agents[t.agentId]!.role} size={12} />}
+                {state.agents[t.agentId] && <Avatar role={state.agents[t.agentId]!.role} size={12} />}
                 <span>{t.title}</span>
               </button>
             ))}
@@ -1027,10 +1027,10 @@ function Journal({ state, status, page, onAgent }: { state: CompanyState; status
                 <span className="eq-journal-hour">{fmt.hour(e.at)}</span>
                 {agent ? (
                   <button className="journal-avatar" onClick={() => onAgent(agent.id)} aria-label={agent.name}>
-                    <PixelAvatar role={agent.role} size={28} />
+                    <Avatar role={agent.role} size={28} />
                   </button>
                 ) : (
-                  <PixelAvatar founder size={28} />
+                  <Avatar founder size={28} />
                 )}
                 <div className="eq-journal-text">
                   <div>{e.text}</div>
@@ -1073,7 +1073,7 @@ function AgentPage({ state, status, agentId, onBack, onChange }: { state: Compan
       <aside className="side">
         <section className="card eq-agent-card">
           <div className="eq-portrait">
-            <PixelAvatar role={agent.role} size={84} />
+            <Avatar role={agent.role} size={84} />
           </div>
           <h2>{agent.name}</h2>
           <p className="eq-agent-role">{sheet.title}</p>

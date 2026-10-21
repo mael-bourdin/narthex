@@ -3,7 +3,7 @@ import { fmt, isValid, searchJournal, type CompanyState, type Deliverable, type 
 import { ActionModal } from "./ActionModal.tsx";
 import { DeliverableView } from "./Deliverable.tsx";
 import { SearchIcon } from "./equipe-icons.tsx";
-import { PixelAvatar } from "./PixelAvatar.tsx";
+import { Avatar } from "./Avatar.tsx";
 
 /**
  * What the team knows (L2 facts, dated) and « pourquoi a-t-on décidé X ? » over the journal (L3).
@@ -25,10 +25,10 @@ export function Memoire({ state, status, onAgent, onChange }: { state: CompanySt
     const agent = agentId ? state.agents[agentId] : undefined;
     return agent ? (
       <button className="journal-avatar" onClick={() => onAgent(agent.id)} aria-label={agent.name} title={agent.name}>
-        <PixelAvatar role={agent.role} size={28} />
+        <Avatar role={agent.role} size={28} />
       </button>
     ) : (
-      <PixelAvatar role="cofondateur" size={28} />
+      <Avatar role="cofondateur" size={28} />
     );
   };
 
