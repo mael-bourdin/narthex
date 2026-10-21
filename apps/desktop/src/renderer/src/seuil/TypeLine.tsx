@@ -32,12 +32,15 @@ export function TypeLine({ masked, onSubmit }: { masked?: boolean; onSubmit: (va
 
   return (
     <div className={`seuil-type${masked ? " masked" : ""}`} onClick={() => input.current?.focus()}>
+      {/* Uncontrolled: writing the value back while macOS composes an accent (¨ then e → ë) would
+          throw the caret to the start, so later letters land in front and Backspace deletes nothing. */}
       <input
         ref={input}
         className="seuil-hidden-input"
-        value={value}
-        onChange={(e) => !rising && setValue(e.target.value.replace(/\r?\n/g, ""))}
-        onKeyDown={(e) => e.key === "Enter" && submit()}
+        defaultValue=""
+        readOnly={Boolean(rising)}
+        onInput={(e) => setValue(e.currentTarget.value)}
+        onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && submit()}
         autoComplete="off"
         spellCheck={false}
         aria-label={masked ? "Clé API" : "Ta réponse"}
