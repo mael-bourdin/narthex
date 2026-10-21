@@ -94,7 +94,8 @@ function createWindow(): void {
 function snapshot(win: BrowserWindow, file: string): void {
   win.webContents.once("did-finish-load", () => {
     const tab = process.env.NARTHEX_SNAPSHOT_TAB;
-    if (tab) setTimeout(() => void win.webContents.executeJavaScript(`[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(tab)})?.click()`), 1500);
+    // The tabs appear once the engine answered: try for a while.
+    if (tab) void win.webContents.executeJavaScript(`(async () => { for (let i = 0; i < 100; i++) { const b = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(tab)} || b.getAttribute("aria-label") === ${JSON.stringify(tab)}); if (b) return b.click(); await new Promise((r) => setTimeout(r, 200)); } })()`);
     setTimeout(async () => {
       const image = await win.webContents.capturePage();
       writeFileSync(file, image.toPNG());

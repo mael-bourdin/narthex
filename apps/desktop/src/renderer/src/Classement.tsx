@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import "./reglages.css";
 import { fmt, OFFICES, STAGE_LABEL, type CompanyState } from "@narthex/core";
 
 type Board = Awaited<ReturnType<typeof window.narthex.leaderboard.get>>;
@@ -31,29 +32,31 @@ export function Classement({ state }: { state: CompanyState }) {
           {board?.error && <p className="muted small">{board.error}</p>}
           {board?.online && !board.error && board.entries.length === 0 && <p className="muted small">Personne n'y figure encore. Les premières entreprises de la version hébergée arrivent.</p>}
           {board && board.entries.length > 0 && (
-            <div className="ranking-table">
-              <span className="muted small">#</span>
-              <span className="muted small">Entreprise</span>
-              <span className="muted small">Étape</span>
-              <span className="muted small">Bureau</span>
-              <span className="muted small">Chiffre d'affaires</span>
-              <span className="muted small">Ventes</span>
-              <span className="muted small">Âge</span>
-              {board.entries.map(({ rank, entry: e }) => {
-                const own = mine.has(e.companyId) ? " own" : "";
-                return [
-                  <span key={`${e.companyId}r`} className={`rank${rank <= 3 ? ` top${rank}` : ""}${own}`}>{rank}</span>,
-                  <span key={`${e.companyId}n`} className={`ranking-name${own}`}>
-                    {e.name}
-                    <span className="muted small block">{[e.founder, e.city].filter(Boolean).join(" · ")}</span>
-                  </span>,
-                  <span key={`${e.companyId}s`} className={`small${own}`}>{STAGE_LABEL[e.stage]}</span>,
-                  <span key={`${e.companyId}o`} className={`small${own}`}>{OFFICES[e.office]?.name ?? ""}</span>,
-                  <span key={`${e.companyId}c`} className={`small${own}`}>{e.revenue !== undefined ? fmt.euros(e.revenue) : e.revenueBand}</span>,
-                  <span key={`${e.companyId}v`} className={`small${own}`}>{e.sales}</span>,
-                  <span key={`${e.companyId}d`} className={`small muted${own}`}>{e.days} j</span>,
-                ];
-              })}
+            <div className="rg-table" style={{ "--grid": "28px 2fr 1fr 1.2fr 1.3fr 56px 48px" } as CSSProperties}>
+              <div className="rg-table-title">Les entreprises de la version hébergée</div>
+              <div className="rg-cells rg-head">
+                <span>#</span>
+                <span>Entreprise</span>
+                <span>Étape</span>
+                <span>Bureau</span>
+                <span>Chiffre d'affaires</span>
+                <span>Ventes</span>
+                <span>Âge</span>
+              </div>
+              {board.entries.map(({ rank, entry: e }) => (
+                <div key={e.companyId} className={`rg-cells rg-line${mine.has(e.companyId) ? " own" : ""}`}>
+                  <span className="rg-num rank">{rank}</span>
+                  <span className="rg-text">
+                    <span>{e.name}</span>
+                    <span className="rg-sub">{[e.founder, e.city].filter(Boolean).join(" · ")}</span>
+                  </span>
+                  <span>{STAGE_LABEL[e.stage]}</span>
+                  <span>{OFFICES[e.office]?.name ?? ""}</span>
+                  <span className="rg-num">{e.revenue !== undefined ? fmt.euros(e.revenue) : e.revenueBand}</span>
+                  <span className="rg-num">{e.sales}</span>
+                  <span className="rg-num">{e.days} j</span>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -69,25 +72,31 @@ export function Classement({ state }: { state: CompanyState }) {
           ) : !board.joinable ? (
             <p className="muted small">Cette instance n'a pas encore de jeton de classement.</p>
           ) : (
-            <div className="choices">
-              <label className="choice">
-                <input type="checkbox" checked={board.share} onChange={(e) => void window.narthex.leaderboard.set({ share: e.target.checked, showRevenue: board.showRevenue }).then(reload)} />
-                <span>
-                  Apparaître au classement
-                  <span className="muted small block">Nom, ville, ton prénom, étape, bureau, ventes. Jamais ton idée ni tes documents.</span>
+            <div className="rg-table">
+              <div className="rg-row">
+                <span className="rg-text">
+                  <span>Apparaître au classement</span>
+                  <span className="rg-sub">Nom, ville, ton prénom, étape, bureau, ventes. Jamais ton idée ni tes documents.</span>
                 </span>
-              </label>
-              <label className="choice">
-                <input type="checkbox" disabled={!board.share} checked={board.showRevenue} onChange={(e) => void window.narthex.leaderboard.set({ share: board.share, showRevenue: e.target.checked }).then(reload)} />
-                <span>
-                  Montrer le montant exact
-                  <span className="muted small block">Sinon, une tranche (par exemple « 1 000 à 5 000 € »).</span>
-                </span>
-              </label>
+                <Switch on={board.share} label="Apparaître au classement" onToggle={() => void window.narthex.leaderboard.set({ share: !board.share, showRevenue: board.showRevenue }).then(reload)} />
+              </div>
+              {board.share && (
+                <div className="rg-row">
+                  <span className="rg-text">
+                    <span>Montrer le montant exact</span>
+                    <span className="rg-sub">Sinon, une tranche (par exemple « 1 000 à 5 000 € »).</span>
+                  </span>
+                  <Switch on={board.showRevenue} label="Montrer le montant exact" onToggle={() => void window.narthex.leaderboard.set({ share: board.share, showRevenue: !board.showRevenue }).then(reload)} />
+                </div>
+              )}
             </div>
           )}
         </section>
       </aside>
     </div>
   );
+}
+
+function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
+  return <button type="button" role="switch" aria-checked={on} aria-label={label} className={on ? "rg-switch on" : "rg-switch"} onClick={onToggle} />;
 }
