@@ -78,7 +78,7 @@ describe("ClaudeCodeRuntime (dev only: the developer's own Claude Code)", () => 
     const { call } = fake(RESULT, "claude.ai", [tool("WebSearch", { query: "bougies Lille prix" }), tool("WebFetch", { url: "https://www.insee.fr/fr/stat" })]);
     const ctx = { ...context({ plans: [], recruits: [], spent: [] }), progress: (n: string) => void notes.push(n) };
     await new ClaudeCodeRuntime({ call }).run(ctx);
-    expect(notes.slice(0, 2)).toEqual(["Je cherche : bougies Lille prix", "Je lis : insee.fr"]);
+    expect(notes.slice(0, 2)).toEqual(["Searching: bougies Lille prix", "Reading: insee.fr"]);
     // Only the search engine's own result list counts: not a fetched URL, not a link written in a page.
     const search = { type: "assistant", message: { content: [{ type: "tool_use", id: "s1", name: "WebSearch", input: { query: "cma" } }] } };
     const fetch = { type: "assistant", message: { content: [{ type: "tool_use", id: "f1", name: "WebFetch", input: { url: "https://attacker.example/?d=1" } }] } };
@@ -96,12 +96,12 @@ describe("ClaudeCodeRuntime (dev only: the developer's own Claude Code)", () => 
       args[0] === "auth"
         ? Promise.resolve(JSON.stringify({ loggedIn: true, authMethod: "claude.ai" }))
         : new Promise((_, reject) => signal?.addEventListener("abort", () => reject(new Error("aborted"))));
-    await expect(new ClaudeCodeRuntime({ call, timeoutMs: 20 }).run(context({ plans: [], recruits: [], spent: [] }))).rejects.toThrow(/trop longtemps/);
+    await expect(new ClaudeCodeRuntime({ call, timeoutMs: 20 }).run(context({ plans: [], recruits: [], spent: [] }))).rejects.toThrow(/too long/);
   });
 
   it("refuses to run on anything but the claude.ai subscription, so no key is billed by surprise", async () => {
     const { call } = fake(RESULT, "api_key");
-    await expect(new ClaudeCodeRuntime({ call }).run(context({ plans: [], recruits: [], spent: [] }))).rejects.toThrow(/abonnement/);
+    await expect(new ClaudeCodeRuntime({ call }).run(context({ plans: [], recruits: [], spent: [] }))).rejects.toThrow(/subscription/);
   });
 
   it("reports Claude Code's own error", async () => {
@@ -141,13 +141,13 @@ describe("ClaudeCodeRuntime (dev only: the developer's own Claude Code)", () => 
     const { call } = fake(RESULT, "claude.ai", [full]);
     const runtime = new ClaudeCodeRuntime({ call, now: () => BEFORE_RESET });
     await runtime.run(context({ plans: [], recruits: [], spent: [] }));
-    expect(runtime.unavailable()).toMatch(/93 %.*5 h/);
-    await expect(runtime.firstLook({ idea: "Bougies", founderName: "Inès", now: NOW, signal: new AbortController().signal })).rejects.toThrow(/93 %/);
+    expect(runtime.unavailable()).toMatch(/93%.*5-hour/);
+    await expect(runtime.firstLook({ idea: "Bougies", founderName: "Inès", now: NOW, signal: new AbortController().signal })).rejects.toThrow(/93%/);
     const blocked = { type: "rate_limit_event", rate_limit_info: { status: "rejected", unifiedWindows: { five_hour: { utilization: 1, resetsAt: 1792580400 } } } };
     const { call: call2 } = fake(RESULT, "claude.ai", [blocked]);
     const runtime2 = new ClaudeCodeRuntime({ call: call2, maxUtilization: 0.99, now: () => BEFORE_RESET });
     await runtime2.run(context({ plans: [], recruits: [], spent: [] }));
-    expect(runtime2.unavailable()).toMatch(/limite/);
+    expect(runtime2.unavailable()).toMatch(/limit/);
     // Once the window has started again, work resumes without waiting for a new call.
     const later = new ClaudeCodeRuntime({ call, now: () => 1792580400_000 + 1 });
     await later.run(context({ plans: [], recruits: [], spent: [] }));
@@ -161,7 +161,7 @@ describe("ClaudeCodeRuntime (dev only: the developer's own Claude Code)", () => 
     const work = calls.find((c) => c.args[0] === "-p")!;
     expect(work.args[work.args.indexOf("--max-budget-usd") + 1]).toBe("1.5");
     const { call: over } = fake({ type: "result", is_error: true, subtype: "error_max_budget_usd", errors: ["Reached maximum budget ($1.5)"] });
-    await expect(new ClaudeCodeRuntime({ call: over }).run(ctx)).rejects.toThrow(/dépassé son budget \(1,50 \$ au prix/);
+    await expect(new ClaudeCodeRuntime({ call: over }).run(ctx)).rejects.toThrow(/over its budget \(1,50 \$ at API prices/);
   });
 });
 

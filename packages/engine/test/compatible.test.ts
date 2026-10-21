@@ -102,9 +102,9 @@ describe("CompatibleRuntime (OpenRouter, OpenAI, or any compatible API)", () => 
     expect((requests[0]!.body.tools as { type: string }[]).some((t) => t.type === "openrouter:web_search")).toBe(true);
   });
 
-  it("says what went wrong in French when the provider refuses", async () => {
+  it("says what went wrong in plain words when the provider refuses", async () => {
     const call: CompatibleFetch = async () => ({ ok: false, status: 401, json: async () => ({ error: { message: "No auth" } }), text: async () => "" });
-    await expect(new CompatibleRuntime({ provider: "openrouter", apiKey: "k", fetch: call }).run(context())).rejects.toThrow(/clé/);
+    await expect(new CompatibleRuntime({ provider: "openrouter", apiKey: "k", fetch: call }).run(context())).rejects.toThrow(/key/);
   });
 });
 

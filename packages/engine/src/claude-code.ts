@@ -62,18 +62,18 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     if (!l) return undefined;
     const now = this.now();
     const windows = [
-      { label: "sa fenêtre de 5 h", w: l.fiveHour },
-      { label: "sa semaine", w: l.sevenDay },
+      { label: "its 5-hour window", w: l.fiveHour },
+      { label: "its week", w: l.sevenDay },
     ].filter((x): x is { label: string; w: { utilization: number; resetsAt: number } } => !!x.w && x.w.resetsAt > now);
-    const until = (at: number) => `${fmt.day(at)} vers ${fmt.hour(at)}`;
+    const until = (at: number) => `${fmt.day(at)} around ${fmt.hour(at)}`;
     if (l.status === "rejected") {
       const next = windows.sort((a, b) => b.w.resetsAt - a.w.resetsAt)[0];
-      if (next) return `Ton abonnement a atteint sa limite : l'équipe reprend ${until(next.w.resetsAt)}.`;
-      if (!l.fiveHour && !l.sevenDay) return "Ton abonnement a atteint sa limite.";
+      if (next) return `Your subscription has reached its limit: the team resumes ${until(next.w.resetsAt)}.`;
+      if (!l.fiveHour && !l.sevenDay) return "Your subscription has reached its limit.";
       return undefined;
     }
     const full = windows.find((x) => x.w.utilization >= this.maxUtilization);
-    if (full) return `Ton abonnement est à ${Math.round(full.w.utilization * 100)} % de ${full.label} : l'équipe reprend ${until(full.w.resetsAt)}.`;
+    if (full) return `Your subscription is at ${Math.round(full.w.utilization * 100)}% of ${full.label}: the team resumes ${until(full.w.resetsAt)}.`;
     return undefined;
   }
 
@@ -144,8 +144,8 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     }
     if (cofounder) for (const r of list(v.recruits)) if (typeof r.role === "string" && typeof r.why === "string") ctx.recruit(r.role as RoleId, r.why);
     const deliverable = v.deliverable && typeof v.deliverable === "object" ? parseDeliverable(v.deliverable as Record<string, unknown>) : undefined;
-    if (deliverable) ctx.progress(`Livrable prêt : ${deliverable.title}`);
-    const post = typeof v.post === "string" && v.post.trim() ? v.post.trim() : `C'est fait : ${ctx.task.title}.`;
+    if (deliverable) ctx.progress(`Deliverable ready: ${deliverable.title}`);
+    const post = typeof v.post === "string" && v.post.trim() ? v.post.trim() : `Done: ${ctx.task.title}.`;
     return { post, consulted: out.consulted, ...(deliverable ? { deliverable } : {}), ...(cofounder && typeof v.memory === "string" && v.memory.trim() ? { memory: v.memory } : {}) };
   }
 
@@ -188,14 +188,14 @@ export class ClaudeCodeRuntime implements AgentRuntime {
         for (const url of consultedOf(line, searches)) consulted.add(url);
       });
     } catch (e) {
-      if (timeout.aborted && !signal.aborted) throw new Error(`Arrêtée : la tâche a duré trop longtemps (plus de ${Math.round(this.timeoutMs / 60_000)} min).`);
+      if (timeout.aborted && !signal.aborted) throw new Error(`Stopped: the task ran too long (more than ${Math.round(this.timeoutMs / 60_000)} min).`);
       throw e;
     }
     const last = raw.trim().split("\n").filter((l) => l.includes('"type":"result"')).pop() ?? raw;
     const out = JSON.parse(last) as { is_error?: boolean; subtype?: string; result?: string; structured_output?: unknown; usage?: Record<string, number> };
-    if (out.subtype === "error_max_budget_usd") throw new Error(`Arrêtée : la tâche a dépassé son budget (${fmt.dollars(q.budgetCredits ?? 0)} au prix de l'API).`);
-    if (out.is_error) throw new Error(out.result || "Claude Code a échoué.");
-    if (out.structured_output === undefined) throw new Error("Réponse inattendue de Claude Code.");
+    if (out.subtype === "error_max_budget_usd") throw new Error(`Stopped: the task went over its budget (${fmt.dollars(q.budgetCredits ?? 0)} at API prices).`);
+    if (out.is_error) throw new Error(out.result || "Claude Code failed.");
+    if (out.structured_output === undefined) throw new Error("Unexpected answer from Claude Code.");
     const u = out.usage ?? {};
     // Covered by the subscription: tokens are kept, no dollar is spent.
     const usage = {
@@ -213,11 +213,11 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     try {
       auth = JSON.parse(await this.call(["auth", "status"], "", subscriptionEnv())) as typeof auth;
     } catch {
-      throw new Error("Claude Code introuvable : installe-le et connecte-toi (« claude », puis /login).");
+      throw new Error("Claude Code not found: install it and sign in (\"claude\", then /login).");
     }
     if (!auth.loggedIn || auth.authMethod !== "claude.ai") {
       this.checked = undefined;
-      throw new Error(`Claude Code n'utilise pas ton abonnement claude.ai (${auth.authMethod ?? "non connecté"}) : « claude » puis /login.`);
+      throw new Error(`Claude Code is not using your claude.ai subscription (${auth.authMethod ?? "not signed in"}): run "claude", then /login.`);
     }
   }
 }
@@ -228,7 +228,7 @@ function subscriptionEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-/** The subscription windows from Claude Code's « rate_limit_event » (times in seconds, kept in ms). */
+/** The subscription windows from Claude Code's "rate_limit_event" (times in seconds, kept in ms). */
 function limitsOf(line: string): SubscriptionUsage | undefined {
   if (!line.includes('"rate_limit_event"')) return undefined;
   try {
@@ -244,16 +244,16 @@ function limitsOf(line: string): SubscriptionUsage | undefined {
   }
 }
 
-/** « Je cherche : … » / « Je lis : … » from Claude Code's stream, for the Fil and the Bureau. */
+/** "Searching: …" / "Reading: …" from Claude Code's stream, for the Feed and the Office. */
 function progressOf(line: string): string | undefined {
   if (!line.includes('"tool_use"')) return undefined;
   try {
     const event = JSON.parse(line) as { type?: string; message?: { content?: { type: string; name?: string; input?: Record<string, unknown> }[] } };
     const use = event.type === "assistant" ? event.message?.content?.find((c) => c.type === "tool_use") : undefined;
-    if (use?.name === "WebSearch" && typeof use.input?.query === "string") return `Je cherche : ${use.input.query}`;
+    if (use?.name === "WebSearch" && typeof use.input?.query === "string") return `Searching: ${use.input.query}`;
     if (use?.name === "WebFetch" && typeof use.input?.url === "string") {
       try {
-        return `Je lis : ${new URL(use.input.url).hostname.replace(/^www\./, "")}`;
+        return `Reading: ${new URL(use.input.url).hostname.replace(/^www\./, "")}`;
       } catch {}
     }
   } catch {}
@@ -261,7 +261,7 @@ function progressOf(line: string): string | undefined {
 }
 
 /**
- * Pages the search engine itself returned, read from WebSearch's structured « Links: [...] » list.
+ * Pages the search engine itself returned, read from WebSearch's structured "Links: [...]" list.
  * Fetched URLs and links written inside pages were chosen by the model or by the page: never counted.
  */
 function consultedOf(line: string, searches: Set<string>): string[] {
@@ -302,22 +302,22 @@ const runClaude: ClaudeCall = (args, stdin, env, signal, onLine) =>
       for (const line of lines) onLine?.(line);
     });
     child.stderr.on("data", (d: Buffer) => (err += d));
-    child.on("error", (e) => reject(signal?.aborted ? new Error("Annulée") : e));
-    child.on("close", (code) => (out.trim() ? resolve(out) : reject(new Error(err.trim() || `claude s'est arrêté (${code}).`))));
+    child.on("error", (e) => reject(signal?.aborted ? new Error("Cancelled") : e));
+    child.on("close", (code) => (out.trim() ? resolve(out) : reject(new Error(err.trim() || `claude stopped (${code}).`))));
     child.stdin.end(stdin);
   });
 
 const HOW_TO_ANSWER = [
-  "Ici, tu n'as pas les outils publish_deliverable, plan_task, recruit ni update_memory : tu rends tout d'un coup, dans ta réponse structurée.",
-  "- post : ton court message pour le Fil.",
-  "- deliverable : ce que tu publierais avec publish_deliverable (Markdown, sources datées), ou rien.",
-  "- followups : les tâches que tu prévoirais avec plan_task.",
-  "- recruits et memory : seulement si tu es la co-fondatrice.",
+  "Here you do not have the publish_deliverable, plan_task, recruit or update_memory tools: you hand in everything at once, in your structured answer, written in English.",
+  "- post: your short message for the Feed.",
+  "- deliverable: what you would publish with publish_deliverable (Markdown, dated sources), or nothing.",
+  "- followups: the tasks you would plan with plan_task.",
+  "- recruits and memory: only if you are the co-founder.",
 ].join("\n");
 
 /** Claude Code has no search_companies tool: the same public API, read with WebFetch. */
 const REGISTRY_BY_FETCH =
-  "- Registre officiel des entreprises (vérifier un nom, trouver des prospects) : WebFetch sur https://recherche-entreprises.api.gouv.fr/search?q=<nom>&code_postal=<cp>&departement=<dep>&activite_principale=<NAF>&per_page=10 (API publique, gratuite). Cite la fiche https://annuaire-entreprises.data.gouv.fr/entreprise/<siren>. N'écris jamais le nom des dirigeants.";
+  "- Official French company registry (check a name, find prospects): WebFetch on https://recherche-entreprises.api.gouv.fr/search?q=<name>&code_postal=<postcode>&departement=<dep>&activite_principale=<NAF>&per_page=10 (public API, free). Cite the page https://annuaire-entreprises.data.gouv.fr/entreprise/<siren>. Never write the names of the directors.";
 
 const SOURCE = { type: "object", required: ["title", "url", "checkedAt"], properties: { title: { type: "string" }, url: { type: "string" }, checkedAt: { type: "string" } } };
 
