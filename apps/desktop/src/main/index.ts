@@ -15,6 +15,9 @@ import {
   needsKey,
   openEngine,
   startDiscord,
+  LeaderboardPublisher,
+  fetchLeaderboard,
+  leaderboardSettings,
   checkDiscordToken,
   saveKey,
   serve,
@@ -54,6 +57,8 @@ async function connect(): Promise<Client> {
   closeServer = () => server.close();
   engine.start();
   restartDiscord();
+  publisher = new LeaderboardPublisher({ host: engine, settings: () => leaderboardSettings(loadConfig(dir)) });
+  publisher.start();
   return new InProcessClient(engine);
 }
 
@@ -126,6 +131,36 @@ ipcMain.handle("narthex:config:get", () => {
     notifications: { legal: true, leaving: true, budget: true, deliverables: false, ...config.notifications },
     ownsEngine: Boolean(engine),
   };
+});
+
+// ---------- Classement ----------
+
+let publisher: LeaderboardPublisher | undefined;
+
+ipcMain.handle("narthex:leaderboard:get", async () => {
+  const settings = leaderboardSettings(loadConfig(dir));
+  const companies = client ? (await client.call("companies.list", {})).map((c) => c.id) : [];
+  const base = { edition: settings.edition, share: settings.share, showRevenue: settings.showRevenue, online: Boolean(settings.url), joinable: settings.edition === "hosted" && Boolean(settings.token), mine: companies };
+  if (!settings.url) return { ...base, entries: [], error: null };
+  try {
+    return { ...base, entries: await fetchLeaderboard(settings.url), error: null };
+  } catch (e) {
+    return { ...base, entries: [], error: e instanceof Error ? e.message : String(e) };
+  }
+});
+
+ipcMain.handle("narthex:leaderboard:set", async (_e, choice: { share: boolean; showRevenue: boolean }) => {
+  const config = loadConfig(dir);
+  const was = config.leaderboard?.share ?? false;
+  saveConfig(dir, { ...config, leaderboard: { ...config.leaderboard, share: choice.share, showRevenue: choice.showRevenue } });
+  if (!client) return;
+  const ids = (await client.call("companies.list", {})).map((c) => c.id);
+  // Leaving the ranking removes the companies at once; joining publishes them now.
+  if (was && !choice.share) for (const id of ids) await publisher?.withdraw(id);
+  else {
+    publisher?.stop();
+    publisher?.start();
+  }
 });
 
 // ---------- Discord ----------

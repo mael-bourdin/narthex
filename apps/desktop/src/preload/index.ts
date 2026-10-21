@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import type { Method, Params, Result, RuntimeName, StoredEvent } from "@narthex/core";
+import type { LeaderboardEntry, Method, Params, Result, RuntimeName, StoredEvent } from "@narthex/core";
 
 /** The only bridge between the page and the engine: the same API as the CLI, nothing more. */
 const api = {
@@ -33,6 +33,19 @@ const api = {
   deliverable: {
     /** Asks where to save it; resolves to the file path, or null if the founder cancelled. */
     save: (id: string): Promise<string | null> => ipcRenderer.invoke("narthex:deliverable:save", id),
+  },
+  leaderboard: {
+    get: (): Promise<{
+      edition: "open-source" | "hosted";
+      share: boolean;
+      showRevenue: boolean;
+      online: boolean;
+      joinable: boolean;
+      mine: string[];
+      entries: { rank: number; entry: LeaderboardEntry }[];
+      error: string | null;
+    }> => ipcRenderer.invoke("narthex:leaderboard:get"),
+    set: (choice: { share: boolean; showRevenue: boolean }): Promise<void> => ipcRenderer.invoke("narthex:leaderboard:set", choice),
   },
   discord: {
     get: (): Promise<{ connected: boolean; guildName: string | null; hasToken: boolean; ownsEngine: boolean }> => ipcRenderer.invoke("narthex:discord:get"),
