@@ -9,6 +9,7 @@ import {
   loadConfig,
   openEngine,
   startDiscord,
+  startWhatsApp,
   checkDiscordToken,
   fetchLeaderboard,
   leaderboardSettings,
@@ -28,6 +29,7 @@ import {
 } from "@narthex/engine";
 import * as render from "./render.ts";
 import { runSeuil } from "./seuil.ts";
+import { whatsappCommand } from "./whatsapp.ts";
 import { bold, clean, dim, red, rule, violet } from "./style.ts";
 
 const HELP = `${bold("narthex")} — une équipe d'agents IA qui crée et fait tourner ton entreprise.
@@ -62,6 +64,7 @@ ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque c
   narthex vente [montant] [--note "…"] Enregistrer une vente (la première ouvre l'étape « en activité »)
   narthex reessayer <id>                Relancer une obligation bloquée après plusieurs échecs
   narthex pause | reprendre             Mettre l'équipe en pause
+  narthex whatsapp [off | relier]        L'équipe t'écrit sur WhatsApp (via wacli, non officiel)
   narthex discord [jeton | serveur <id> | off]  L'équipe écrit sur ton Discord (un salon par équipe)
   narthex classement rejoindre | quitter | montant <oui|non>  Ta place au classement (version hébergée)
   narthex recommencer [--oui]           Archiver l'entreprise et revoir le premier lancement
@@ -126,6 +129,8 @@ async function main(): Promise<void> {
       return discord();
     case "classement":
       return classement();
+    case "whatsapp":
+      return whatsappCommand(dir, args[0]);
   }
   await withClient(async (client) => {
     if (command === "entreprises" || command === "choisir") return companies(client);
@@ -435,6 +440,8 @@ async function lancer(): Promise<void> {
   engine.start();
   const stopDiscord = startDiscord(engine, dir, (e) => print(dim(`  Discord : ${e.message}`)));
   if (stopDiscord) print(dim(`Discord : l'équipe écrit aussi sur ${loadConfig(dir).discord?.guildName ?? "ton serveur"}.`));
+  const stopWhatsApp = startWhatsApp(engine, dir, (e) => print(dim(`  WhatsApp : ${e.message}`)));
+  if (stopWhatsApp) print(dim(`WhatsApp : l'équipe t'écrit aussi au +${loadConfig(dir).whatsapp?.phone}.`));
   const publisher = new LeaderboardPublisher({ host: engine, settings: () => leaderboardSettings(loadConfig(dir)) });
   publisher.start();
 
@@ -446,6 +453,7 @@ async function lancer(): Promise<void> {
     }
     stopping = true;
     stopDiscord?.();
+    stopWhatsApp?.();
     publisher.stop();
     print(dim("\nJ'attends que l'équipe finisse ce qu'elle a commencé… (Ctrl+C encore pour couper net)"));
     server.close();

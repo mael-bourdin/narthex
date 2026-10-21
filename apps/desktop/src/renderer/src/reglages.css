@@ -87,3 +87,7 @@ label.rg-row { cursor: text; }
 .rg-figure { display: flex; align-items: flex-start; gap: 12px; margin: 0 8px; padding: 10px 0; border-top: 1px solid var(--border-subtle); }
 .rg-side > header + .rg-figure { border-top: 0; padding-top: 4px; }
 .rg-figure-value { font-size: 20px; line-height: 26px; font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* WhatsApp QR inside Réglages: the same as the first launch, in the flow of the card. */
+.rg-table .seuil-qr { position: static; transform: none; width: 100%; align-items: flex-start; text-align: left; margin: 10px 0; }
+.rg-table .seuil-qr .seuil-choice { display: none; }

@@ -30,6 +30,8 @@ export const SEUIL = {
   askKey: "Pour penser, j'ai besoin d'une clé. Colle ta clé API : Anthropic, OpenAI, ou OpenRouter pour choisir parmi tous les modèles.",
   keyAside: "Elle reste sur ton ordinateur. Tu peux la retirer quand tu veux.",
   checking: "Vérification…",
+  askWhatsApp: "Dernière chose : tu veux qu'on t'écrive sur WhatsApp ? Tu suivras l'équipe sans ouvrir l'app.",
+  whatsAppLater: "Tu pourras le brancher plus tard : narthex whatsapp, ou Réglages · Intégrations.",
   badKey: "Cette clé ne marche pas. Vérifie-la et recolle-la.",
   skipKey: "Pas de clé pour l'instant ? Plus tard",
   noKeyYet: "D'accord. L'équipe préparera tout et attendra ta clé pour se mettre au travail.",

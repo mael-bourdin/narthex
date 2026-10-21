@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, Notification, shell } from "electron";
+import QRCode from "qrcode";
 import { deliverableMarkdown, overBudget, type Method, type Params, type RoleId, type StoredEvent, type TaskLevel } from "@narthex/core";
 import {
   AnthropicRuntime,
@@ -15,6 +16,13 @@ import {
   needsKey,
   openEngine,
   startDiscord,
+  startWhatsApp,
+  wacliInstalled,
+  pairWhatsApp,
+  sendWhatsApp,
+  unlinkWhatsApp,
+  WHATSAPP_RISK,
+  WACLI_INSTALL,
   LeaderboardPublisher,
   fetchLeaderboard,
   leaderboardSettings,
@@ -190,7 +198,47 @@ let stopDiscord: (() => void) | undefined;
 function restartDiscord(): void {
   stopDiscord?.();
   stopDiscord = engine ? startDiscord(engine, dir, (e) => console.error(`Discord : ${e.message}`)) : undefined;
+  stopWhatsApp?.();
+  stopWhatsApp = engine ? startWhatsApp(engine, dir, (e) => console.error(`WhatsApp : ${e.message}`)) : undefined;
 }
+
+// ---------- WhatsApp (wacli) ----------
+
+let stopWhatsApp: (() => void) | undefined;
+let pairing: AbortController | undefined;
+
+ipcMain.handle("narthex:whatsapp:get", async () => ({
+  installed: await wacliInstalled(),
+  phone: loadConfig(dir).whatsapp?.phone ?? null,
+  risk: WHATSAPP_RISK,
+  install: WACLI_INSTALL,
+}));
+
+/** Links the phone: each QR code wacli gives is drawn here and sent to the page, which shows it. */
+ipcMain.handle("narthex:whatsapp:pair", async (event) => {
+  pairing?.abort();
+  pairing = new AbortController();
+  const result = await pairWhatsApp(
+    dir,
+    (code) => void QRCode.toString(code, { type: "svg", margin: 1, color: { dark: "#0b0b0d", light: "#ffffff" } }).then((svg) => event.sender.send("narthex:whatsapp:qr", svg)),
+    pairing.signal,
+  );
+  pairing = undefined;
+  if (!result.ok) return result;
+  saveConfig(dir, { ...loadConfig(dir), whatsapp: { phone: result.phone } });
+  await sendWhatsApp(dir, result.phone, "*Margaux* · Co-fondatrice\nC'est branché : l'équipe t'écrira ici, dans tes messages à toi-même.").catch(() => undefined);
+  restartDiscord();
+  return result;
+});
+
+ipcMain.handle("narthex:whatsapp:cancel", () => pairing?.abort());
+
+ipcMain.handle("narthex:whatsapp:unlink", async () => {
+  await unlinkWhatsApp(dir);
+  const { whatsapp: _gone, ...rest } = loadConfig(dir);
+  saveConfig(dir, rest);
+  restartDiscord();
+});
 
 ipcMain.handle("narthex:discord:get", () => {
   const d = loadConfig(dir).discord;

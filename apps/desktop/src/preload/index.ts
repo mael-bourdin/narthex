@@ -17,6 +17,18 @@ const api = {
     submitKey: (key: string): Promise<{ ok: true; applied: boolean } | { ok: false; message: string }> =>
       ipcRenderer.invoke("narthex:onboarding:submitKey", key) as Promise<{ ok: true; applied: boolean } | { ok: false; message: string }>,
   },
+  whatsapp: {
+    get: (): Promise<{ installed: boolean; phone: string | null; risk: string; install: string }> => ipcRenderer.invoke("narthex:whatsapp:get"),
+    pair: (): Promise<{ ok: true; phone: string } | { ok: false; message: string }> => ipcRenderer.invoke("narthex:whatsapp:pair"),
+    cancel: (): Promise<void> => ipcRenderer.invoke("narthex:whatsapp:cancel"),
+    unlink: (): Promise<void> => ipcRenderer.invoke("narthex:whatsapp:unlink"),
+    /** Each new QR code, as an SVG drawn by the main process. Returns how to stop listening. */
+    onQr: (listener: (svg: string) => void): (() => void) => {
+      const handler = (_e: unknown, svg: string) => listener(svg);
+      ipcRenderer.on("narthex:whatsapp:qr", handler);
+      return () => ipcRenderer.off("narthex:whatsapp:qr", handler);
+    },
+  },
   config: {
     get: (): Promise<{
       dir: string;
