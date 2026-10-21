@@ -1,0 +1,15 @@
+{
+  "name": "@narthex/leaderboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Service du classement public des entreprises de la version hébergée de Narthex : reçoit les entrées (jeton), publie le classement.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "node src/main.ts",
+    "admin": "node src/admin.ts"
+  }
+}

@@ -22,3 +22,4 @@ export * from "./chatter.ts";
 export * from "./analytics.ts";
 export * from "./office.ts";
 export * from "./reglages.ts";
+export * from "./leaderboard.ts";

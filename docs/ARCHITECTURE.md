@@ -49,6 +49,10 @@ Toute tâche passe par `guardTask` : les actions externes attendent le délai d'
 - `SimulationRuntime` : agents scriptés, hors ligne, déterministes. Pour essayer sans clé, pour les tests, pour développer l'interface.
 - `AnthropicRuntime` : API Messages, un préfixe stable et mis en cache par rôle (outils, identité, garde-fous, fiche entreprise), puis la tâche. Outils : `web_search`, `web_fetch` (serveur), `publish_deliverable`, `plan_task`, `post_progress`, `update_memory` (stricts, entrées revalidées). Le dernier texte de l'agent devient son message dans le Fil. Usage converti en crédits (1 crédit = 0,01 $).
 
+## Le classement
+
+`packages/leaderboard` est un petit service à part (Node, `node:sqlite`) qui ne tourne que pour la version hébergée. Chaque instance hébergée reçoit un jeton (`npm run admin -w @narthex/leaderboard -- issue <nom>`) ; seul son hash est gardé. `PUT /v1/entries/:id` avec le jeton, `GET /v1/leaderboard` public. La première instance qui publie une entreprise en devient propriétaire. Côté moteur, `LeaderboardPublisher` n'envoie rien si `edition` vaut `open-source` (le défaut) ou si le fondateur n'a pas choisi d'apparaître ; ce qui part est `leaderboardEntry` (core) : nom, ville, prénom, étape, bureau, ventes, chiffre d'affaires en tranche, âge. Jamais l'idée, les livrables ni la mémoire.
+
 ## Multiplateforme
 
 | | macOS | Windows | Linux |

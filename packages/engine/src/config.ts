@@ -19,6 +19,10 @@ export interface Config {
   notifications?: { legal?: boolean; leaving?: boolean; budget?: boolean; deliverables?: boolean };
   /** The founder's Discord: bot token, server, and the channels made for each company. */
   discord?: { token: string; guildId?: string; guildName?: string; setups?: Record<string, import("./connectors/discord.ts").DiscordCompanySetup> };
+  /** Open source (default: everything stays at home) or the hosted version (can join the public ranking). */
+  edition?: "open-source" | "hosted";
+  /** The public ranking: where it lives, this instance's token (hosted), and the founder's choices. */
+  leaderboard?: { url?: string; token?: string; share?: boolean; showRevenue?: boolean };
   /** The company the app and the CLI show (several can run). */
   activeCompany?: string;
   /** Simulation only: simulated minutes per real second. */
@@ -70,4 +74,15 @@ export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.e
 export function needsKey(config: Config, env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.NARTHEX_RUNTIME === "simulation" || env.NARTHEX_RUNTIME === "claude-code") return false;
   return !(config.anthropicApiKey || config.runtime === "anthropic" || config.runtime === "simulation");
+}
+
+/** The ranking settings with their defaults: open source, not shared, revenue as a band. */
+export function leaderboardSettings(config: Config): import("./leaderboard.ts").LeaderboardSettings {
+  return {
+    edition: config.edition ?? "open-source",
+    ...(config.leaderboard?.url ? { url: config.leaderboard.url } : {}),
+    ...(config.leaderboard?.token ? { token: config.leaderboard.token } : {}),
+    share: config.leaderboard?.share ?? false,
+    showRevenue: config.leaderboard?.showRevenue ?? false,
+  };
 }
