@@ -102,16 +102,26 @@ describe("revision: guard on external actions", () => {
     "Commander 200 pots chez le fournisseur",
     "Appeler les trois concept stores",
     "Mettre en ligne la page d'accueil",
+    "Send the 50 prospecting emails",
+    "Publish the Instagram launch post",
+    "Order 200 jars from the supplier",
+    "Call the three concept stores",
+    "Put the home page online",
+    "Write to the Lille concept stores",
+    "Post the launch video on TikTok",
   ])("never lets « %s » leave without a cancel window, whatever the agent says", (title) => {
     const r = guardTask(s, { agentId: "s", title, why: "", kind: "internal" }, NOW);
     expect(r.ok && r.task.kind).toBe("external");
     expect(r.ok && r.task.cancellableUntil).toBeGreaterThan(NOW);
   });
 
-  it("keeps preparing work internal", () => {
-    const r = guardTask(s, { agentId: "s", title: "Rédiger les e-mails de prospection (brouillons)", why: "", kind: "internal" }, NOW);
-    expect(r.ok && r.task.kind).toBe("internal");
-  });
+  it.each(["Rédiger les e-mails de prospection (brouillons)", "Send the prospecting emails (drafts)", "Write the launch post", "Post-launch review of the first week"])(
+    "keeps preparing work like « %s » internal",
+    (title) => {
+      const r = guardTask(s, { agentId: "s", title, why: "", kind: "internal" }, NOW);
+      expect(r.ok && r.task.kind).toBe("internal");
+    },
+  );
 
   const asked = replay([{ ...founded, settings: { ...DEFAULT_SETTINGS, alwaysAsk: ["prix", "publicite-payante"] } } as DomainEvent]);
   it.each([
@@ -121,12 +131,21 @@ describe("revision: guard on external actions", () => {
     ["Nouvelle grille tarifaire : +15 %", "prix"],
     ["Augmenter dès le mois prochain, pour tous les abonnés, le prix", "prix"],
     ["Mettre en place une réduction de 20 %", "prix"],
+    ["Launch a Google Ads campaign at €200 a month", "publicite-payante"],
+    ["Boost our Instagram posts with €50", "publicite-payante"],
+    ["Run paid ads on Meta", "publicite-payante"],
+    ["Raise our prices by 10%", "prix"],
+    ["New price list: +15%", "prix"],
+    ["Increase, from next month and for every subscriber, the price", "prix"],
+    ["Offer a 20% discount", "prix"],
   ])("recognises « %s » as reserved", (title, tag) => {
     expect(reservedTopic(asked, title)).toBe(tag);
   });
 
   it("still lets research about prices through", () => {
     expect(reservedTopic(asked, "Étude des prix des concurrents à Lille")).toBeUndefined();
+    expect(reservedTopic(asked, "Study competitors' prices in Lille")).toBeUndefined();
+    expect(reservedTopic(asked, "Market study: customers, competitors, prices")).toBeUndefined();
   });
 });
 
