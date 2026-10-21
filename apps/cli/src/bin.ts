@@ -340,6 +340,12 @@ async function classement(): Promise<void> {
       const gone = await Promise.all(ids.map((id) => withdrawFromLeaderboard(settings, id)));
       return print(gone.every(Boolean) ? "Tes entreprises ont quitté le classement." : "C'est noté. Le classement ne répond pas : tes entreprises en sortiront dès qu'il répondra (relance « narthex classement quitter »).");
     }
+    if (action === "montant" && !leaderboard.showRevenue && settings.share) {
+      // The exact amount must not stay visible: take the entries down now; the team republishes them with a band.
+      const ids = await withClient((client) => client.call("companies.list", {})).then((l) => l.map((c) => c.id));
+      const done = await Promise.all(ids.map((id) => withdrawFromLeaderboard(settings, id)));
+      return print(done.every(Boolean) ? "Le montant exact est retiré. Tes entreprises reviennent avec une tranche dès que l'équipe tourne." : "C'est noté, mais le classement ne répond pas : relance « narthex classement montant non » pour retirer le montant.");
+    }
     if (action === "rejoindre") return print(`${bold("C'est noté.")} Tes entreprises apparaîtront au classement dès que l'équipe tourne (app ou « narthex lancer »). Nom, ville, ton prénom, étape, bureau, ventes : jamais ton idée ni tes documents.`);
     return print(leaderboard.showRevenue ? "Le montant exact de ton chiffre d'affaires sera affiché." : "Seule une tranche de chiffre d'affaires sera affichée.");
   }
@@ -350,7 +356,7 @@ async function classement(): Promise<void> {
   const mine = new Set(await withClient((client) => client.call("companies.list", {})).then((l) => l.map((c) => c.id)).catch(() => [] as string[]));
   print(bold("Classement"));
   for (const { rank, entry: e } of entries) {
-    const line = `${String(rank).padStart(3)}  ${clean(e.name)} ${dim(`· ${[e.city, STAGE_LABEL[e.stage], OFFICES[e.office]?.name, e.revenue !== undefined ? fmt.euros(e.revenue) : e.revenueBand, `${e.sales} vente${e.sales > 1 ? "s" : ""}`, `${e.days} j`].filter(Boolean).join(" · ")}`)}`;
+    const line = `${String(rank).padStart(3)}  ${clean(e.name)} ${dim(`· ${[e.city && clean(e.city), STAGE_LABEL[e.stage], OFFICES[e.office]?.name, e.revenue !== undefined ? fmt.euros(e.revenue) : e.revenueBand, `${e.sales} vente${e.sales > 1 ? "s" : ""}`, `${e.days} j`].filter(Boolean).join(" · ")}`)}`;
     print(mine.has(e.companyId) ? violet(line) : line);
   }
   if (settings.edition !== "hosted") print(dim("\nTu utilises la version open source : tes entreprises n'y figurent pas, tes données restent chez toi."));

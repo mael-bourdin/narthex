@@ -80,7 +80,8 @@ export function rankLeaderboard(entries: readonly LeaderboardEntry[]): { rank: n
 /** What the leaderboard service accepts: a well-formed entry with sane sizes. */
 export function validEntry(value: unknown): value is LeaderboardEntry {
   const e = value as Partial<LeaderboardEntry> | null;
-  const text = (v: unknown, max: number) => typeof v === "string" && v.trim().length > 0 && v.length <= max;
+  // No control characters: names end up printed in terminals.
+  const text = (v: unknown, max: number) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f\u007f-\u009f]/.test(v);
   const optional = (v: unknown, max: number) => v === undefined || text(v, max);
   const count = (v: unknown, max: number) => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= max;
   return (

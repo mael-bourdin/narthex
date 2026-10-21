@@ -1,4 +1,4 @@
-import { leaderboardEntry, type LeaderboardEntry, type StoredEvent } from "@narthex/core";
+import { leaderboardEntry, validEntry, type LeaderboardEntry, type StoredEvent } from "@narthex/core";
 import type { Host } from "./host.ts";
 
 export interface LeaderboardSettings {
@@ -23,14 +23,33 @@ const MOVES = new Set(["company.founded", "stage.changed", "office.moved", "sale
  * an open-source install. Failures are silent: the ranking is a bonus, never in the way of the work.
  */
 export class LeaderboardPublisher {
-  private readonly options: { host: Pick<Host, "subscribe" | "stateOf" | "handle" | "now">; settings: () => LeaderboardSettings; fetch: Fetch; debounceMs: number };
+  private readonly options: { host: Pick<Host, "subscribe" | "stateOf" | "handle" | "now">; settings: () => LeaderboardSettings; fetch: Fetch; debounceMs: number; watchMs: number };
   private readonly pending = new Map<string, ReturnType<typeof setTimeout>>();
   private queue: Promise<void> = Promise.resolve();
   private off: (() => void) | undefined;
   private timer: ReturnType<typeof setInterval> | undefined;
+  private watcher: ReturnType<typeof setInterval> | undefined;
+  private seen = "";
 
-  constructor(options: { host: Pick<Host, "subscribe" | "stateOf" | "handle" | "now">; settings: () => LeaderboardSettings; fetch?: Fetch; debounceMs?: number }) {
-    this.options = { fetch: (globalThis.fetch as unknown as Fetch), debounceMs: 60_000, ...options };
+  constructor(options: { host: Pick<Host, "subscribe" | "stateOf" | "handle" | "now">; settings: () => LeaderboardSettings; fetch?: Fetch; debounceMs?: number; watchMs?: number }) {
+    this.options = { fetch: (globalThis.fetch as unknown as Fetch), debounceMs: 60_000, watchMs: 30_000, ...options };
+  }
+
+  private choice(): string {
+    const s = this.options.settings();
+    return JSON.stringify([s.edition, s.url, s.token, s.share, s.showRevenue]);
+  }
+
+  /** The founder may change their choice from another process (the CLI while the app runs): follow it at once. */
+  private async follow(): Promise<void> {
+    const now = this.choice();
+    if (now === this.seen) return;
+    this.seen = now;
+    const ids = (await this.options.host.handle("companies.list", {})).map((c) => c.id);
+    const s = this.options.settings();
+    // Stopped sharing: leave now. Otherwise republish with the new choice, without waiting.
+    if (!this.active() && s.edition === "hosted" && !s.share) await Promise.all(ids.map((id) => this.withdraw(id)));
+    else for (const id of ids) this.queue = this.queue.then(() => this.publish(id)).catch(() => {});
   }
 
   private active(): LeaderboardSettings | undefined {
@@ -45,6 +64,9 @@ export class LeaderboardPublisher {
     void this.options.host.handle("companies.list", {}).then((list) => list.forEach((c) => this.schedule(c.id)));
     this.timer ??= setInterval(() => void this.options.host.handle("companies.list", {}).then((list) => list.forEach((c) => this.schedule(c.id))), 6 * 3_600_000);
     this.timer.unref?.();
+    this.seen = this.choice();
+    this.watcher ??= setInterval(() => void this.follow().catch(() => {}), this.options.watchMs);
+    this.watcher.unref?.();
   }
 
   stop(): void {
@@ -52,6 +74,8 @@ export class LeaderboardPublisher {
     this.off = undefined;
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+    if (this.watcher) clearInterval(this.watcher);
+    this.watcher = undefined;
     for (const t of this.pending.values()) clearTimeout(t);
     this.pending.clear();
   }
@@ -114,6 +138,7 @@ export async function withdrawFromLeaderboard(s: LeaderboardSettings, companyId:
 export async function fetchLeaderboard(url: string, fetchImpl: (u: string, i: { signal: AbortSignal }) => Promise<{ ok: boolean; json(): Promise<unknown> }> = globalThis.fetch as never): Promise<{ rank: number; entry: LeaderboardEntry }[]> {
   const res = await fetchImpl(`${url.replace(/\/$/, "")}/v1/leaderboard?limit=100`, { signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error("Le classement ne répond pas pour l'instant.");
-  const body = (await res.json()) as { entries?: { rank: number; entry: LeaderboardEntry }[] };
-  return Array.isArray(body.entries) ? body.entries : [];
+  const body = (await res.json()) as { entries?: unknown };
+  // The service is remote: keep only well-formed entries (no control characters, known stages and bands).
+  return Array.isArray(body.entries) ? body.entries.filter((r): r is { rank: number; entry: LeaderboardEntry } => !!r && Number.isInteger(r.rank) && validEntry(r.entry)) : [];
 }
