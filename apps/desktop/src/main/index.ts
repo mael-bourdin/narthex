@@ -100,7 +100,13 @@ function snapshot(win: BrowserWindow, file: string): void {
   win.webContents.once("did-finish-load", () => {
     const tab = process.env.NARTHEX_SNAPSHOT_TAB;
     // The tabs appear once the engine answered: try for a while.
-    if (tab) void win.webContents.executeJavaScript(`(async () => { for (let i = 0; i < 100; i++) { const b = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(tab)} || b.getAttribute("aria-label") === ${JSON.stringify(tab)}); if (b) return b.click(); await new Promise((r) => setTimeout(r, 200)); } })()`);
+    // « Réglages>API et modèles »: one click after the other.
+    if (tab)
+      void win.webContents
+        .executeJavaScript(
+          `(async () => { const done = []; for (const name of ${JSON.stringify(tab.normalize("NFC").split(">"))}) { for (let i = 0; i < 100; i++) { const b = [...document.querySelectorAll("button")].find((b) => b.textContent.trim().normalize("NFC") === name || b.getAttribute("aria-label") === name); if (b) { b.click(); done.push(name); break; } await new Promise((r) => setTimeout(r, 200)); } await new Promise((r) => setTimeout(r, 300)); } return done; })()`,
+        )
+        .then((done: string[]) => process.env.NARTHEX_SNAPSHOT_DEBUG && process.stderr.write(`clicked: ${done.join(" > ")}\n`));
     setTimeout(async () => {
       const image = await win.webContents.capturePage();
       writeFileSync(file, image.toPNG());

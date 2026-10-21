@@ -747,7 +747,7 @@ function ApiModels({ state, status, config, events, onChange }: { state: Company
           <Table
             title="Modèle par agent"
             cols={["Agent", "Modèle", "Par mois"]}
-            grid="minmax(0, 1fr) 210px 90px"
+            grid="minmax(0, 1fr) 280px 90px"
             note={total > 0 ? `Estimation au rythme des 7 derniers jours : environ ${fmt.dollars(total)} par mois.` : "Pas encore d'estimation : l'équipe n'a rien dépensé ces 7 derniers jours."}
           >
             {roles.map((r) => {
