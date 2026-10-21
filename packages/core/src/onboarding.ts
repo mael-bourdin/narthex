@@ -27,7 +27,7 @@ export interface FirstLook {
 
 export const SEUIL = {
   hello: "Bonsoir. Je suis Margaux, ta future co-fondatrice.",
-  askKey: "Pour penser, j'ai besoin d'une clé. Colle ta clé API Anthropic.",
+  askKey: "Pour penser, j'ai besoin d'une clé. Colle ta clé API : Anthropic, OpenAI, ou OpenRouter pour choisir parmi tous les modèles.",
   keyAside: "Elle reste sur ton ordinateur. Tu peux la retirer quand tu veux.",
   checking: "Vérification…",
   badKey: "Cette clé ne marche pas. Vérifie-la et recolle-la.",

@@ -1,5 +1,7 @@
 import { AnthropicRuntime } from "./anthropic.ts";
 import { ClaudeCodeRuntime } from "./claude-code.ts";
+import { CompatibleRuntime } from "./compatible.ts";
+import type { AgentRuntime } from "./runtime.ts";
 import { SimulatedClock, systemClock } from "./clock.ts";
 import { apiKey, chooseRuntime, loadConfig, saveConfig, type Config } from "./config.ts";
 import { Host } from "./host.ts";
@@ -35,14 +37,8 @@ function build(dir: string, env: NodeJS.ProcessEnv, config: Config, onClose: () 
   const store = new SqliteEventStore(databasePath(dir));
   const runtimeName = chooseRuntime(config, env);
 
-  if (runtimeName === "anthropic") {
-    const key = apiKey(config, env);
-    const runtime = new AnthropicRuntime({ ...(key ? { apiKey: key } : {}), ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) });
-    return { engine: new Host({ store, runtime, clock: systemClock, passive, onClose, ...company(dir, config), checkLink: httpLinkCheck }), dir, config };
-  }
-
-  if (runtimeName === "claude-code") {
-    const runtime = new ClaudeCodeRuntime({ ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) });
+  if (runtimeName !== "none" && runtimeName !== "simulation") {
+    const runtime = makeRuntime(config, env)!;
     return { engine: new Host({ store, runtime, clock: systemClock, passive, onClose, ...company(dir, config), checkLink: httpLinkCheck }), dir, config };
   }
 
@@ -56,6 +52,28 @@ function build(dir: string, env: NodeJS.ProcessEnv, config: Config, onClose: () 
   // Simulated minutes per real second → simulated ms per real ms.
   const clock = new SimulatedClock(Math.max(Date.now(), (last ?? 0) + 1), (config.simulationSpeed ?? 0) * 60);
   return { engine: new Host({ store, runtime: new SimulationRuntime(), clock, tickMs: 1_000, passive, onClose, ...company(dir, config) }), dir, config };
+}
+
+/** The agents the player's setup allows: Claude, another provider with their key, or nobody yet (null). */
+export function makeRuntime(config: Config, env: NodeJS.ProcessEnv = process.env): AgentRuntime | null {
+  const name = chooseRuntime(config, env);
+  const common = { ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) };
+  switch (name) {
+    case "anthropic": {
+      const key = apiKey(config, env);
+      return new AnthropicRuntime({ ...(key ? { apiKey: key } : {}), ...common });
+    }
+    case "claude-code":
+      return new ClaudeCodeRuntime(common);
+    case "openrouter":
+    case "openai":
+    case "compatible":
+      return new CompatibleRuntime({ provider: name, apiKey: config.keys![name]!, ...(config.baseUrl ? { baseURL: config.baseUrl } : {}), ...(config.levels ? { levels: config.levels } : {}), ...common });
+    case "simulation":
+      return new SimulationRuntime();
+    default:
+      return null;
+  }
 }
 
 /** The company shown first, and remembering the founder's choice. */
