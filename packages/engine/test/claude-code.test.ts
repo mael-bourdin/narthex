@@ -161,7 +161,7 @@ describe("ClaudeCodeRuntime (dev only: the developer's own Claude Code)", () => 
     const work = calls.find((c) => c.args[0] === "-p")!;
     expect(work.args[work.args.indexOf("--max-budget-usd") + 1]).toBe("1.5");
     const { call: over } = fake({ type: "result", is_error: true, subtype: "error_max_budget_usd", errors: ["Reached maximum budget ($1.5)"] });
-    await expect(new ClaudeCodeRuntime({ call: over }).run(ctx)).rejects.toThrow(/over its budget \(1,50 \$ at API prices/);
+    await expect(new ClaudeCodeRuntime({ call: over }).run(ctx)).rejects.toThrow(/over its budget \(\$1\.50 at API prices/);
   });
 });
 

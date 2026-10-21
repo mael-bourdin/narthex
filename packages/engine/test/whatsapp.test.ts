@@ -62,7 +62,7 @@ describe("WhatsApp through wacli", () => {
     await host.handle("company.found", { name: "Lumen", idea: "Bougies", founderName: "Inès" });
     await bridge.idle();
     expect(sent.length).toBeGreaterThan(0);
-    expect(sent[0]).toMatch(/^\*Margaux\* · Co-fondatrice · Lumen\n/);
+    expect(sent[0]).toMatch(/^\*Margaux\* · Co-founder · Lumen\n/);
     expect(sent.join("\n")).not.toContain("**");
     bridge.stop();
   });

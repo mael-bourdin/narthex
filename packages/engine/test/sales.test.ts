@@ -21,6 +21,6 @@ describe("moving to a better office", () => {
     for (const cents of [150_000, 100_000, 80_000]) await e.handle("sale.record", { amountCents: cents });
     const s = e.getState();
     expect(s.office).toBe(2);
-    expect(s.posts.filter((p) => p.text.includes("bureaux en ville"))).toHaveLength(1);
+    expect(s.posts.filter((p) => p.text.includes("real offices in town"))).toHaveLength(1);
   });
 });

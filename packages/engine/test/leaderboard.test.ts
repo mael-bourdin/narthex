@@ -28,7 +28,7 @@ describe("leaderboard publisher", () => {
     await publisher.idle();
     const last = calls.at(-1)!;
     expect(last).toMatchObject({ url: `https://classement.example/v1/entries/${s.company!.id}`, method: "PUT", auth: "Bearer nxl_abc" });
-    expect(last.body).toMatchObject({ name: "Maison Lumen", founder: "Inès", sales: 1, revenueBand: "1 000 à 5 000 €" });
+    expect(last.body).toMatchObject({ name: "Maison Lumen", founder: "Inès", sales: 1, revenueBand: "€1,000–5,000" });
     expect(last.body.revenue).toBeUndefined();
     publisher.stop();
   });

@@ -22,6 +22,7 @@ import {
   forFounder,
   role,
   team,
+  WORKING,
   type CompanyState,
   type Deliverable,
   type EngineStatus,
@@ -41,8 +42,6 @@ const STAGE: Record<Stage, string> = {
   operating: "operating",
 };
 
-/** The agent's default progress note, in either language (older logs are French). */
-const WORKING = new Set(["Au travail…", "At work…", "Working…"]);
 
 export function header(s: CompanyState, status: EngineStatus): string {
   const c = s.company!;
@@ -132,7 +131,7 @@ export function postBlock(s: CompanyState, agentId: string, at: number, text: st
 export function equipe(s: CompanyState, now: number): string {
   const rows = team(s).map((m) => {
     const state = m.current
-      ? `${green("●")} ${clean(m.current.progress && !WORKING.has(m.current.progress) ? m.current.progress : m.current.title)}`
+      ? `${green("●")} ${clean(m.current.progress && !WORKING.includes(m.current.progress) ? m.current.progress : m.current.title)}`
       : m.next
         ? `${dim("○")} ${dim(`next: ${clean(m.next.title)} · ${fmt.relative(m.next.scheduledAt, now)}`)}`
         : `${dim("○ resting")}`;

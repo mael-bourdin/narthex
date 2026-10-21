@@ -31,7 +31,7 @@ describe("Discord", () => {
     const setup = await setupCompany(api, "g1", "Maison Lumen");
     const created = calls.filter((c) => c.method === "POST" && c.path === "/guilds/g1/channels").map((c) => c.body);
     expect(created[0]).toMatchObject({ name: "Maison Lumen", type: 4 });
-    expect(created.slice(1).map((b) => b!.name)).toEqual(["général", "décisions", "recherche", "juridique-et-compta", "ventes-et-com"]);
+    expect(created.slice(1).map((b) => b!.name)).toEqual(["general", "decisions", "research", "legal-and-accounts", "sales-and-marketing"]);
     expect(created.slice(1).every((b) => b!.parent_id === setup.categoryId && b!.type === 0)).toBe(true);
     expect(Object.keys(setup.channels)).toEqual(["general", "decisions", "recherche", "juridique", "ventes"]);
     expect(setup.channels.recherche.webhookToken).toMatch(/^tok/);
