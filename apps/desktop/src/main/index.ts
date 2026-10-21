@@ -93,12 +93,9 @@ function createWindow(): void {
 /** NARTHEX_SNAPSHOT=out.png: saves a picture of the window, then quits (docs, visual checks, CI). NARTHEX_SNAPSHOT_TAB opens a tab first. */
 function snapshot(win: BrowserWindow, file: string): void {
   win.webContents.once("did-finish-load", () => {
+    const tab = process.env.NARTHEX_SNAPSHOT_TAB;
+    if (tab) setTimeout(() => void win.webContents.executeJavaScript(`[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(tab)})?.click()`), 1500);
     setTimeout(async () => {
-      const tab = process.env.NARTHEX_SNAPSHOT_TAB;
-      if (tab) {
-        await win.webContents.executeJavaScript(`[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(tab)})?.click()`);
-        await new Promise((r) => setTimeout(r, 800));
-      }
       const image = await win.webContents.capturePage();
       writeFileSync(file, image.toPNG());
       app.quit();
