@@ -58,7 +58,7 @@ describe("pageFrame", () => {
       { type: "task.planned", task: { id: "t9", agentId: "samir", title: "Écrire aux prospects", why: "", kind: "external", status: "planned", createdAt: NOW, scheduledAt: NOW + 20 * H, cancellableUntil: NOW + 20 * H, tag: "outreach" } },
     ]);
     const f = pageFrame(s, [], "Ventes", "Prospects", NOW);
-    expect(f.pilot).toEqual({ title: "Samir : une action part dans 20 h", detail: "Écrire aux prospects · tu peux l'annuler d'ici là", agentId: "samir" });
+    expect(f.pilot).toEqual({ title: "Samir : une action part in 20 h", detail: "Écrire aux prospects · tu peux l'annuler d'ici là", agentId: "samir" });
     expect(f.figures[1]).toMatchObject({ label: "Envois prévus", value: "1" });
   });
 });

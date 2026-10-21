@@ -53,6 +53,7 @@ describe("leaderboard", () => {
 describe("fmt.euros", () => {
   it("shows revenue in whole euros", async () => {
     const { fmt } = await import("../src/index.ts");
-    expect(fmt.euros(125_000)).toBe("1 250 €");
+    expect(fmt.euros(125_000)).toBe("€1,250");
+    expect(fmt.euros(4_250)).toBe("€42.50");
   });
 });
