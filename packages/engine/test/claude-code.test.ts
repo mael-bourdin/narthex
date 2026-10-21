@@ -3,6 +3,8 @@ import { DEFAULT_SETTINGS, replay, type DomainEvent } from "@narthex/core";
 import { ClaudeCodeRuntime, chooseRuntime, needsKey, type ClaudeCall, type FollowUp, type WorkContext } from "../src/index.ts";
 
 const NOW = Date.UTC(2026, 9, 19, 9);
+/** Before the five-hour window in the fake stream starts again. */
+const BEFORE_RESET = 1792570000_000;
 const events: DomainEvent[] = [
   { type: "company.founded", company: { id: "c", name: "Lumen", idea: "Bougies", founder: { name: "Inès" }, foundedAt: NOW, stage: "research", paused: false }, settings: DEFAULT_SETTINGS },
   { type: "agent.hired", reason: "", agent: { id: "m", name: "Margaux", role: "cofondateur", hiredAt: NOW, status: "idle", skill: { success: 0, failure: 0 }, autonomy: 1 } },
@@ -123,4 +125,43 @@ describe("ClaudeCodeRuntime (dev only: the developer's own Claude Code)", () => 
     expect(chooseRuntime({ runtime: "claude-code" } as never, {})).toBe("none");
     expect(needsKey({}, { NARTHEX_RUNTIME: "claude-code" })).toBe(false);
   });
+
+  it("reads how full the subscription is from Claude Code's stream", async () => {
+    const limits = { type: "rate_limit_event", rate_limit_info: { status: "allowed", unifiedWindows: { five_hour: { utilization: 0.42, resetsAt: 1792580400 }, seven_day: { utilization: 0.68, resetsAt: 1792951200 } } } };
+    const { call } = fake(RESULT, "claude.ai", [limits]);
+    const runtime = new ClaudeCodeRuntime({ call, now: () => BEFORE_RESET });
+    expect(runtime.subscription()).toBeUndefined();
+    await runtime.run(context({ plans: [], recruits: [], spent: [] }));
+    expect(runtime.subscription()).toEqual({ status: "allowed", fiveHour: { utilization: 0.42, resetsAt: 1792580400_000 }, sevenDay: { utilization: 0.68, resetsAt: 1792951200_000 } });
+    expect(runtime.unavailable()).toBeUndefined();
+  });
+
+  it("starts nothing new once a window is nearly full, so nothing spills into paid usage", async () => {
+    const full = { type: "rate_limit_event", rate_limit_info: { status: "allowed", unifiedWindows: { five_hour: { utilization: 0.93, resetsAt: 1792580400 }, seven_day: { utilization: 0.5, resetsAt: 1792951200 } } } };
+    const { call } = fake(RESULT, "claude.ai", [full]);
+    const runtime = new ClaudeCodeRuntime({ call, now: () => BEFORE_RESET });
+    await runtime.run(context({ plans: [], recruits: [], spent: [] }));
+    expect(runtime.unavailable()).toMatch(/93 %.*5 h/);
+    await expect(runtime.firstLook({ idea: "Bougies", founderName: "Inès", now: NOW, signal: new AbortController().signal })).rejects.toThrow(/93 %/);
+    const blocked = { type: "rate_limit_event", rate_limit_info: { status: "rejected", unifiedWindows: { five_hour: { utilization: 1, resetsAt: 1792580400 } } } };
+    const { call: call2 } = fake(RESULT, "claude.ai", [blocked]);
+    const runtime2 = new ClaudeCodeRuntime({ call: call2, maxUtilization: 0.99, now: () => BEFORE_RESET });
+    await runtime2.run(context({ plans: [], recruits: [], spent: [] }));
+    expect(runtime2.unavailable()).toMatch(/limite/);
+    // Once the window has started again, work resumes without waiting for a new call.
+    const later = new ClaudeCodeRuntime({ call, now: () => 1792580400_000 + 1 });
+    await later.run(context({ plans: [], recruits: [], spent: [] }));
+    expect(later.unavailable()).toBeUndefined();
+  });
+
+  it("caps each task at its usual budget, counted at the API price", async () => {
+    const { call, calls } = fake(RESULT);
+    const ctx = { ...context({ plans: [], recruits: [], spent: [] }), remainingCredits: () => 150 };
+    await new ClaudeCodeRuntime({ call }).run(ctx);
+    const work = calls.find((c) => c.args[0] === "-p")!;
+    expect(work.args[work.args.indexOf("--max-budget-usd") + 1]).toBe("1.5");
+    const { call: over } = fake({ type: "result", is_error: true, subtype: "error_max_budget_usd", errors: ["Reached maximum budget ($1.5)"] });
+    await expect(new ClaudeCodeRuntime({ call: over }).run(ctx)).rejects.toThrow(/dépassé son budget \(1,50 \$ au prix/);
+  });
 });
+

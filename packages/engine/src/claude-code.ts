@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
-import { role, ROLES, type FirstLook, type RoleId } from "@narthex/core";
+import { fmt, role, ROLES, type FirstLook, type RoleId } from "@narthex/core";
 import { REMARK_SCHEMA, remarkSystem, REFLECT_SCHEMA, REFLECT_SYSTEM, reflectionFrom, reflectPrompt, TIDY_SCHEMA, TIDY_SYSTEM, tidyFrom, tidyPrompt, brief, companySheet, DEFAULT_MODEL, FACTS_SCHEMA, FACTS_SYSTEM, factsFrom, factsPrompt, MEMORY_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
-import type { AgentRuntime, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, RemarkInput, RemarkResult, FactsInput, FactsResult, WorkContext, WorkResult } from "./runtime.ts";
+import type { AgentRuntime, SubscriptionUsage, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, RemarkInput, RemarkResult, FactsInput, FactsResult, WorkContext, WorkResult } from "./runtime.ts";
 
 /**
  * DEVELOPMENT ONLY. The developer's own Claude Code (`claude -p`), on their own claude.ai subscription,
@@ -22,6 +22,9 @@ export interface ClaudeCodeRuntimeOptions {
   models?: Partial<Record<RoleId, string>>;
   /** Claude Code has no turn limit: a task that runs longer is stopped. 20 minutes by default. */
   timeoutMs?: number;
+  /** No new work past this share of a subscription window (0 to 1), so nothing spills into paid usage. 0.9 by default. */
+  maxUtilization?: number;
+  now?: () => number;
 }
 
 const ROLE_IDS = ROLES.map((r) => r.id);
@@ -34,13 +37,44 @@ export class ClaudeCodeRuntime implements AgentRuntime {
   private readonly models: Partial<Record<RoleId, string>>;
   private readonly timeoutMs: number;
   private checked?: Promise<void>;
+  private limits: SubscriptionUsage | undefined;
+  private readonly maxUtilization: number;
+  private readonly now: () => number;
 
   constructor(options: ClaudeCodeRuntimeOptions = {}) {
     this.timeoutMs = options.timeoutMs ?? 20 * 60_000;
+    this.maxUtilization = options.maxUtilization ?? 0.9;
+    this.now = options.now ?? Date.now;
     this.call = options.call ?? runClaude;
     this.model = options.model ?? DEFAULT_MODEL;
     this.chosen = options.model;
     this.models = options.models ?? {};
+  }
+
+  /** Last state of the subscription windows Claude Code reported, if any call was made. */
+  subscription(): SubscriptionUsage | undefined {
+    return this.limits;
+  }
+
+  /** Nothing new starts while a window is nearly full or blocked; it resumes once the window starts again. */
+  unavailable(): string | undefined {
+    const l = this.limits;
+    if (!l) return undefined;
+    const now = this.now();
+    const windows = [
+      { label: "sa fenêtre de 5 h", w: l.fiveHour },
+      { label: "sa semaine", w: l.sevenDay },
+    ].filter((x): x is { label: string; w: { utilization: number; resetsAt: number } } => !!x.w && x.w.resetsAt > now);
+    const until = (at: number) => `${fmt.day(at)} vers ${fmt.hour(at)}`;
+    if (l.status === "rejected") {
+      const next = windows.sort((a, b) => b.w.resetsAt - a.w.resetsAt)[0];
+      if (next) return `Ton abonnement a atteint sa limite : l'équipe reprend ${until(next.w.resetsAt)}.`;
+      if (!l.fiveHour && !l.sevenDay) return "Ton abonnement a atteint sa limite.";
+      return undefined;
+    }
+    const full = windows.find((x) => x.w.utilization >= this.maxUtilization);
+    if (full) return `Ton abonnement est à ${Math.round(full.w.utilization * 100)} % de ${full.label} : l'équipe reprend ${until(full.w.resetsAt)}.`;
+    return undefined;
   }
 
   async firstLook(input: { idea: string; founderName: string; now: number; signal: AbortSignal }): Promise<FirstLook> {
@@ -96,6 +130,7 @@ export class ClaudeCodeRuntime implements AgentRuntime {
         model: this.models[ctx.agent.role] ?? this.chosen ?? def.model,
         effort: def.effort,
         web: def.tools.includes("web_search") || def.tools.includes("web_fetch"),
+        ...(ctx.remainingCredits ? { budgetCredits: ctx.remainingCredits() } : {}),
       },
       ctx.signal,
       (note) => ctx.progress(note),
@@ -115,11 +150,14 @@ export class ClaudeCodeRuntime implements AgentRuntime {
   }
 
   private async ask(
-    q: { system: string; prompt: string; schema: object; model: string; effort: string; web: boolean },
+    q: { system: string; prompt: string; schema: object; model: string; effort: string; web: boolean; budgetCredits?: number },
     signal: AbortSignal,
     progress: (note: string) => void,
   ): Promise<{ value: unknown; usage: NonNullable<WorkResult["usage"]>; consulted: string[] }> {
     await (this.checked ??= this.checkSubscription());
+    // Memory, remarks and first looks too: nothing goes out while the subscription is nearly full.
+    const full = this.unavailable();
+    if (full) throw new Error(full);
     const args = [
       "-p",
       "--output-format", "stream-json",
@@ -134,6 +172,8 @@ export class ClaudeCodeRuntime implements AgentRuntime {
       "--setting-sources", "",
       "--strict-mcp-config",
       "--no-session-persistence",
+      // The task's usual budget, counted at the API price: a runaway task stops even on the subscription.
+      ...(q.budgetCredits !== undefined ? ["--max-budget-usd", String(Math.max(0.01, q.budgetCredits / 100))] : []),
     ];
     const timeout = AbortSignal.timeout(this.timeoutMs);
     const consulted = new Set<string>();
@@ -141,6 +181,8 @@ export class ClaudeCodeRuntime implements AgentRuntime {
     let raw: string;
     try {
       raw = await this.call(args, q.prompt, subscriptionEnv(), AbortSignal.any([signal, timeout]), (line) => {
+        const limits = limitsOf(line);
+        if (limits) this.limits = limits;
         const note = progressOf(line);
         if (note) progress(note);
         for (const url of consultedOf(line, searches)) consulted.add(url);
@@ -150,7 +192,8 @@ export class ClaudeCodeRuntime implements AgentRuntime {
       throw e;
     }
     const last = raw.trim().split("\n").filter((l) => l.includes('"type":"result"')).pop() ?? raw;
-    const out = JSON.parse(last) as { is_error?: boolean; result?: string; structured_output?: unknown; usage?: Record<string, number> };
+    const out = JSON.parse(last) as { is_error?: boolean; subtype?: string; result?: string; structured_output?: unknown; usage?: Record<string, number> };
+    if (out.subtype === "error_max_budget_usd") throw new Error(`Arrêtée : la tâche a dépassé son budget (${fmt.dollars(q.budgetCredits ?? 0)} au prix de l'API).`);
     if (out.is_error) throw new Error(out.result || "Claude Code a échoué.");
     if (out.structured_output === undefined) throw new Error("Réponse inattendue de Claude Code.");
     const u = out.usage ?? {};
@@ -183,6 +226,22 @@ export class ClaudeCodeRuntime implements AgentRuntime {
 function subscriptionEnv(): NodeJS.ProcessEnv {
   const { ANTHROPIC_API_KEY: _key, ANTHROPIC_AUTH_TOKEN: _token, ...env } = process.env;
   return env;
+}
+
+/** The subscription windows from Claude Code's « rate_limit_event » (times in seconds, kept in ms). */
+function limitsOf(line: string): SubscriptionUsage | undefined {
+  if (!line.includes('"rate_limit_event"')) return undefined;
+  try {
+    const info = (JSON.parse(line) as { rate_limit_info?: { status?: string; unifiedWindows?: Record<string, { utilization?: number; resetsAt?: number }> } }).rate_limit_info;
+    if (!info?.status) return undefined;
+    const win = (w?: { utilization?: number; resetsAt?: number }) =>
+      w && typeof w.utilization === "number" && typeof w.resetsAt === "number" ? { utilization: w.utilization, resetsAt: w.resetsAt * 1000 } : undefined;
+    const fiveHour = win(info.unifiedWindows?.five_hour);
+    const sevenDay = win(info.unifiedWindows?.seven_day);
+    return { status: info.status, ...(fiveHour ? { fiveHour } : {}), ...(sevenDay ? { sevenDay } : {}) };
+  } catch {
+    return undefined;
+  }
 }
 
 /** « Je cherche : … » / « Je lis : … » from Claude Code's stream, for the Fil and the Bureau. */

@@ -122,4 +122,15 @@ export interface AgentRuntime {
   reflect?(input: ReflectionInput): Promise<ReflectionResult>;
   /** Team chat: a short answer from a colleague, with a small model. Absent in simulation. */
   remark?(input: RemarkInput): Promise<RemarkResult>;
+  /** Why nobody should start work right now (a subscription window nearly full), or undefined. Tasks wait, planned. */
+  unavailable?(): string | undefined;
+  /** How full the developer's Claude subscription is (claude-code runtime only). */
+  subscription?(): SubscriptionUsage | undefined;
+}
+
+export interface SubscriptionUsage {
+  status: string;
+  /** Share used, 0 to 1, and when the window starts again (ms). */
+  fiveHour?: { utilization: number; resetsAt: number };
+  sevenDay?: { utilization: number; resetsAt: number };
 }

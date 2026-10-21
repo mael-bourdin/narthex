@@ -260,7 +260,26 @@ export class Engine {
   }
 
   status(): EngineStatus {
-    return { version: ENGINE_VERSION, runtime: this.runtime?.name ?? "none", now: this.now(), companyId: this.companyId, running: this.work.size, passive: this.passive };
+    const unavailable = this.runtime?.unavailable?.();
+    const sub = this.runtime?.subscription?.();
+    return {
+      version: ENGINE_VERSION,
+      runtime: this.runtime?.name ?? "none",
+      now: this.now(),
+      companyId: this.companyId,
+      running: this.work.size,
+      passive: this.passive,
+      ...(unavailable ? { unavailable } : {}),
+      ...(sub
+        ? {
+            subscription: {
+              ...(sub.fiveHour ? { fiveHour: sub.fiveHour.utilization } : {}),
+              ...(sub.sevenDay ? { sevenDay: sub.sevenDay.utilization } : {}),
+              ...(sub.fiveHour ? { resetsAt: sub.fiveHour.resetsAt } : {}),
+            },
+          }
+        : {}),
+    };
   }
 
   private requireCompany(): void {
@@ -560,7 +579,8 @@ export class Engine {
         this.plan(intent.draft);
         return;
       case "start-task":
-        if (this.runtime) this.startTask(intent.taskId);
+        // A runtime that cannot take work now (subscription window full): the task stays planned.
+        if (this.runtime && !this.runtime.unavailable?.()) this.startTask(intent.taskId);
         return;
       case "move-office": {
         this.emit({ type: "office.moved", tier: intent.tier, at: now });
