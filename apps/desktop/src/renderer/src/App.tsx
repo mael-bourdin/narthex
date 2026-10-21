@@ -103,7 +103,7 @@ export function App() {
       <main className="page">
         {tab === "Fil" && <Fil state={state} status={status} onChange={refresh} onAgent={openAgent} />}
         {tab === "Équipe" && (
-          <Equipe state={state} status={status} view={equipeView} agentId={agentId} onView={setEquipeView} onAgent={openAgent} onChange={refresh} />
+          <Equipe state={state} status={status} view={equipeView} agentId={agentId} onView={setEquipeView} onAgent={openAgent} onBureau={() => { setTab("Bureau"); setAgentId(undefined); }} onChange={refresh} />
         )}
         {tab === "Entreprise" && (
           <Entreprise
