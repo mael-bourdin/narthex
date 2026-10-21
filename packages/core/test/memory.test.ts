@@ -95,3 +95,11 @@ describe("journal search (L3): « pourquoi a-t-on décidé X ? »", () => {
     expect(searchJournal(s, "nom Maison Lumen").map((h) => h.id)).toEqual(["new"]);
   });
 });
+
+describe("terms", () => {
+  it("drops English and French stop words alike", async () => {
+    const { terms } = await import("../src/memory.ts");
+    expect(terms("Why did we decide the price of the candles?")).toEqual(["price", "candle"]);
+    expect(terms("Pourquoi a-t-on choisi le parfum des bougies ?")).toEqual(["parfum", "bougie"]);
+  });
+});

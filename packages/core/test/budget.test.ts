@@ -35,7 +35,7 @@ describe("daily budget", () => {
   it("tells the founder on the sign, with a way to raise it", () => {
     const s = replay([...base, spend(300)]);
     const budget = missions(s, NOW + H, "anthropic").find((m) => m.kind === "budget");
-    expect(budget).toMatchObject({ action: "budget", title: "Budget du jour atteint" });
+    expect(budget).toMatchObject({ action: "budget", title: "Today's budget reached" });
   });
 
   it("follows a raised budget", () => {

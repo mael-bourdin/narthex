@@ -25,7 +25,7 @@ export function deliverableSheet(
   now: Timestamp,
   runtime: RuntimeName,
 ): DeliverableSheet {
-  // The page shows the title already; a trailing « --- » only separated sections that are now rows.
+  // The page shows the title already; a trailing "---" only separated sections that are now rows.
   const tidy = (md: string) => md.trim().replace(/(\n\s*(-{3,}|\*{3,}|_{3,})\s*)+$/, "").trim();
   const [intro = "", ...parts] = d.body.replace(/^\s*#[ \t][^\n]*\n/, "").split(/^##[ \t]+/m);
   const sections = parts.map((part) => {
@@ -41,8 +41,8 @@ export function deliverableSheet(
   const task = state.tasks[d.taskId];
   const domains = [...new Set(d.sources.flatMap((s) => (s.url ? [hostOf(s.url)] : [])).filter(Boolean))];
   const meta = [
-    `Rédigé par ${agent?.name ?? "l'équipe"}`,
-    ...(task?.startedAt && task.endedAt ? [`${duration(task.endedAt - task.startedAt)} de travail`] : []),
+    `Written by ${agent?.name ?? "the team"}`,
+    ...(task?.startedAt && task.endedAt ? [`${duration(task.endedAt - task.startedAt)} of work`] : []),
     ...(d.sources.length ? [`${d.sources.length} source${d.sources.length > 1 ? "s" : ""}`] : []),
     ...(domains.length ? [domains.slice(0, 3).join(", ")] : []),
   ];
@@ -62,10 +62,10 @@ function hostOf(url: string): string {
   }
 }
 
-/** The deliverable as a Markdown file the founder keeps (app « Enregistrer », CLI « livrable --md »). */
+/** The deliverable as a Markdown file the founder keeps (app "Save", CLI "deliverable --md"). */
 export function deliverableMarkdown(state: CompanyState, d: Deliverable): string {
-  const by = state.agents[d.agentId]?.name ?? "l'équipe";
-  const sources = d.sources.map((s) => `- ${s.url ? `[${s.title}](${s.url})` : s.title}${s.checkedAt ? ` · vérifié le ${s.checkedAt}` : ""}`);
-  const date = new Date(d.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
-  return [`# ${d.title}`, `_Rédigé par ${by} · ${date}_`, d.body.trim(), ...(sources.length ? [`## Sources\n\n${sources.join("\n")}`] : [])].join("\n\n") + "\n";
+  const by = state.agents[d.agentId]?.name ?? "the team";
+  const sources = d.sources.map((s) => `- ${s.url ? `[${s.title}](${s.url})` : s.title}${s.checkedAt ? ` · checked on ${s.checkedAt}` : ""}`);
+  const date = new Date(d.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
+  return [`# ${d.title}`, `_Written by ${by} · ${date}_`, d.body.trim(), ...(sources.length ? [`## Sources\n\n${sources.join("\n")}`] : [])].join("\n\n") + "\n";
 }

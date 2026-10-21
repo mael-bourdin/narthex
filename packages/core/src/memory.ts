@@ -7,10 +7,17 @@ import type { CompanyState, Fact, Id, RoleId, Timestamp } from "./types.ts";
  */
 
 const STOP = new Set(
-  "a au aux avec ce ces cet cette d de des du elle en est et il ils je j l la le les leur lui ma mais me mes mon ne nos notre nous on ou par pas pour qu que qui quoi quel quelle sa se ses son sont sur ta te tes toi ton tu un une vos votre vous y pourquoi comment quand a-t-on t avons avez ont fait faire decide choisi".split(" "),
+  [
+    // French (older logs)
+    "a au aux avec ce ces cet cette d de des du elle en est et il ils je j l la le les leur lui ma mais me mes mon ne nos notre nous on ou par pas pour qu que qui quoi quel quelle sa se ses son sont sur ta te tes toi ton tu un une vos votre vous y pourquoi comment quand a-t-on t avons avez ont fait faire decide choisi",
+    // English
+    "an and or the of to in on at for with by from as is are was were be been it its this that these those we us our you your they their he she his her i me my what why how when who which did do does done make made decide decided chose choose about not no s",
+  ]
+    .join(" ")
+    .split(" "),
 );
 
-/** Lowercase, no accents, no stop words, a naive French plural strip. */
+/** Lowercase, no accents, no stop words (English and French), a naive plural strip. */
 export function terms(text: string): string[] {
   return text
     .toLowerCase()
@@ -80,7 +87,7 @@ export interface JournalHit {
   at: Timestamp;
 }
 
-/** « Pourquoi a-t-on décidé X ? »: the tasks, deliverables and facts that answer, with their reason. No model. */
+/** "Why did we decide X?": the tasks, deliverables and facts that answer, with their reason. No model. */
 export function searchJournal(state: CompanyState, question: string, limit = 8): JournalHit[] {
   const hits: (JournalHit & { text: string })[] = [
     ...Object.values(state.tasks).map((t) => ({ kind: "task" as const, id: t.id, title: t.title, why: t.why, agentId: t.agentId, at: t.createdAt, text: `${t.title} ${t.why}` })),

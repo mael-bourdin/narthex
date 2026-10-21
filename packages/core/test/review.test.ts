@@ -89,8 +89,7 @@ describe("revision: the journal tells the sale", () => {
   it("lists the founder's sale", async () => {
     const { journalEntries } = await import("../src/index.ts");
     const events = [founded, { type: "sale.recorded", sale: { id: "v", at: NOW, amountCents: 3990, note: "Marché" } }].map((e, i) => ({ ...e, seq: i + 1, ts: NOW, companyId: "c" }) as StoredEvent);
-    // French currency formatting puts a narrow no-break space before €.
-    expect(journalEntries(replay(events), events).some((e) => /^Tu as enregistré une vente de 39,90\s€ · Marché$/u.test(e.text))).toBe(true);
+    expect(journalEntries(replay(events), events).some((e) => e.text === "You recorded a sale of €39.90 · Marché")).toBe(true);
   });
 });
 
@@ -191,9 +190,23 @@ describe("revision: journal wording", () => {
     ] as DomainEvent[];
     const events = list.map((e, i) => ({ ...e, seq: i + 1, ts: NOW + i, companyId: "c" }) as StoredEvent);
     const entries = journalEntries(replay(events), events);
-    const cut = entries.find((e) => e.text.includes("interrompue"))!;
+    const cut = entries.find((e) => e.text.includes("interrupted"))!;
     expect(cut.kind).not.toBe("problem");
-    expect(entries.some((e) => e.text === "Obligation remplie : « Vérifier que le nom est libre »")).toBe(true);
+    expect(entries.some((e) => e.text === 'Obligation done: "Vérifier que le nom est libre"')).toBe(true);
+  });
+
+  it("reads the English interruption the engine now writes as a cut too", async () => {
+    const { journalEntries } = await import("../src/index.ts");
+    const list = [
+      founded,
+      hire("h", "juridique"),
+      { type: "task.planned", task: { id: "t", agentId: "h", title: "Check that the name is free", why: "", kind: "internal", status: "planned", createdAt: NOW, scheduledAt: NOW } },
+      { type: "task.started", taskId: "t", at: NOW },
+      { type: "task.failed", taskId: "t", at: NOW, error: "Interrupted (Narthex was closed)." },
+    ] as DomainEvent[];
+    const events = list.map((e, i) => ({ ...e, seq: i + 1, ts: NOW + i, companyId: "c" }) as StoredEvent);
+    const entries = journalEntries(replay(events), events);
+    expect(entries[0]).toMatchObject({ text: '"Check that the name is free" interrupted, will resume later', kind: "work" });
   });
 });
 

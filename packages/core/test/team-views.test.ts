@@ -42,7 +42,7 @@ describe("recruitments", () => {
   it("lists who arrived and who Margaux plans to bring, with why and when", () => {
     const r = recruitments(replay(events));
     expect(r.arrived.map((a) => a.agent.name)).toEqual(["Margaux", "Léa"]);
-    expect(r.planned).toEqual([{ role: expect.objectContaining({ id: "prospection" }), why: "Les premiers clients", when: "à la création de la société" }]);
+    expect(r.planned).toEqual([{ role: expect.objectContaining({ id: "prospection" }), why: "Les premiers clients", when: "when the company is set up" }]);
   });
 });
 
@@ -58,13 +58,13 @@ describe("agentSheet", () => {
 });
 
 describe("journalEntries", () => {
-  it("turns the event log into plain French sentences, newest first", () => {
+  it("turns the event log into plain English sentences, newest first", () => {
     const s = replay(events);
     const stored = events.map((e, i) => ({ ...e, companyId: "c", seq: i + 1, ts: NOW - (events.length - i) * H })) as StoredEvent[];
     const j = journalEntries(s, stored);
-    expect(j[0]!.text).toBe("Léa a terminé « Étude »");
-    expect(j.at(-1)!.text).toBe("Inès a fondé Lumen");
-    expect(j.find((e) => e.text.startsWith("Léa rejoint"))?.agentId).toBe("lea");
+    expect(j[0]!.text).toBe('Léa finished "Étude"');
+    expect(j.at(-1)!.text).toBe("Inès founded Lumen");
+    expect(j.find((e) => e.text.startsWith("Léa joins the team"))?.agentId).toBe("lea");
   });
 });
 

@@ -20,29 +20,29 @@ const revenue = (s: CompanyState) => (s.sales ?? []).reduce((n, v) => n + (v.amo
 const team = (s: CompanyState) => Object.keys(s.agents).length;
 
 export const OFFICES: readonly Office[] = [
-  { tier: 0, name: "La petite maison", line: "", when: () => true },
+  { tier: 0, name: "The little house", line: "", when: () => true },
   {
     tier: 1,
-    name: "Le petit local",
-    line: "Surprise : avec ce qu'on a construit, l'équipe peut quitter la petite maison. Bienvenue dans le petit local, un vrai bureau pour chacun.",
+    name: "The small office",
+    line: "Surprise: with what we've built, the team can leave the little house. Welcome to the small office, a real desk for everyone.",
     when: (s) => atLeast(s, "launch") || revenue(s) >= 50_000,
   },
   {
     tier: 2,
-    name: "Les bureaux en ville",
-    line: "Les ventes suivent : l'équipe s'offre de vrais bureaux en ville, avec de la lumière et des plantes. On déménage !",
+    name: "The offices in town",
+    line: "Sales are coming in: the team treats itself to real offices in town, with light and plants. We're moving.",
     when: (s) => revenue(s) >= 300_000 && (s.sales?.length ?? 0) >= 3,
   },
   {
     tier: 3,
-    name: "Le plateau",
-    line: "On grandit : un plateau entier pour l'équipe, avec une salle de réunion vitrée et un coin pour souffler.",
+    name: "The whole floor",
+    line: "We're growing: a whole floor for the team, with a glass meeting room and a corner to catch your breath.",
     when: (s) => revenue(s) >= 1_500_000 && team(s) >= 6,
   },
   {
     tier: 4,
-    name: "La tour",
-    line: "Ça y est : l'équipe s'installe dans une tour, sur plusieurs étages, avec un ascenseur et une vue sur toute la ville.",
+    name: "The tower",
+    line: "This is it: the team moves into a tower, over several floors, with a lift and a view over the whole city.",
     when: (s) => revenue(s) >= 6_000_000,
   },
 ];
