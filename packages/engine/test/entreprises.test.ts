@@ -45,7 +45,7 @@ describe("API Recherche d'entreprises", () => {
   });
 
   it("refuses an empty search and says when the service is down", async () => {
-    await expect(searchCompanies({}, { fetch: async () => ({ ok: true, status: 200, json: async () => RAW }) })).rejects.toThrow(/critère/);
+    await expect(searchCompanies({}, { fetch: async () => ({ ok: true, status: 200, json: async () => RAW }) })).rejects.toThrow(/criterion/);
     await expect(searchCompanies({ q: "x" }, { fetch: async () => ({ ok: false, status: 429, json: async () => ({}) }) })).rejects.toThrow(/429/);
   });
 

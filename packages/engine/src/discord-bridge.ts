@@ -74,7 +74,7 @@ export class DiscordBridge {
 
 /**
  * Starts the bridge when the founder connected Discord (token and server chosen), from the process that
- * runs the companies (the app or « narthex lancer »). Returns how to stop it.
+ * runs the companies (the app or "narthex lancer"). Returns how to stop it.
  */
 export function startDiscord(host: DiscordBridgeOptions["host"], dir: string, onError?: (e: Error) => void): (() => void) | undefined {
   const discord = loadConfig(dir).discord;
@@ -97,11 +97,11 @@ export function startDiscord(host: DiscordBridgeOptions["host"], dir: string, on
 
 /** Checks a bot token and lists the servers the bot was invited to. Saves nothing. */
 export async function checkDiscordToken(token: string, api = new DiscordApi(token)): Promise<{ ok: true; bot: string; guilds: { id: string; name: string }[] } | { ok: false; message: string }> {
-  if (!token.trim()) return { ok: false, message: "Colle le jeton du bot." };
+  if (!token.trim()) return { ok: false, message: "Paste the bot token." };
   try {
     const me = await api.me();
     return { ok: true, bot: me.username, guilds: await api.guilds() };
   } catch {
-    return { ok: false, message: "Ce jeton ne marche pas. Recopie-le depuis le portail développeur de Discord (Bot · Reset Token)." };
+    return { ok: false, message: "This token doesn't work. Copy it again from the Discord developer portal (Bot · Reset Token)." };
   }
 }

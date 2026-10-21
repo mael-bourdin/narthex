@@ -1,7 +1,7 @@
 import type { StoredEvent } from "./events.ts";
-import { filView, xpFor, type TeamRow } from "./fil.ts";
+import { filView, INTERRUPTED, xpFor, type TeamRow } from "./fil.ts";
 import { staffingOf } from "./policy.ts";
-import { dayKey } from "./format.ts";
+import { dayKey, euros } from "./format.ts";
 import { role, type RoleDef } from "./roles.ts";
 import type { Agent, CompanyState, Id, Lesson, Obligation, RoleId, Stage, Task, Timestamp } from "./types.ts";
 import { calendar, forFounder } from "./views.ts";
@@ -9,11 +9,11 @@ import { calendar, forFounder } from "./views.ts";
 /** Read models of the Équipe tab. Pure, from real events only. */
 
 const WHEN: Record<Stage, string> = {
-  idea: "dès l'idée",
-  research: "pendant l'étude",
-  creation: "à la création de la société",
-  launch: "au lancement",
-  operating: "une fois l'entreprise en activité",
+  idea: "from the idea",
+  research: "during the study",
+  creation: "when the company is set up",
+  launch: "at the launch",
+  operating: "once the company is up and running",
 };
 
 export interface OrgChart {
@@ -53,7 +53,7 @@ export interface AgentSheet {
   next: Task[];
   finished: { task: Task; result?: string; deliverableId?: Id }[];
   sources: string[];
-  /** The same sources, short: the site's name when there is a link (« insee.fr »), else the title. */
+  /** The same sources, short: the site's name when there is a link ("insee.fr"), else the title. */
   sourceSites: string[];
   /** L4: what this role learnt from its work, most useful first. */
   lessons: Lesson[];
@@ -104,48 +104,48 @@ export interface JournalEntry {
   kind: "company" | "team" | "work" | "founder" | "problem";
 }
 
-const STAGE_NAME: Record<Stage, string> = { idea: "idée", research: "étude", creation: "création", launch: "lancement", operating: "en activité" };
+const STAGE_NAME: Record<Stage, string> = { idea: "idea", research: "study", creation: "setup", launch: "launch", operating: "up and running" };
 
 /** The Journal: every meaningful event, as a sentence, newest first. */
 export function journalEntries(state: CompanyState, events: readonly StoredEvent[]): JournalEntry[] {
-  const name = (id?: string) => (id && state.agents[id]?.name) || "L'équipe";
-  const title = (id: string) => state.tasks[id]?.title ?? "une tâche";
+  const name = (id?: string) => (id && state.agents[id]?.name) || "The team";
+  const title = (id: string) => state.tasks[id]?.title ?? "a task";
   const entries = events.flatMap((e): JournalEntry[] => {
     switch (e.type) {
       case "company.founded":
-        return [{ at: e.ts, text: `${e.company.founder.name} a fondé ${e.company.name}`, kind: "company" }];
+        return [{ at: e.ts, text: `${e.company.founder.name} founded ${e.company.name}`, kind: "company" }];
       case "agent.hired":
-        return [{ at: e.ts, text: `${e.agent.name} rejoint l'équipe (${role(e.agent.role).title})`, detail: e.reason, agentId: e.agent.id, kind: "team" }];
+        return [{ at: e.ts, text: `${e.agent.name} joins the team (${role(e.agent.role).title})`, detail: e.reason, agentId: e.agent.id, kind: "team" }];
       case "stage.changed":
-        return [{ at: e.ts, text: `L'entreprise passe à l'étape « ${STAGE_NAME[e.stage]} »`, kind: "company" }];
+        return [{ at: e.ts, text: `The company moves to the "${STAGE_NAME[e.stage]}" stage`, kind: "company" }];
       case "task.started": {
         const t = state.tasks[e.taskId];
-        return [{ at: e.ts, text: `${name(t?.agentId)} commence « ${title(e.taskId)} »`, ...(t?.why ? { detail: t.why } : {}), ...(t ? { agentId: t.agentId } : {}), kind: "work" }];
+        return [{ at: e.ts, text: `${name(t?.agentId)} starts "${title(e.taskId)}"`, ...(t?.why ? { detail: t.why } : {}), ...(t ? { agentId: t.agentId } : {}), kind: "work" }];
       }
       case "task.completed": {
         const t = state.tasks[e.taskId];
-        return [{ at: e.ts, text: `${name(t?.agentId)} a terminé « ${title(e.taskId)} »`, ...(e.deliverable ? { detail: e.deliverable.summary } : {}), ...(t ? { agentId: t.agentId } : {}), kind: "work" }];
+        return [{ at: e.ts, text: `${name(t?.agentId)} finished "${title(e.taskId)}"`, ...(e.deliverable ? { detail: e.deliverable.summary } : {}), ...(t ? { agentId: t.agentId } : {}), kind: "work" }];
       }
       case "task.failed": {
         const t = state.tasks[e.taskId];
         // Cut by closing Narthex: not the agent's failure, it will be taken up again.
-        if (e.interrupted || e.error.startsWith("Interrompue (Narthex")) return [{ at: e.ts, text: `« ${title(e.taskId)} » interrompue, reprise plus tard`, detail: e.error, ...(t ? { agentId: t.agentId } : {}), kind: "work" }];
-        return [{ at: e.ts, text: `« ${title(e.taskId)} » n'a pas abouti`, detail: e.error, ...(t ? { agentId: t.agentId } : {}), kind: "problem" }];
+        if (e.interrupted || INTERRUPTED.test(e.error)) return [{ at: e.ts, text: `"${title(e.taskId)}" interrupted, will resume later`, detail: e.error, ...(t ? { agentId: t.agentId } : {}), kind: "work" }];
+        return [{ at: e.ts, text: `"${title(e.taskId)}" didn't work out`, detail: e.error, ...(t ? { agentId: t.agentId } : {}), kind: "problem" }];
       }
       case "task.cancelled":
-        return [{ at: e.ts, text: `${e.by === "founder" ? "Tu as annulé" : "L'équipe a annulé"} « ${title(e.taskId)} »`, kind: "founder" }];
+        return [{ at: e.ts, text: `${e.by === "founder" ? "You cancelled" : "The team cancelled"} "${title(e.taskId)}"`, kind: "founder" }];
       case "obligation.fulfilled":
-        return [{ at: e.ts, text: e.by === "founder" ? `Tu as fait « ${state.obligations[e.obligationId]?.title ?? ""} »` : `Obligation remplie : « ${state.obligations[e.obligationId]?.title ?? ""} »`, kind: e.by === "founder" ? "founder" : "work", ...(e.by !== "founder" ? { agentId: e.by } : {}) }];
+        return [{ at: e.ts, text: e.by === "founder" ? `You did "${state.obligations[e.obligationId]?.title ?? ""}"` : `Obligation done: "${state.obligations[e.obligationId]?.title ?? ""}"`, kind: e.by === "founder" ? "founder" : "work", ...(e.by !== "founder" ? { agentId: e.by } : {}) }];
       case "sale.recorded":
-        return [{ at: e.ts, text: `Tu as enregistré une vente${e.sale.amountCents !== undefined ? ` de ${(e.sale.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}` : ""}${e.sale.note ? ` · ${e.sale.note}` : ""}`, kind: "founder" }];
+        return [{ at: e.ts, text: `You recorded a sale${e.sale.amountCents !== undefined ? ` of ${euros(e.sale.amountCents)}` : ""}${e.sale.note ? ` · ${e.sale.note}` : ""}`, kind: "founder" }];
       case "obligation.stuck":
-        return [{ at: e.ts, text: `Bloqué sur « ${state.obligations[e.obligationId]?.title ?? ""} » : ${e.error}`, kind: "problem" }];
+        return [{ at: e.ts, text: `Stuck on "${state.obligations[e.obligationId]?.title ?? ""}": ${e.error}`, kind: "problem" }];
       case "obligation.retried":
-        return [{ at: e.ts, text: `Tu as demandé de reprendre « ${state.obligations[e.obligationId]?.title ?? ""} »`, kind: "founder" }];
+        return [{ at: e.ts, text: `You asked the team to try "${state.obligations[e.obligationId]?.title ?? ""}" again`, kind: "founder" }];
       case "company.paused":
-        return [{ at: e.ts, text: "Équipe mise en pause", kind: "founder" }];
+        return [{ at: e.ts, text: "Team paused", kind: "founder" }];
       case "company.resumed":
-        return [{ at: e.ts, text: "L'équipe reprend", kind: "founder" }];
+        return [{ at: e.ts, text: "The team is back at work", kind: "founder" }];
       default:
         return [];
     }

@@ -86,8 +86,8 @@ describe("revision: nothing pretends to have left the company", () => {
       { type: "company.founded", company: { id: "c", name: "L", idea: "I", founder: { name: "I" }, foundedAt: START, stage: "research", paused: false }, settings: DEFAULT_SETTINGS },
     ] as DomainEvent[]);
     const text = brief({ state: s, agent, task: { ...task, kind: "external", title: "Envoyer les e-mails" }, now: START } as WorkContext);
-    expect(text).not.toContain("tu peux agir");
-    expect(text).toMatch(/aucun outil/);
+    expect(text).not.toContain("you can act");
+    expect(text).toMatch(/no tool to act outside/);
   });
 });
 

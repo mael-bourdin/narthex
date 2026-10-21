@@ -63,7 +63,7 @@ npm run narthex -- init        # Margaux t'accueille, te demande ta clé et ton 
 npm run dev:desktop            # ou l'app de bureau
 ```
 
-L'app et le terminal partagent la même entreprise. Si `narthex lancer` tourne, l'app le rejoint. Sinon, c'est l'app qui fait tourner l'équipe et le terminal qui la rejoint.
+L'app et le terminal partagent la même entreprise. Si `narthex start` tourne, l'app le rejoint. Sinon, c'est l'app qui fait tourner l'équipe et le terminal qui la rejoint.
 
 Pour en faire une commande : `npm run build:cli`, puis `npm link -w @narthex/cli`. Pour un installeur : `npm run dist:mac -w @narthex/desktop` (`.dmg`) ou `npm run dist:win -w @narthex/desktop` (`.exe`).
 
@@ -71,12 +71,12 @@ Pour en faire une commande : `npm run build:cli`, puis `npm link -w @narthex/cli
 
 Les agents pensent avec le modèle de ton choix : ta clé Anthropic (Claude), OpenAI, ou OpenRouter pour presque tous les modèles (GPT, Gemini, Mistral, DeepSeek…). Une API compatible OpenAI marche aussi, modèles locaux compris (`narthex config api <adresse>`). Ta clé reste sur ton ordinateur.
 
-Pour chaque tâche, l'agent choisit son niveau : léger pour une vérification, normal, approfondi pour le droit ou les chiffres. Chaque niveau a son modèle, que tu peux changer (`narthex config niveau approfondi <modèle>`), et tu peux imposer un modèle à un agent dans Réglages · API et modèles. Sans clé, l'équipe prépare tout et attend : rien n'est inventé, le Fil reste vide.
+Pour chaque tâche, l'agent choisit son niveau : léger pour une vérification, normal, approfondi pour le droit ou les chiffres. Chaque niveau a son modèle, que tu peux changer (`narthex config level deep <modèle>`), et tu peux imposer un modèle à un agent dans Réglages · API et modèles. Sans clé, l'équipe prépare tout et attend : rien n'est inventé, le Fil reste vide.
 
 - **Budgets.** Par défaut, l'équipe dépense au plus 3 $ par jour et 1,50 $ par tâche.
   - Une tâche qui dépasse s'arrête.
   - Une fois le budget du jour atteint, plus rien ne démarre avant le lendemain.
-  - Pour changer ces plafonds : `narthex config budget <dollars>` et `narthex config budget-tache <dollars>`.
+  - Pour changer ces plafonds : `narthex config budget <dollars>` et `narthex config task-budget <dollars>`.
 - **Dépense IA.** Elle s'affiche en dollars en haut de l'app et du Fil, par agent et par jour.
 - **Pas de dépense surprise.** Une clé `ANTHROPIC_API_KEY` exportée n'est jamais utilisée sans que tu l'aies choisi (`narthex config mode anthropic`).
 - **Simulation.** `NARTHEX_RUNTIME=simulation` fait tourner des agents d'exemple, hors ligne et gratuitement.
@@ -84,32 +84,33 @@ Pour chaque tâche, l'agent choisit son niveau : léger pour une vérification, 
 ## En ligne de commande
 
 ```
-$ narthex fil
+$ narthex start            # ici en simulation : agents d'exemple, hors ligne
 
-Maison Lumen  · création · dépense IA 0,80 $
+Lumen  · idea · simulation · the team is working  · AI spend $0.00
 ────────────────────────────────────────────────────────────────────────────────
-Pour toi
-! Choisir la forme juridique · avant le mar. 27 oct.
-    Hugo présente les options et leurs conséquences, c'est toi qui choisis.
-    → narthex valider ob_c4e27da2ee17 --forme SASU
-◷ Paul · Demander des devis à au moins deux fournisseurs de cire de soja et de pots…
-    → narthex annuler t_ea4e51457ea5
-────────────────────────────────────────────────────────────────────────────────
-Hugo · Juridique · il y a 2 j
-  J'ai vérifié « Maison Lumen » ce soir et le nom n'est pas libre en pratique :
-  deux entreprises l'utilisent déjà comme nom commercial […]
-  ↳ Vérification du nom « Maison Lumen » · narthex livrable dl_da04751061e2
+Live. Ctrl+C to stop (the team finishes what it started).
+  Margaux starts: Write the company sheet and the plan for the first 30 days
+  Léa starts: Market study: customers, competitors, prices
+Léa · Research · just now
+  The market study is ready. There is room, especially for gifts. I've attached
+  the key points for you.
+  ↳ Market study: customers, competitors, prices · narthex deliverable dl_8055aea6f6ab
+Samir · Prospecting · just now
+  Next on my list: send the outreach messages. To get the first meetings before
+  the launch. You can cancel until Thu 22 Oct, 16:49.
 ```
 
 | Regarder | Agir |
 |---|---|
-| `narthex fil` · le Fil | `narthex valider <id>` · dire que tu as fait une obligation |
-| `narthex equipe` · qui fait quoi | `narthex annuler <id>` · annuler une action prévue |
-| `narthex calendrier --semaine` | `narthex vente 1250` · enregistrer une vente |
-| `narthex entreprise finances` | `narthex pause` · `narthex reprendre` |
-| `narthex data --semaine` · les chiffres | `narthex whatsapp` · relier WhatsApp |
-| `narthex memoire` · ce que l'équipe sait | `narthex classement rejoindre` · version hébergée |
-| `narthex livrable dernier` | `narthex init` · une entreprise de plus |
+| `narthex feed` · le Fil | `narthex done <id>` · dire que tu as fait une obligation |
+| `narthex team` · qui fait quoi | `narthex cancel <id>` · annuler une action prévue |
+| `narthex calendar --week` | `narthex sale 1250` · enregistrer une vente |
+| `narthex company finances` | `narthex pause` · `narthex resume` |
+| `narthex data --week` · les chiffres | `narthex whatsapp` · relier WhatsApp |
+| `narthex memory` · ce que l'équipe sait | `narthex leaderboard join` · version hébergée |
+| `narthex deliverable last` | `narthex init` · une entreprise de plus |
+
+Le CLI et les agents parlent anglais ; les anciennes commandes françaises (`lancer`, `fil`, `valider`…) marchent toujours.
 
 `narthex --aide` donne tout le reste.
 

@@ -43,22 +43,22 @@ describe("verifyAnthropicKey", () => {
     });
     const r = await verifyAnthropicKey("sk-ant-x", fake.client);
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.message).toMatch(/joindre Anthropic/);
+    expect(!r.ok && r.message).toMatch(/can't reach Anthropic/);
   });
 
   it("gives up on a network that never answers", async () => {
     const fake = fakeModels(() => new Promise(() => {}));
     const r = await verifyAnthropicKey("sk-ant-x", fake.client, 50);
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.message).toMatch(/joindre Anthropic/);
+    expect(!r.ok && r.message).toMatch(/can't reach Anthropic/);
   });
 
-  it("speaks French when Anthropic answers with another error", async () => {
+  it("speaks plainly when Anthropic answers with another error", async () => {
     const fake = fakeModels(async () => {
       throw new Anthropic.InternalServerError(500, undefined, "Internal server error", new Headers());
     });
     const r = await verifyAnthropicKey("sk-ant-x", fake.client);
-    expect(!r.ok && r.message).toBe("Anthropic ne répond pas correctement pour l'instant. Réessaie dans un moment.");
+    expect(!r.ok && r.message).toBe("Anthropic is not answering properly right now. Try again in a moment.");
   });
 
   it("refuses something that is not a key without calling anyone", async () => {

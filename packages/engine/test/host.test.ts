@@ -40,7 +40,7 @@ describe("several companies in one app", () => {
       const state = h.stateOf(c.id)!;
       expect(Object.values(state.tasks).some((t) => t.status === "done")).toBe(true);
     }
-    await expect(h.handle("company.select", { companyId: "nope" })).rejects.toThrow(/inconnue/);
+    await expect(h.handle("company.select", { companyId: "nope" })).rejects.toThrow(/Unknown company/);
   });
 
   it("tells which company each event belongs to", async () => {

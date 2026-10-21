@@ -68,6 +68,35 @@ describe("decide", () => {
   });
 });
 
+describe("obligation tasks", () => {
+  it("treats filings and publications as external, from the English titles", () => {
+    let s = apply(apply(founded(), agent("h", "juridique")), agent("p", "comptable"));
+    const team = OBLIGATIONS.filter((r) => r.owner !== "founder");
+    for (const [i, rule] of team.entries()) {
+      s = apply(s, { type: "obligation.opened", obligation: { id: `o${i}`, code: rule.code, title: rule.title, why: rule.why, owner: rule.owner, status: "open", openedAt: NOW } });
+    }
+    const kinds = Object.fromEntries(decide(s, NOW).flatMap((i) => (i.type === "plan-task" && i.draft.tag?.match(/^[A-C]\d/) ? [[i.draft.tag, i.draft.kind]] : [])));
+    expect(kinds).toEqual({
+      "A1-nom": "internal",
+      "A2-activite-reglementee": "internal",
+      "B1-statuts": "internal",
+      "B3-annonce-legale": "external",
+      "B4-immatriculation": "external",
+      "B6-facturation-electronique": "external",
+      "B7-rc-pro": "external",
+      "B8-mentions-legales": "internal",
+      "C5-cfe": "external",
+      "C10-rgpd": "internal",
+    });
+  });
+
+  it("asks for a teammate in plain English when a duty has no owner", () => {
+    let s = apply(founded(), { type: "staffing.planned", staffing: [{ role: "cofondateur", at: "idea", why: "" }] });
+    s = apply(s, { type: "obligation.opened", obligation: { id: "o", code: "A1-nom", title: "Check that the name is free", why: "", owner: "juridique", status: "open", openedAt: NOW } });
+    expect(decide(s, NOW).find((i) => i.type === "hire" && i.role === "juridique")).toMatchObject({ reason: "Someone is needed to check that the name is free." });
+  });
+});
+
 describe("guardTask", () => {
   const base = apply(founded(), agent("a1", "prospection"));
 

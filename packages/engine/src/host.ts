@@ -75,7 +75,7 @@ export class Host {
         });
       case "company.select": {
         const id = (params as Params<"company.select">).companyId;
-        if (!this.engines.has(id)) throw new Error("Entreprise inconnue.");
+        if (!this.engines.has(id)) throw new Error("Unknown company.");
         this.select(id);
         return this.getState();
       }
@@ -97,7 +97,7 @@ export class Host {
         return this.shown()?.getState() ?? null;
       default: {
         const engine = this.shown();
-        if (!engine) throw new Error("Aucune entreprise. Commence par `narthex init`.");
+        if (!engine) throw new Error("No company yet. Start with `narthex init`.");
         return engine.handle(method, params as never);
       }
     }

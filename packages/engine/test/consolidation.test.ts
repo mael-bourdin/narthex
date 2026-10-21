@@ -61,11 +61,11 @@ describe("end-of-day consolidation (« pendant la nuit, l'équipe range ses note
     expect(s.facts["c"]!.invalidAt).toBeUndefined();
     const valid = Object.values(s.facts).filter((f) => !f.invalidAt);
     expect(valid.some((f) => f.text === "Une bougie se vend 39 € à Lille")).toBe(true);
-    expect(valid.some((f) => f.subject === "Réflexion" && f.importance === 8)).toBe(true);
-    const said = s.posts.filter((p) => p.agentId === "m" && /rangé nos notes/.test(p.text));
+    expect(valid.some((f) => f.subject === "Reflection" && f.importance === 8)).toBe(true);
+    const said = s.posts.filter((p) => p.agentId === "m" && /tidied yesterday's notes/.test(p.text));
     expect(said).toHaveLength(1);
-    expect(said[0]!.text).toContain("1 doublon fusionné");
-    expect(said[0]!.text).toContain("1 réflexion");
+    expect(said[0]!.text).toContain("1 duplicate merged");
+    expect(said[0]!.text).toContain("1 reflection");
     expect(valid.some((f) => f.text === "Une seule source : écartée")).toBe(false);
     s = await run(engine);
     expect(seen).toHaveLength(1);

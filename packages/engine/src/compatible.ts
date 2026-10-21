@@ -42,11 +42,11 @@ export type Prices = Record<string, { input: number; output: number; cacheRead?:
 export interface CompatibleRuntimeOptions {
   provider: Provider;
   apiKey: string;
-  /** For « compatible »: the API's address, e.g. http://localhost:11434/v1 for Ollama. */
+  /** For "compatible": the API's address, e.g. http://localhost:11434/v1 for Ollama. */
   baseURL?: string;
   /** The model for each level; defaults per provider. */
   levels?: Partial<Record<TaskLevel, string>>;
-  /** The founder's model for a role (Réglages · API et modèles), over the agent's level. */
+  /** The founder's model for a role (Settings · API and models), over the agent's level. */
   models?: Partial<Record<RoleId, string>>;
   /** One model for everyone, chosen by the founder. */
   model?: string;
@@ -104,7 +104,7 @@ export class CompatibleRuntime implements AgentRuntime {
 
   constructor(options: CompatibleRuntimeOptions) {
     this.name = options.provider;
-    if (options.provider === "compatible" && !options.baseURL) throw new Error("Il manque l'adresse de l'API compatible.");
+    if (options.provider === "compatible" && !options.baseURL) throw new Error("The compatible API's address is missing.");
     // A provider's key only ever goes to that provider: a saved address is for the compatible API alone.
     this.base = (options.provider === "compatible" ? options.baseURL! : BASE[options.provider]).replace(/\/$/, "");
     this.key = options.apiKey;
@@ -120,7 +120,7 @@ export class CompatibleRuntime implements AgentRuntime {
   /** The model for a level: the founder's choice for everyone, else the level's, else any level that has one. */
   modelFor(level: TaskLevel): string {
     const model = this.chosen ?? this.levels[level] ?? this.levels.standard ?? this.levels.deep ?? this.levels.light;
-    if (!model) throw new Error("Aucun modèle choisi : narthex config modele <id>.");
+    if (!model) throw new Error("No model chosen: narthex config modele <id>.");
     return model;
   }
 
@@ -132,7 +132,7 @@ export class CompatibleRuntime implements AgentRuntime {
     const def = role(ctx.agent.role);
     const model = this.models[ctx.agent.role] ?? this.modelFor(ctx.task.level ?? roleLevel(ctx.agent.role));
     const tools = this.toolsOf(def);
-    const noWeb = this.web || !(def.tools.includes("web_search") || def.tools.includes("web_fetch")) ? "" : "\n\nIci, tu n'as ni recherche web ni lecture de pages : travaille avec ce que tu sais, et dis-le quand une vérification manque.";
+    const noWeb = this.web || !(def.tools.includes("web_search") || def.tools.includes("web_fetch")) ? "" : "\n\nHere you have no web search and no page reading: work with what you know, and say so when a check is missing.";
     const messages: Message[] = [
       { role: "system", content: `${identity(def, ctx.agent.name, ctx.state.playbooks?.[ctx.agent.role])}${noWeb}\n\n${companySheet(ctx)}` },
       { role: "user", content: brief(ctx) },
@@ -143,16 +143,16 @@ export class CompatibleRuntime implements AgentRuntime {
     const work: ToolWork = { ctx, consulted, companies: this.companies, deliver: (d) => (deliverable = d), remember: (m) => (memory = m) };
 
     for (let turn = 0; turn < this.maxTurns; turn++) {
-      if (ctx.signal.aborted) throw new Error("Annulée");
+      if (ctx.signal.aborted) throw new Error("Cancelled");
       const { message, usage } = await this.complete({ model, messages, tools, max_tokens: this.maxTokens(model, ctx.remainingCredits?.()) }, ctx.signal);
       ctx.spend(usage);
-      if (ctx.signal.aborted) throw new Error("Budget atteint.");
+      if (ctx.signal.aborted) throw new Error("Budget reached.");
       for (const a of message.annotations ?? []) if (a.type === "url_citation" && typeof a.url_citation?.url === "string") consulted.add(a.url_citation.url);
       const calls = message.tool_calls ?? [];
       messages.push({ role: "assistant", content: message.content ?? null, ...(calls.length ? { tool_calls: calls } : {}) });
       if (calls.length === 0) {
         const post = (message.content ?? "").trim();
-        return { post: (post || `C'est fait : ${ctx.task.title}.`).slice(0, MAX_POST_CHARS), deliverable, memory, consulted: [...consulted] };
+        return { post: (post || `Done: ${ctx.task.title}.`).slice(0, MAX_POST_CHARS), deliverable, memory, consulted: [...consulted] };
       }
       // Answered in order, one tool message per call.
       for (const c of calls) {
@@ -160,14 +160,14 @@ export class CompatibleRuntime implements AgentRuntime {
         try {
           input = JSON.parse(c.function.arguments || "{}") as Record<string, unknown>;
         } catch {
-          messages.push({ role: "tool", tool_call_id: c.id, content: "Arguments illisibles : renvoie du JSON valide." });
+          messages.push({ role: "tool", tool_call_id: c.id, content: "Unreadable arguments: send valid JSON." });
           continue;
         }
         const out = await useTool(c.function.name, input, work);
-        messages.push({ role: "tool", tool_call_id: c.id, content: out.ok ? out.content : `Erreur : ${out.content}` });
+        messages.push({ role: "tool", tool_call_id: c.id, content: out.ok ? out.content : `Error: ${out.content}` });
       }
     }
-    throw new Error(`Pas terminé après ${this.maxTurns} tours.`);
+    throw new Error(`Not finished after ${this.maxTurns} turns.`);
   }
 
   async firstLook(input: { idea: string; founderName: string; now: number; signal: AbortSignal }): Promise<FirstLook> {
@@ -201,7 +201,7 @@ export class CompatibleRuntime implements AgentRuntime {
   /** A structured answer through a function the model must call (after searching the web, when it may). */
   private async answer(system: string, prompt: string, schema: object, model: string, signal: AbortSignal, web = false): Promise<{ value: unknown; usage: NonNullable<WorkResult["usage"]> }> {
     const total = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, credits: 0 };
-    const tools: ToolDef[] = [{ type: "function", function: { name: "answer", description: "Ta réponse finale.", parameters: schema } }, ...(web ? [{ type: "openrouter:web_search", parameters: { max_results: 5 } }] : [])];
+    const tools: ToolDef[] = [{ type: "function", function: { name: "answer", description: "Your final answer.", parameters: schema } }, ...(web ? [{ type: "openrouter:web_search", parameters: { max_results: 5 } }] : [])];
     const messages: Message[] = [
       { role: "system", content: system },
       { role: "user", content: prompt },
@@ -214,9 +214,9 @@ export class CompatibleRuntime implements AgentRuntime {
       for (const k of ["inputTokens", "outputTokens", "cacheReadTokens", "credits"] as const) total[k] += usage[k];
       const call = message.tool_calls?.find((c) => c.function.name === "answer");
       if (call) return { value: JSON.parse(call.function.arguments || "{}"), usage: total };
-      messages.push({ role: "assistant", content: message.content ?? null }, { role: "user", content: "Donne maintenant ta réponse avec la fonction answer." });
+      messages.push({ role: "assistant", content: message.content ?? null }, { role: "user", content: "Now give your answer with the answer function." });
     }
-    throw new Error("Pas de réponse exploitable du modèle.");
+    throw new Error("No usable answer from the model.");
   }
 
   private async complete(body: Record<string, unknown>, signal: AbortSignal): Promise<{ message: NonNullable<NonNullable<Reply["choices"]>[number]["message"]>; usage: NonNullable<WorkResult["usage"]> }> {
@@ -226,7 +226,7 @@ export class CompatibleRuntime implements AgentRuntime {
     const reply = (await res.json().catch(() => ({}))) as Reply;
     if (!res.ok) throw new Error(problem(res.status, reply.error?.message));
     const message = reply.choices?.[0]?.message;
-    if (!message) throw new Error("Réponse vide du modèle.");
+    if (!message) throw new Error("Empty answer from the model.");
     const u = reply.usage ?? {};
     const count = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
     const prompt = count(u.prompt_tokens);
@@ -239,7 +239,7 @@ export class CompatibleRuntime implements AgentRuntime {
     return { message, usage };
   }
 
-  /** Credits (1 = 0,01 $) at the catalogue price, when the provider does not give the cost. */
+  /** Credits (1 = $0.01) at the catalogue price, when the provider does not give the cost. */
   private async creditsFor(model: string, prompt: number, cached: number, completion: number): Promise<number> {
     const p = (await this.priceBook())[model] ?? UNKNOWN_PRICE;
     const usd = ((prompt - cached) * p.input + cached * (p.cacheRead ?? p.input / 10) + completion * p.output) / 1_000_000;
@@ -277,10 +277,10 @@ export class CompatibleRuntime implements AgentRuntime {
 }
 
 function problem(status: number, detail?: string): string {
-  if (status === 401 || status === 403) return "Le fournisseur refuse la clé : vérifie-la dans Réglages · API et modèles.";
-  if (status === 402) return "Plus de crédit chez le fournisseur : recharge ton compte.";
-  if (status === 429) return "Trop de demandes d'un coup chez le fournisseur : l'équipe réessaiera.";
-  return `Le fournisseur ne répond pas correctement (${status}${detail ? ` : ${detail.slice(0, 120)}` : ""}).`;
+  if (status === 401 || status === 403) return "The provider refuses the key: check it in Settings · API and models.";
+  if (status === 402) return "Your account with the provider has run out of funds: top it up.";
+  if (status === 429) return "Too many requests at once at the provider: the team will try again.";
+  return `The provider is not answering properly (${status}${detail ? `: ${detail.slice(0, 120)}` : ""}).`;
 }
 
 /** Prices from OpenRouter's public catalogue (no key needed), in USD per million tokens. */
@@ -299,7 +299,7 @@ export async function openRouterPrices(call: CompatibleFetch = globalThis.fetch 
   return prices;
 }
 
-/** Models offered in Réglages, per provider (the founder can still type any id in the CLI). */
+/** Models offered in Settings, per provider (the founder can still type any id in the CLI). */
 export const MODEL_CHOICES: Record<"anthropic" | "openrouter" | "openai", { id: string; label: string }[]> = {
   anthropic: [
     { id: "claude-opus-5-5", label: "Claude Opus 5.5" },

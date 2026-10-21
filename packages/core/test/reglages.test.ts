@@ -40,12 +40,12 @@ const state = replay(stored);
 
 describe("founderRoles", () => {
   it("names what the law makes of the founder, by legal form", () => {
-    expect(founderRoles("SASU").map((r) => r.title)).toEqual(["Présidence", "Toutes les actions"]);
-    expect(founderRoles("EURL")[0]!.title).toBe("Gérance");
+    expect(founderRoles("SASU").map((r) => r.title)).toEqual(["President", "All the shares"]);
+    expect(founderRoles("EURL")[0]!.title).toBe("Manager (gérant)");
     expect(founderRoles("micro")).toHaveLength(1);
   });
   it("says it depends on the legal form while none is chosen", () => {
-    expect(founderRoles(undefined)[0]!.detail).toMatch(/forme juridique/);
+    expect(founderRoles(undefined)[0]!.detail).toMatch(/legal form/);
   });
 });
 

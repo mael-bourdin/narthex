@@ -66,6 +66,6 @@ describe("revision: the first look is the first launch only", () => {
     const { SimulationRuntime } = await import("../src/index.ts");
     const e = new Engine({ store: new MemoryEventStore(), runtime: new SimulationRuntime(), clock: new SimulatedClock(START) });
     await e.handle("company.found", { name: "Lumen", idea: "Bougies", founderName: "Inès" });
-    await expect(e.handle("onboarding.firstLook", { idea: "Bougies", founderName: "Inès" })).rejects.toThrow(/premier lancement/);
+    await expect(e.handle("onboarding.firstLook", { idea: "Bougies", founderName: "Inès" })).rejects.toThrow(/first launch/);
   });
 });

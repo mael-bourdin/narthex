@@ -108,7 +108,7 @@ export class Engine {
     if (this.companyId) this.state = replay(this.store.read(this.companyId));
     // Work interrupted by a crash or a quit is recorded as such, never silently lost.
     if (!this.passive) for (const task of Object.values(this.state.tasks)) {
-      if (task.status === "running") this.emit({ type: "task.failed", taskId: task.id, at: this.now(), error: "Interrompue (Narthex a été fermé).", interrupted: true });
+      if (task.status === "running") this.emit({ type: "task.failed", taskId: task.id, at: this.now(), error: "Interrupted (Narthex was closed).", interrupted: true });
     }
   }
 
@@ -173,7 +173,7 @@ export class Engine {
   }
 
   private async dispatch(method: Method, params: unknown): Promise<unknown> {
-    if (typeof method !== "string" || !METHODS.has(method)) throw new Error(`Méthode inconnue : ${String(method).slice(0, 60)}`);
+    if (typeof method !== "string" || !METHODS.has(method)) throw new Error(`Unknown method: ${String(method).slice(0, 60)}`);
     switch (method) {
       case "engine.status":
         return this.status();
@@ -190,7 +190,7 @@ export class Engine {
       case "fact.forget": {
         this.requireCompany();
         const first = (params as Params<"fact.forget">).factId;
-        if (!this.state.facts[first]) throw new Error("Fait inconnu.");
+        if (!this.state.facts[first]) throw new Error("Unknown fact.");
         // What was drawn from it goes too: a merge or a reflection may repeat its words.
         const ids = new Set([first]);
         for (let grew = true; grew; ) {
@@ -204,7 +204,7 @@ export class Engine {
       case "sale.record": {
         this.requireCompany();
         const p = params as Params<"sale.record">;
-        if (p.amountCents !== undefined && !(Number.isInteger(p.amountCents) && p.amountCents >= 0 && p.amountCents < 1e11)) throw new Error("Le montant n'est pas valide.");
+        if (p.amountCents !== undefined && !(Number.isInteger(p.amountCents) && p.amountCents >= 0 && p.amountCents < 1e11)) throw new Error("The amount is not valid.");
         const note = p.note?.trim().slice(0, 200);
         this.emit({ type: "sale.recorded", sale: { id: newId("sa"), at: this.now(), ...(p.amountCents !== undefined ? { amountCents: p.amountCents } : {}), ...(note ? { note } : {}) } });
         this.tick();
@@ -217,7 +217,7 @@ export class Engine {
         for (const k of ["name", "city", "founderName"] as const) {
           const v = p[k];
           if (v === undefined) continue;
-          if (k !== "city" && !v.trim()) throw new Error(k === "name" ? "Il faut un nom pour l'entreprise." : "Il faut un prénom.");
+          if (k !== "city" && !v.trim()) throw new Error(k === "name" ? "The company needs a name." : "A first name is needed.");
           patch[k] = v.trim();
         }
         this.emit({ type: "company.updated", patch, at: this.now() });
@@ -238,8 +238,8 @@ export class Engine {
         return this.fulfill(params as Params<"obligation.fulfill">);
       case "obligation.retry": {
         const o = this.state.obligations[(params as Params<"obligation.retry">).obligationId];
-        if (!o) throw new Error("Obligation inconnue.");
-        if (o.status === "done" || (!o.stuck && !declinedByFounder(this.state, o))) throw new Error("Cette obligation n'est pas bloquée.");
+        if (!o) throw new Error("Unknown obligation.");
+        if (o.status === "done" || (!o.stuck && !declinedByFounder(this.state, o))) throw new Error("This obligation is not stuck.");
         this.emit({ type: "obligation.retried", obligationId: o.id, at: this.now() });
         this.tick();
         return this.state;
@@ -249,7 +249,7 @@ export class Engine {
         this.emit({ type: "settings.changed", patch: (params as Params<"settings.update">).patch, at: this.now() });
         return this.state;
       case "clock.advance": {
-        if (!(this.clock instanceof SimulatedClock)) throw new Error("L'horloge ne s'avance qu'en mode simulation.");
+        if (!(this.clock instanceof SimulatedClock)) throw new Error("The clock only moves forward in simulation mode.");
         this.clock.advance((params as Params<"clock.advance">).hours * 3_600_000);
         // Written down, so the next start resumes from the advanced time even if nothing else happens.
         if (this.companyId) this.emit({ type: "clock.advanced", hours: (params as Params<"clock.advance">).hours, at: this.now() });
@@ -283,12 +283,12 @@ export class Engine {
   }
 
   private requireCompany(): void {
-    if (!this.state.company) throw new Error("Aucune entreprise. Commence par `narthex init`.");
+    if (!this.state.company) throw new Error("No company yet. Start with `narthex init`.");
   }
 
   private found(p: Params<"company.found">): CompanyState {
-    if (this.state.company) throw new Error(`Une entreprise existe déjà : ${this.state.company.name}.`);
-    if (!p.name.trim() || !p.idea.trim()) throw new Error("Il faut un nom et une idée.");
+    if (this.state.company) throw new Error(`A company already exists: ${this.state.company.name}.`);
+    if (!p.name.trim() || !p.idea.trim()) throw new Error("A name and an idea are needed.");
     this.companyId = newId("co");
     this.emit({
       type: "company.founded",
@@ -296,7 +296,7 @@ export class Engine {
         id: this.companyId,
         name: p.name.trim(),
         idea: p.idea.trim(),
-        founder: { name: p.founderName.trim() || "Toi" },
+        founder: { name: p.founderName.trim() || "You" },
         ...(p.city ? { city: p.city } : {}),
         foundedAt: this.now(),
         stage: "idea",
@@ -307,7 +307,7 @@ export class Engine {
     // The team Margaux chose for this idea; without a first look, the usual plan applies.
     if (p.firstLook?.team?.length) this.emit({ type: "staffing.planned", staffing: staffingFrom(p.firstLook) });
     // Margaux is there from the first second, even when nobody runs the company yet.
-    this.hire("cofondateur", "Je suis là dès la première idée.");
+    this.hire("cofondateur", "I'm here from the very first idea.");
     if (p.firstLook && p.firstLook.findings.length > 0) this.recordFirstLook(p.firstLook);
     this.tick();
     return this.state;
@@ -315,7 +315,7 @@ export class Engine {
 
   private async firstLook(p: Params<"onboarding.firstLook">): Promise<FirstLook> {
     // Paid, and outside any budget (no company yet): only during the first launch.
-    if (this.state.company) throw new Error("Le premier coup d'œil n'a lieu qu'au premier lancement.");
+    if (this.state.company) throw new Error("The first look only happens at the first launch.");
     const fallback: FirstLook = { reaction: SEUIL.noLook, findings: [], simulated: this.runtime?.name === "simulation" };
     if (!this.runtime) return fallback;
     const controller = new AbortController();
@@ -337,14 +337,14 @@ export class Engine {
     const taskId = newId("t");
     this.emit({
       type: "task.planned",
-      task: { id: taskId, agentId: margaux.id, title: "Premier coup d'œil sur le marché", why: "Pour savoir tout de suite s'il y a de la place.", kind: "internal", status: "planned", tag: "first-look", createdAt: now, scheduledAt: now },
+      task: { id: taskId, agentId: margaux.id, title: "First look at the market", why: "To know right away whether there is room.", kind: "internal", status: "planned", tag: "first-look", createdAt: now, scheduledAt: now },
     });
     const deliverable = {
       id: newId("dl"),
       taskId,
       agentId: margaux.id,
-      title: "Premier coup d'œil sur le marché",
-      summary: look.simulated ? "Constats d'exemple (mode simulation)." : `${look.findings.length} constats sourcés, avant l'étude complète de Léa.`,
+      title: "First look at the market",
+      summary: look.simulated ? "Example findings (simulation mode)." : `${look.findings.length} sourced findings, before Léa's full study.`,
       body: look.findings.map((f) => `- ${f.text} (${f.source})`).join("\n"),
       sources: look.findings.map((f) => ({ title: f.source })),
       createdAt: now,
@@ -356,27 +356,27 @@ export class Engine {
 
   private cancel(taskId: string): CompanyState {
     const task = this.state.tasks[taskId];
-    if (!task) throw new Error("Tâche inconnue.");
-    if (task.status !== "planned" && task.status !== "running") throw new Error("Cette tâche n'est plus annulable.");
+    if (!task) throw new Error("Unknown task.");
+    if (task.status !== "planned" && task.status !== "running") throw new Error("This task can no longer be cancelled.");
     this.work.get(taskId)?.controller.abort();
     this.emit({ type: "task.cancelled", taskId, at: this.now(), by: "founder" });
-    this.reflect(taskId, "cancelled", "Le fondateur a annulé cette tâche avant qu'elle ne parte.");
-    this.post(task.agentId, "update", `D'accord, j'annule « ${task.title} ».`, { taskId });
+    this.reflect(taskId, "cancelled", "The founder cancelled this task before it went out.");
+    this.post(task.agentId, "update", `OK, I'm cancelling "${task.title}".`, { taskId });
     return this.state;
   }
 
   private fulfill(p: Params<"obligation.fulfill">): CompanyState {
     const o = this.state.obligations[p.obligationId];
-    if (!o) throw new Error("Obligation inconnue.");
+    if (!o) throw new Error("Unknown obligation.");
     if (o.status === "done") return this.state;
-    if (o.owner !== "founder") throw new Error("Cette obligation est suivie par l'équipe.");
+    if (o.owner !== "founder") throw new Error("The team is handling this obligation.");
     if (o.code === "A3-forme") {
-      if (!p.legalForm) throw new Error("Choisis la forme juridique (SASU, SAS, EURL, SARL, EI ou micro).");
+      if (!p.legalForm) throw new Error("Choose the legal form (SASU, SAS, EURL, SARL, EI or micro).");
       this.emit({ type: "company.updated", patch: { legalForm: p.legalForm }, at: this.now() });
     }
     this.emit({ type: "obligation.fulfilled", obligationId: o.id, at: this.now(), by: "founder" });
     const cofounder = this.agentWith("cofondateur");
-    if (cofounder) this.post(cofounder.id, "update", `Merci, « ${o.title} » est fait. L'équipe s'occupe de la suite.`);
+    if (cofounder) this.post(cofounder.id, "update", `Thanks, "${o.title}" is done. The team takes it from here.`);
     this.tick();
     return this.state;
   }
@@ -507,18 +507,18 @@ export class Engine {
         for (const r of out.reflections.slice(0, 3)) {
           // A reflection must rest on at least two facts we gave; anything else is a guess.
           const basis = r.from.filter((id) => known.has(id));
-          if (basis.length >= 2 && r.text.trim()) added.push({ id: newId("fa"), text: r.text.trim().slice(0, 600), subject: "Réflexion", importance: level(r.importance), deliverableId: "", validFrom: at, from: basis, ...(basis.some((id) => known.get(id)!.sensitive) ? { sensitive: true } : {}) });
+          if (basis.length >= 2 && r.text.trim()) added.push({ id: newId("fa"), text: r.text.trim().slice(0, 600), subject: "Reflection", importance: level(r.importance), deliverableId: "", validFrom: at, from: basis, ...(basis.some((id) => known.get(id)!.sensitive) ? { sensitive: true } : {}) });
         }
         this.emit({ type: "facts.consolidated", day, at, added, invalidated: [...invalidated] });
-        const merges = added.filter((f) => f.subject !== "Réflexion").length;
+        const merges = added.filter((f) => f.subject !== "Reflection").length;
         const reflections = added.length - merges;
         if (margaux && (merges || invalidated.size || reflections)) {
           const parts = [
-            merges ? `${merges} doublon${merges > 1 ? "s" : ""} fusionné${merges > 1 ? "s" : ""}` : "",
-            stale ? `${stale} fait${stale > 1 ? "s" : ""} périmé${stale > 1 ? "s" : ""}` : "",
-            reflections ? `${reflections} réflexion${reflections > 1 ? "s" : ""}` : "",
+            merges ? `${merges} duplicate${merges > 1 ? "s" : ""} merged` : "",
+            stale ? `${stale} outdated fact${stale > 1 ? "s" : ""}` : "",
+            reflections ? `${reflections} reflection${reflections > 1 ? "s" : ""}` : "",
           ].filter(Boolean);
-          this.post(margaux.id, "update", `J'ai rangé nos notes de la veille : ${facts.length} faits relus, ${parts.join(", ")}. Tout est dans Équipe · Mémoire.`);
+          this.post(margaux.id, "update", `I tidied yesterday's notes: ${facts.length} facts reread, ${parts.join(", ")}. It's all in Team · Memory.`);
         }
       } catch {
         // Tidying is a bonus: it is tried again on the next tick of a later day.
@@ -537,9 +537,9 @@ export class Engine {
     const cofounder = this.agentWith("cofondateur");
     if (joined.length === 0 || !cofounder) return;
     const names = joined.map((a) => a.name);
-    const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(", ")} et ${names.at(-1)}`;
+    const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
     const what = joined.map((a) => `${a.name} ${lowerFirst(ROLE_PROMISE[a.role])}`).join(", ");
-    this.post(cofounder.id, "hire", `J'ai fait venir ${list}. ${what}.`);
+    this.post(cofounder.id, "hire", `I've brought in ${list}. ${what}.`);
   }
 
   private applyIntent(intent: Intent): void {
@@ -598,7 +598,7 @@ export class Engine {
           this.post(
             cofounder.id,
             "update",
-            `${owner?.name ?? "L'équipe"} n'arrive pas à « ${o.title} » après ${MAX_ATTEMPTS} essais. Dernière erreur : ${intent.error} On arrête d'essayer jusqu'à ce que tu nous dises de reprendre.`,
+            `${owner?.name ?? "The team"} can't get "${o.title}" done after ${MAX_ATTEMPTS} attempts. Last error: ${intent.error} We'll stop trying until you tell us to start again.`,
           );
         }
         return;
@@ -624,7 +624,7 @@ export class Engine {
     this.emit({ type: "task.planned", task: { id, ...guard.task } });
     const t = guard.task;
     if (t.kind === "external" && t.cancellableUntil) {
-      this.post(t.agentId, "plan", `Je prévois : ${lowerFirst(t.title)}. ${t.why} Tu peux annuler jusqu'à ${fmt.day(t.cancellableUntil)}, ${fmt.hour(t.cancellableUntil)}.`, { taskId: id });
+      this.post(t.agentId, "plan", `Next on my list: ${lowerFirst(t.title)}. ${t.why} You can cancel until ${fmt.day(t.cancellableUntil)}, ${fmt.hour(t.cancellableUntil)}.`, { taskId: id });
     }
     return null;
   }
@@ -649,7 +649,7 @@ export class Engine {
     // Set from the spend callback: declared wide so later checks are not narrowed to `false`.
     let overBudget = false as false | "task" | "day";
     try {
-      if (!runtime) throw new Error("Personne ne peut travailler sans clé.");
+      if (!runtime) throw new Error("Nobody can work without a key.");
       const result = await runtime.run({
         state: this.state,
         agent,
@@ -681,7 +681,7 @@ export class Engine {
         ? { id: newId("dl"), taskId, agentId: agent.id, createdAt: this.now(), ...result.deliverable }
         : undefined;
       this.emit({ type: "task.completed", taskId, at: this.now(), ...(deliverable ? { deliverable } : {}) });
-      this.reflect(taskId, "done", [result.post, deliverable ? `Livrable : ${deliverable.title}. ${deliverable.summary}` : ""].filter(Boolean).join("\n"));
+      this.reflect(taskId, "done", [result.post, deliverable ? `Deliverable: ${deliverable.title}. ${deliverable.summary}` : ""].filter(Boolean).join("\n"));
       if (deliverable) {
         this.checkSources(deliverable.id, result.consulted ?? []);
         this.extractFacts(deliverable.id);
@@ -689,21 +689,21 @@ export class Engine {
       this.post(agent.id, deliverable ? "deliverable" : "update", result.post, { taskId, ...(deliverable ? { deliverableId: deliverable.id } : {}) });
     } catch (e) {
       if (overBudget === "day" && this.state.tasks[taskId]?.status === "running") {
-        this.emit({ type: "task.failed", taskId, at: this.now(), error: "Budget du jour atteint.", interrupted: true });
-        this.post(agent.id, "update", `Je m'arrête sur « ${task.title} » : le budget du jour est atteint. Je reprendrai quand il le permettra.`, { taskId });
+        this.emit({ type: "task.failed", taskId, at: this.now(), error: "Daily budget reached.", interrupted: true });
+        this.post(agent.id, "update", `I'm stopping on "${task.title}": the daily budget is reached. I'll pick it up again when the budget allows.`, { taskId });
         return;
       }
       if (overBudget && this.state.tasks[taskId]?.status === "running") {
         const limit = this.state.settings.taskBudgetCredits;
-        this.emit({ type: "task.failed", taskId, at: this.now(), error: `Budget de la tâche atteint (${fmt.dollars(spent)} sur ${fmt.dollars(limit)}).` });
-        this.post(agent.id, "update", `Je m'arrête sur « ${task.title} » : la tâche a dépassé son budget de ${fmt.dollars(limit)}. Je reprendrai en plus court.`, { taskId });
+        this.emit({ type: "task.failed", taskId, at: this.now(), error: `Task budget reached (${fmt.dollars(spent)} of ${fmt.dollars(limit)}).` });
+        this.post(agent.id, "update", `I'm stopping on "${task.title}": the task went over its ${fmt.dollars(limit)} budget. I'll pick it up again in a shorter way.`, { taskId });
         return;
       }
       if (controller.signal.aborted || this.state.tasks[taskId]?.status !== "running") return;
       const message = e instanceof Error ? e.message : String(e);
       this.emit({ type: "task.failed", taskId, at: this.now(), error: message });
       this.reflect(taskId, "failed", message);
-      this.post(agent.id, "update", `Je n'ai pas pu terminer « ${task.title} » : ${message}`, { taskId });
+      this.post(agent.id, "update", `I couldn't finish "${task.title}": ${message}`, { taskId });
     }
   }
 
@@ -763,9 +763,9 @@ export class Engine {
 
   /** Margaux brings someone now: added to the plan and hired at once. */
   private recruit(by: Agent, r: RoleId, why: string): string | null {
-    if (by.role !== "cofondateur") return "Seule Margaux fait venir de nouveaux coéquipiers.";
-    if (!ROLES.some((x) => x.id === r) || r === "cofondateur") return `Je ne connais pas ce poste : ${r}.`;
-    if (this.agentWith(r)) return `${this.agentWith(r)!.name} occupe déjà ce poste.`;
+    if (by.role !== "cofondateur") return "Only Margaux brings in new teammates.";
+    if (!ROLES.some((x) => x.id === r) || r === "cofondateur") return `I don't know this role: ${r}.`;
+    if (this.agentWith(r)) return `${this.agentWith(r)!.name} already holds this role.`;
     const stage = this.state.company?.stage ?? "research";
     this.emit({ type: "staffing.planned", staffing: [...staffingOf(this.state), { role: r, at: stage, why }] });
     this.hire(r, why);
@@ -775,7 +775,7 @@ export class Engine {
 
   private planFollowUp(agent: Agent, parentId: string, f: FollowUp): string | null {
     const assignee = f.assignee ? this.agentWith(f.assignee) : agent;
-    if (!assignee) return `Personne n'occupe encore le poste « ${f.assignee} ». Margaux recrutera quand ce sera utile.`;
+    if (!assignee) return `Nobody holds the "${f.assignee}" role yet. Margaux will recruit when it's useful.`;
     return this.plan({
       agentId: assignee.id,
       title: f.title,
@@ -799,7 +799,7 @@ export class Engine {
   }
 
   private emit(event: DomainEvent): StoredEvent {
-    if (!this.companyId) throw new Error("Aucune entreprise.");
+    if (!this.companyId) throw new Error("No company.");
     const stored = this.store.append(this.companyId, event, this.now());
     this.state = apply(this.state, stored);
     for (const listener of this.listeners) {

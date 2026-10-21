@@ -21,7 +21,7 @@ const after = (extra: DomainEvent[]) => {
 
 describe("what the team says on the chat (Discord)", () => {
   it("has a few clear channels", () => {
-    expect(CHAT_CHANNELS.map((c) => c.name)).toEqual(["général", "décisions", "recherche", "juridique-et-compta", "ventes-et-com"]);
+    expect(CHAT_CHANNELS.map((c) => c.name)).toEqual(["general", "decisions", "research", "legal-and-accounts", "sales-and-marketing"]);
   });
 
   it("posts a deliverable in its team's channel, under the agent's own name, with a reaction and a colleague to answer", () => {
@@ -41,16 +41,16 @@ describe("what the team says on the chat (Discord)", () => {
     ]);
   });
 
-  it("puts what waits on the founder in #décisions", () => {
-    const out = after([{ type: "obligation.opened", obligation: { id: "o", code: "A3-forme", title: "Choisir la forme juridique", why: "C'est toi qui choisis.", owner: "founder", status: "open", openedAt: NOW, due: NOW + 7 * 86_400_000 } }]);
+  it("puts what waits on the founder in #decisions", () => {
+    const out = after([{ type: "obligation.opened", obligation: { id: "o", code: "A3-forme", title: "Choose the legal form", why: "You choose.", owner: "founder", status: "open", openedAt: NOW, due: NOW + 7 * 86_400_000 } }]);
     expect(out[0]).toMatchObject({ channel: "decisions", as: { name: "Hugo" }, reactions: ["⚖️"] });
-    expect(out[0]!.text).toContain("Choisir la forme juridique");
+    expect(out[0]!.text).toBe("**For you to do: Choose the legal form.** You choose. Before Tue 27 Oct. You can do it from the app or the CLI.");
   });
 
   it("announces an action that will leave, with the time left to cancel it", () => {
-    const out = after([{ type: "task.planned", task: { id: "x", agentId: "h", title: "Déposer la marque", why: "Protéger le nom", kind: "external", status: "planned", createdAt: NOW, scheduledAt: NOW, cancellableUntil: NOW + 86_400_000 } }]);
+    const out = after([{ type: "task.planned", task: { id: "x", agentId: "h", title: "File the trademark", why: "To protect the name.", kind: "external", status: "planned", createdAt: NOW, scheduledAt: NOW, cancellableUntil: NOW + 86_400_000 } }]);
     expect(out[0]).toMatchObject({ channel: "decisions", as: { name: "Hugo" } });
-    expect(out[0]!.text).toMatch(/annuler/);
+    expect(out[0]!.text).toBe("I'm planning: **File the trademark**. To protect the name. You can cancel it until Wed 21 Oct at 11:00.");
   });
 
   it("says nothing for internal bookkeeping", () => {

@@ -52,11 +52,14 @@ export interface FilView {
 
 const WEEK = 7 * 24 * 3_600_000;
 
+/** The error a task gets when closing Narthex cuts it: not the agent's failure (French in older logs). */
+export const INTERRUPTED = /^(Interrupted|Interrompue) \(Narthex/;
+
 const QUEST_TITLE: Record<Stage, (s: CompanyState) => string | undefined> = {
   idea: () => undefined,
-  research: () => "Valider ton idée",
-  creation: (s) => `Créer ta ${s.company?.legalForm ?? "société"}`,
-  launch: () => "Préparer le lancement",
+  research: () => "Validate your idea",
+  creation: (s) => `Set up your ${s.company?.legalForm ?? "company"}`,
+  launch: () => "Prepare the launch",
   operating: () => undefined,
 };
 
@@ -95,7 +98,7 @@ export function filView(state: CompanyState, now: Timestamp, limit = 60): FilVie
   const team = agents.map((agent): TeamRow => {
     const worked = tasks
       // A task cut by closing Narthex sat there until the next start: that wait is not work.
-      .filter((t) => t.agentId === agent.id && t.startedAt !== undefined && !t.interrupted && !(t.error ?? "").startsWith("Interrompue (Narthex"))
+      .filter((t) => t.agentId === agent.id && t.startedAt !== undefined && !t.interrupted && !INTERRUPTED.test(t.error ?? ""))
       .reduce((ms, t) => {
         const end = t.endedAt ?? (t.status === "running" ? now : t.startedAt!);
         return ms + Math.max(0, end - Math.max(t.startedAt!, now - WEEK));
@@ -106,7 +109,7 @@ export function filView(state: CompanyState, now: Timestamp, limit = 60): FilVie
       title: role(agent.role).title,
       status: agent.status === "working" ? "working" : waiting ? "waiting-you" : "idle",
       ...(agent.currentTaskId && state.tasks[agent.currentTaskId] ? { current: state.tasks[agent.currentTaskId] } : {}),
-      // Minutes matter: a three-minute task is real work, not « pas encore au travail ».
+      // Minutes matter: a three-minute task is real work, not "not at work yet".
       hoursThisWeek: worked / 3_600_000,
     };
   });
@@ -135,7 +138,7 @@ function questOf(state: CompanyState): { quest?: Quest } {
     .map((o) => ({ title: o.title, done: o.status === "done", ...(o.due ? { due: o.due } : {}) }));
   if (stage === "research") {
     const study = Object.values(state.tasks).some((t) => t.tag === "market-study" && t.status === "done");
-    steps.push({ title: "Étude de marché", done: study });
+    steps.push({ title: "Market study", done: study });
   }
   if (steps.length === 0) return {};
   const next = steps.filter((s) => !s.done).sort((a, b) => (a.due ?? Infinity) - (b.due ?? Infinity))[0];

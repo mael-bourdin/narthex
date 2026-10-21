@@ -6,7 +6,7 @@ import { configPath } from "./paths.ts";
 export interface Config {
   /**
    * Which agents run. Claude is never chosen implicitly from an environment variable:
-   * a developer with ANTHROPIC_API_KEY exported must not spend credits by surprise.
+   * a developer with ANTHROPIC_API_KEY exported must not spend money by surprise.
    * It runs when the player chose it (`narthex config mode anthropic`) or saved a key for Narthex.
    */
   runtime?: "simulation" | "anthropic";
@@ -19,9 +19,9 @@ export interface Config {
   keys?: { openrouter?: string; openai?: string; compatible?: string };
   /** The address of an OpenAI-compatible API (Mistral, Ollama, LM Studio…). */
   baseUrl?: string;
-  /** The model for each level (léger, normal, approfondi), over the provider's defaults. */
+  /** The model for each level (light, standard, deep), over the provider's defaults. */
   levels?: Partial<Record<import("@narthex/core").TaskLevel, string>>;
-  /** A model per role, chosen in Réglages · API et modèles. */
+  /** A model per role, chosen in Settings · API and models. */
   models?: Partial<Record<import("@narthex/core").RoleId, string>>;
   /** Desktop notifications the player wants. */
   notifications?: { legal?: boolean; leaving?: boolean; budget?: boolean; deliverables?: boolean };
@@ -45,7 +45,7 @@ export function loadConfig(dir: string): Config {
   try {
     return JSON.parse(readFileSync(file, "utf8")) as Config;
   } catch {
-    throw new Error(`Configuration illisible : ${file}`);
+    throw new Error(`Unreadable configuration: ${file}`);
   }
 }
 
@@ -74,7 +74,7 @@ export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.e
   const wanted = env.NARTHEX_RUNTIME === "simulation" || env.NARTHEX_RUNTIME === "anthropic" ? env.NARTHEX_RUNTIME : config.runtime;
   if (wanted === "simulation") return "simulation";
   if (wanted === "anthropic") {
-    if (!apiKey(config, env)) throw new Error("Mode Claude choisi, mais aucune clé : « narthex config cle » ou ANTHROPIC_API_KEY.");
+    if (!apiKey(config, env)) throw new Error("Claude mode chosen, but no key: \"narthex config cle\" or ANTHROPIC_API_KEY.");
     return "anthropic";
   }
   const other = config.provider && config.provider !== "anthropic" ? config.provider : undefined;

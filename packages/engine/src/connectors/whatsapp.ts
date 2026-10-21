@@ -5,7 +5,7 @@ import { join } from "node:path";
  * WhatsApp through wacli (https://wacli.sh), a WhatsApp Web client linked to the founder's phone like
  * a computer. Not an official WhatsApp API: the founder chooses it knowing WhatsApp may unlink or
  * suspend a number linked this way. Narthex keeps its own wacli store in its data folder and only ever
- * writes to the founder's own chat (« Messages à moi-même »).
+ * writes to the founder's own chat ("Messages to yourself").
  */
 
 export type WacliRun = (
@@ -44,9 +44,9 @@ export function whatsappStore(dir: string): string {
 }
 
 export const WHATSAPP_RISK =
-  "WhatsApp n'a pas d'API pour ça : Narthex passe par wacli, qui relie ton WhatsApp comme un ordinateur (WhatsApp Web). Ce n'est pas officiel, et WhatsApp peut délier ou suspendre un numéro relié ainsi.";
+  "WhatsApp has no API for this: Narthex goes through wacli, which links your WhatsApp like a computer (WhatsApp Web). It is not official, and WhatsApp may unlink or suspend a number linked this way.";
 
-export const WACLI_INSTALL = "Installe d'abord wacli : brew install openclaw/tap/wacli (ou voir wacli.sh).";
+export const WACLI_INSTALL = "Install wacli first: brew install openclaw/tap/wacli (or see wacli.sh).";
 
 export async function wacliInstalled(run: WacliRun = runWacli): Promise<boolean> {
   try {
@@ -62,7 +62,7 @@ export async function whatsappStatus(dir: string, run: WacliRun = runWacli): Pro
     const res = await run(["--store", whatsappStore(dir), "--json", "auth", "status"], { timeoutMs: 20_000 });
     const body = JSON.parse(res.stdout || "{}") as { data?: { authenticated?: boolean; phone?: string }; authenticated?: boolean; phone?: string };
     const data = body.data ?? body;
-    // « 33612345678:12 » → the number, without the linked device.
+    // "33612345678:12" → the number, without the linked device.
     const phone = data.phone?.split(":")[0]?.replace(/\D/g, "");
     return data.authenticated && phone ? { linked: true, phone } : { linked: false };
   } catch {
@@ -72,7 +72,7 @@ export async function whatsappStatus(dir: string, run: WacliRun = runWacli): Pro
 
 /**
  * Links the founder's phone: wacli prints the QR payload as an event, the caller draws it, the founder
- * scans it (WhatsApp › Appareils connectés › Connecter un appareil). Resolves with the linked number.
+ * scans it (WhatsApp › Linked devices › Link a device). Resolves with the linked number.
  */
 export async function pairWhatsApp(dir: string, onQr: (code: string) => void, signal?: AbortSignal, run: WacliRun = runWacli): Promise<{ ok: true; phone: string } | { ok: false; message: string }> {
   if (!(await wacliInstalled(run))) return { ok: false, message: WACLI_INSTALL };
@@ -88,19 +88,19 @@ export async function pairWhatsApp(dir: string, onQr: (code: string) => void, si
         } catch {}
       },
     });
-    if (signal?.aborted) return { ok: false, message: "Annulé." };
-    if (res.code !== 0) return { ok: false, message: `La liaison n'a pas abouti${failure ? ` : ${failure}` : ""}. Réessaie.` };
+    if (signal?.aborted) return { ok: false, message: "Cancelled." };
+    if (res.code !== 0) return { ok: false, message: `Linking didn't work${failure ? `: ${failure}` : ""}. Try again.` };
   } catch (e) {
-    return { ok: false, message: signal?.aborted ? "Annulé." : `wacli n'a pas pu démarrer : ${e instanceof Error ? e.message : String(e)}` };
+    return { ok: false, message: signal?.aborted ? "Cancelled." : `wacli could not start: ${e instanceof Error ? e.message : String(e)}` };
   }
   const status = await whatsappStatus(dir, run);
-  return status.linked && status.phone ? { ok: true, phone: status.phone } : { ok: false, message: "La liaison n'a pas abouti. Réessaie." };
+  return status.linked && status.phone ? { ok: true, phone: status.phone } : { ok: false, message: "Linking didn't work. Try again." };
 }
 
 /** Writes to the founder's own chat. */
 export async function sendWhatsApp(dir: string, phone: string, text: string, run: WacliRun = runWacli): Promise<void> {
   const res = await run(["--store", whatsappStore(dir), "send", "text", "--to", phone, "--allow-self", "--no-preview", "--message", text], { timeoutMs: 60_000 });
-  if (res.code !== 0) throw new Error(`WhatsApp : envoi refusé (${res.stderr.trim().split("\n").pop()?.slice(0, 160) ?? res.code}).`);
+  if (res.code !== 0) throw new Error(`WhatsApp: sending refused (${res.stderr.trim().split("\n").pop()?.slice(0, 160) ?? res.code}).`);
 }
 
 /** Unlinks Narthex from the phone (the phone's chats stay as they are). */

@@ -15,7 +15,7 @@ export type Serving = Pick<Engine | Host, "handle" | "subscribe">;
  */
 export async function serve(engine: Serving, path: string): Promise<Server> {
   if (platform() !== "win32" && existsSync(path)) {
-    if (await isAlive(path)) throw new Error("Narthex tourne déjà (un autre moteur écoute sur ce dossier).");
+    if (await isAlive(path)) throw new Error("Narthex is already running (another engine is listening on this folder).");
     unlinkSync(path);
   }
   const server = createServer((socket) => attach(engine, socket));

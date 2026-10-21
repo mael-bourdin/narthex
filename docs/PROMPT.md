@@ -36,7 +36,7 @@ packages/engine   Moteur Node. Journal d'événements SQLite (node:sqlite), bouc
                   clients (InProcessClient, SocketClient), config, chemins par OS.
 apps/cli          `narthex` : commandes + rendus texte (render.ts). Empaqueté en un seul fichier (esbuild).
 apps/desktop      Electron + React. Le processus principal rejoint un moteur qui tourne déjà
-                  (`narthex lancer`) ou en lance un et le sert au CLI. Le rendu ne parle qu'au protocole.
+                  (`narthex start`) ou en lance un et le sert au CLI. Le rendu ne parle qu'au protocole.
 ```
 
 Flux d'une décision :
@@ -97,7 +97,7 @@ Cocher dans ce fichier au fil des PR.
 - [x] Mémoire L2/L3 (recherche, section « Mémoire ») : faits extraits de chaque livrable par Haiku, asynchrone ; faits contredits datés (`invalidAt`), jamais effacés ; rappel BM25 + importance + récence fusionnés par RRF, faits encore valides seulement ; faits sensibles réservés à la co-fondatrice, la compta et le juridique ; le brief de chaque tâche part du connu ; « pourquoi a-t-on décidé X ? » sans modèle (app : Équipe · Mémoire ; CLI : `memoire`, `pourquoi`).
 - [x] Consolidation de fin de journée (recherche : sleep-time compute) : au premier passage d'un nouveau jour de Paris, Haiku relit les faits encore vrais, fusionne les doublons (anciens datés), date les faits contredits, ajoute au plus 3 réflexions qui citent au moins deux faits ; Margaux le dit dans le Fil ; une fois par jour, rien si rien de neuf, jamais au-delà du budget.
 - [x] Playbooks par rôle (L4, ACE) : après chaque issue (terminée, échouée, annulée par le fondateur), Haiku propose au plus 2 leçons et note celles qui ont aidé ou nui ; curation sans modèle (12 au plus, doublons refusés, une leçon plus nuisible qu'utile retirée) ; dans le préfixe en cache de chaque agent du rôle ; fiche agent (app, CLI).
-- [x] Oubli à la demande (RGPD) : « Oublier » (app, `narthex oublier`) efface le fait et ce qui en a été tiré (fusions, réflexions : `from`), dans la mémoire et dans le journal lui-même (seule exception à « jamais modifié »), `secure_delete` et WAL vidé ; le livrable source reste.
+- [x] Oubli à la demande (RGPD) : « Oublier » (app, `narthex forget`) efface le fait et ce qui en a été tiré (fusions, réflexions : `from`), dans la mémoire et dans le journal lui-même (seule exception à « jamais modifié »), `secure_delete` et WAL vidé ; le livrable source reste.
 - [ ] Mémoire, suite : vecteurs quand un modèle d'embedding local sera retenu ; supprimer un livrable (effacement complet).
 - [x] Vérificateur, liens : après chaque livrable, Narthex vérifie lui-même que chaque lien cité répond (sans modèle, sans coût) ; la page du livrable et le CLI montrent les liens morts.
 - [ ] Vérificateur, contenu : seconde passe par un modèle sur les livrables juridiques et chiffrés.
@@ -127,6 +127,7 @@ Cocher dans ce fichier au fil des PR.
 - [x] N'importe quel modèle : `CompatibleRuntime` (OpenRouter avec recherche et lecture web côté OpenRouter et coût exact, OpenAI, API compatible) ; clé reconnue par son préfixe et vérifiée sans frais ; niveau de tâche choisi par l'agent (léger, normal, approfondi) qui choisit le modèle ; le choix du fondateur pour un rôle passe avant.
 - [x] App simplifiée : Fil · Équipe · Réglages (Bureau, Entreprise, Classement retirés de l'app) ; visages humains (photos Unsplash, badge « IA ») ; WhatsApp par wacli proposé dès le premier lancement (QR, l'équipe écrit dans « Messages à moi-même »), `narthex whatsapp`.
 - [ ] WhatsApp, suite : répondre à l'équipe depuis WhatsApp (annuler, valider).
+- [x] Le CLI et les agents en anglais : commandes (`start`, `feed`, `team`, `done`, `cancel`…), messages, premier lancement, consignes des agents, obligations légales françaises expliquées en anglais, formats en-GB ; les commandes françaises restent des alias.
 - [ ] Nouvelle direction artistique, à partir de l'histoire et des valeurs (maquettes Figma d'abord).
 
 **Plus tard** : version hébergée (PostgreSQL derrière `EventStore`, comptes, crédits), mobile.
@@ -148,7 +149,7 @@ Une PR est prête quand :
 npm install
 npm test
 NARTHEX_RUNTIME=simulation npm run narthex -- init --idee "…" --prenom Inès --nom "Maison Lumen"   # agents d'exemple, hors ligne
-NARTHEX_RUNTIME=claude-code npm run narthex -- lancer   # vrais agents via ton Claude Code (abonnement), développement seulement
+NARTHEX_RUNTIME=claude-code npm run narthex -- start   # vrais agents via ton Claude Code (abonnement), développement seulement
 npm run dev:desktop
 ```
 
