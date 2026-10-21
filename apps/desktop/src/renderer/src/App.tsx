@@ -101,7 +101,7 @@ export function App() {
               <Bolt /> Abonnement · {[status.subscription.fiveHour, status.subscription.sevenDay].filter((v) => v !== undefined).map((v) => `${Math.round(v! * 100)} %`).join(" · ")}
             </span>
           ) : (
-            <span className="pill credits" title="Dépense IA sur ton compte Anthropic, depuis le début">
+            <span className="pill credits" title="Dépense IA chez ton fournisseur, depuis le début">
               <Bolt /> Dépense IA · {fmt.dollars(state.usage.credits)}
             </span>
           )}

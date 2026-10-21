@@ -73,12 +73,12 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
               autoFocus
               type="password"
               value={key}
-              placeholder="sk-ant-…"
-              aria-label="Clé API Anthropic"
+              placeholder="sk-ant-…, sk-or-… ou sk-…"
+              aria-label="Clé API"
               onChange={(e) => setKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && key.trim() && run(() => submitKey(key))}
             />
-            <p className="muted small">Elle reste sur ton ordinateur. Chaque mission a un coût en dollars sur ton compte Anthropic, plafonné par ton budget.</p>
+            <p className="muted small">Elle reste sur ton ordinateur. Anthropic, OpenAI ou OpenRouter (tous les modèles). Chaque mission a un coût en dollars sur ton compte, plafonné par ton budget.</p>
           </div>
         )}
 
@@ -94,7 +94,7 @@ export function ActionModal({ mission, state, now, onClose, onDone }: { mission:
               <input inputMode="decimal" value={perTask} onChange={(e) => setPerTask(e.target.value)} aria-label="Dépense IA maximale par tâche, en dollars" />
               <span className="muted small">$ de dépense IA</span>
             </label>
-            <p className="muted small">Facturé par Anthropic sur ton compte. Une tâche qui dépasse son budget s'arrête et l'agent le dit dans le Fil.</p>
+            <p className="muted small">Facturé sur ton compte, chez ton fournisseur d'IA. Une tâche qui dépasse son budget s'arrête et l'agent le dit dans le Fil.</p>
           </div>
         )}
 

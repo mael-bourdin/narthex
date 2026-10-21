@@ -22,12 +22,16 @@ const api = {
       dir: string;
       hasKey: boolean;
       keyHint: string | null;
+      provider: "anthropic" | "openrouter" | "openai" | "compatible";
+      providerLabel: string;
       runtime: RuntimeName;
       models: Partial<Record<string, string>>;
+      levels: Record<"light" | "standard" | "deep", string>;
+      choices: { id: string; label: string }[];
       notifications: { legal: boolean; leaving: boolean; budget: boolean; deliverables: boolean };
       ownsEngine: boolean;
     }> => ipcRenderer.invoke("narthex:config:get"),
-    setModels: (models: Record<string, string>): Promise<void> => ipcRenderer.invoke("narthex:config:setModels", models),
+    setModels: (models: Record<string, string>, levels?: Record<string, string>): Promise<void> => ipcRenderer.invoke("narthex:config:setModels", models, levels),
     setNotifications: (n: Record<string, boolean>): Promise<void> => ipcRenderer.invoke("narthex:config:setNotifications", n),
   },
   deliverable: {

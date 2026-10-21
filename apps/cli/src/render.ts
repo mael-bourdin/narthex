@@ -43,7 +43,7 @@ const STAGE: Record<Stage, string> = {
 
 export function header(s: CompanyState, status: EngineStatus): string {
   const c = s.company!;
-  const mode = status.runtime === "simulation" ? yellow("simulation") : status.runtime === "claude-code" ? yellow("Claude Code (dev, abonnement)") : status.runtime === "none" ? yellow("sans clé") : "Claude";
+  const mode = status.runtime === "simulation" ? yellow("simulation") : status.runtime === "claude-code" ? yellow("Claude Code (dev, abonnement)") : status.runtime === "none" ? yellow("sans clé") : ({ anthropic: "Claude", openrouter: "OpenRouter", openai: "OpenAI", compatible: "API compatible" } as Record<string, string>)[status.runtime] ?? status.runtime;
   const run = c.paused ? yellow("en pause") : status.passive ? dim("équipe à l'arrêt · narthex lancer") : status.unavailable ? yellow("en attente") : green("l'équipe travaille");
   const spend = status.subscription ? subscriptionLine(status.subscription) : `dépense IA ${fmt.dollars(s.usage.credits)}`;
   const line = `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· ${spend}`)}`;
