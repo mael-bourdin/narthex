@@ -7,6 +7,8 @@ import type { CompatibleFetch } from "./compatible.ts";
 export type KeyCheck = { ok: true; key: string } | { ok: false; message: string };
 export type ProviderName = "anthropic" | "openrouter" | "openai";
 
+export const PROVIDER_LABEL: Record<ProviderName | "compatible", string> = { anthropic: "Anthropic (Claude)", openrouter: "OpenRouter", openai: "OpenAI", compatible: "API compatible" };
+
 /**
  * Checks a pasted key with a call that costs nothing (listing models).
  * The founder sees Margaux's words, never an HTTP error.

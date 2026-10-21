@@ -1,4 +1,4 @@
-import { role, roleLevel, type FirstLook, type RoleId, type TaskLevel } from "@narthex/core";
+import { CLAUDE_BY_LEVEL, role, roleLevel, type FirstLook, type RoleId, type TaskLevel } from "@narthex/core";
 import {
   brief,
   companySheet,
@@ -227,13 +227,14 @@ export class CompatibleRuntime implements AgentRuntime {
     const message = reply.choices?.[0]?.message;
     if (!message) throw new Error("Réponse vide du modèle.");
     const u = reply.usage ?? {};
-    const cached = u.prompt_tokens_details?.cached_tokens ?? 0;
-    const usage = {
-      inputTokens: (u.prompt_tokens ?? 0) - cached,
-      outputTokens: u.completion_tokens ?? 0,
-      cacheReadTokens: cached,
-      credits: typeof u.cost === "number" ? Math.ceil(u.cost * 100 - 1e-9) : await this.creditsFor(String(body.model), u.prompt_tokens ?? 0, cached, u.completion_tokens ?? 0),
-    };
+    const count = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+    const prompt = count(u.prompt_tokens);
+    const cached = Math.min(prompt, count(u.prompt_tokens_details?.cached_tokens));
+    const completion = count(u.completion_tokens);
+    // Only OpenRouter's own figure is trusted, and never below zero; any other API is priced by us.
+    const reported = this.name === "openrouter" && typeof u.cost === "number" && Number.isFinite(u.cost) && u.cost >= 0 ? Math.ceil(u.cost * 100 - 1e-9) : undefined;
+    const credits = reported ?? (await this.creditsFor(String(body.model), prompt, cached, completion));
+    const usage = { inputTokens: prompt - cached, outputTokens: completion, cacheReadTokens: cached, credits };
     return { message, usage };
   }
 
@@ -246,6 +247,8 @@ export class CompatibleRuntime implements AgentRuntime {
 
   private priceBook(): Promise<Prices> {
     if (this.prices) return Promise.resolve(this.prices);
+    // Another API (Mistral, a local model): no call to OpenRouter the player did not ask for; unknown models count dear.
+    if (this.name === "compatible") return Promise.resolve((this.prices = {}));
     this.catalogue ??= openRouterPrices(this.call, this.name === "openai" ? "openai/" : "").then(
       (p) => (this.prices = p),
       () => ({}),
@@ -293,4 +296,34 @@ export async function openRouterPrices(call: CompatibleFetch = globalThis.fetch 
     prices[id] = { input, output, ...(cacheRead >= 0 ? { cacheRead } : {}) };
   }
   return prices;
+}
+
+/** Models offered in Réglages, per provider (the founder can still type any id in the CLI). */
+export const MODEL_CHOICES: Record<"anthropic" | "openrouter" | "openai", { id: string; label: string }[]> = {
+  anthropic: [
+    { id: "claude-opus-5-5", label: "Claude Opus 5.5" },
+    { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
+    { id: "claude-haiku-5-5", label: "Claude Haiku 5.5" },
+  ],
+  openrouter: [
+    { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol" },
+    { id: "openai/gpt-5.6-terra", label: "GPT-5.6 Terra" },
+    { id: "anthropic/claude-opus-5.5", label: "Claude Opus 5.5" },
+    { id: "anthropic/claude-sonnet-5.5", label: "Claude Sonnet 5.5" },
+    { id: "google/gemini-3.8-flash", label: "Gemini 3.8 Flash" },
+    { id: "mistralai/mistral-large-4-0", label: "Mistral Large 4" },
+    { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
+    { id: "deepseek/deepseek-v4.1-flash", label: "DeepSeek V4.1 Flash" },
+  ],
+  openai: [
+    { id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
+    { id: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
+    { id: "gpt-5.6-luna", label: "GPT-5.6 Luna" },
+  ],
+};
+
+/** The model each level uses for this provider, the founder's choices included. */
+export function levelModels(provider: Provider | "anthropic", chosen: Partial<Record<TaskLevel, string>> = {}): Record<TaskLevel, string> {
+  const base = provider === "anthropic" ? CLAUDE_BY_LEVEL : DEFAULT_LEVELS[provider];
+  return { light: chosen.light ?? base.light ?? "", standard: chosen.standard ?? base.standard ?? "", deep: chosen.deep ?? base.deep ?? "" };
 }

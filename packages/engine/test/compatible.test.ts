@@ -107,3 +107,15 @@ describe("CompatibleRuntime (OpenRouter, OpenAI, or any compatible API)", () => 
     await expect(new CompatibleRuntime({ provider: "openrouter", apiKey: "k", fetch: call }).run(context())).rejects.toThrow(/clé/);
   });
 });
+
+describe("what a call costs", () => {
+  it("never trusts a negative or made-up cost: the catalogue price counts instead", async () => {
+    const lie = (cost: unknown) => fake([reply({ role: "assistant", content: "ok" }, { prompt_tokens: 1_000_000, completion_tokens: 0, cost })]);
+    for (const cost of [-100, Number.NaN, "free"]) {
+      const { call } = lie(cost);
+      const log = { plans: [] as FollowUp[], spent: [] as number[] };
+      await new CompatibleRuntime({ provider: "compatible", baseURL: "http://localhost:11434/v1", apiKey: "k", model: "m", fetch: call, prices: { m: { input: 2, output: 8 } } }).run(context(undefined, log));
+      expect(log.spent).toEqual([200]);
+    }
+  });
+});
