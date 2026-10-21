@@ -65,6 +65,29 @@ describe("leaderboard service", () => {
     expect(huge.status).toBe(413);
   });
 
+  it("keeps a company with its first instance, even after it left the ranking, and drops a revoked instance's companies", async () => {
+    const { store, base } = await service();
+    const a = store.issue("A");
+    const b = store.issue("B");
+    const put = (auth: string, name: string) => fetch(`${base}/v1/entries/a`, { method: "PUT", headers: { authorization: `Bearer ${auth}` }, body: JSON.stringify(entry("a", name)) });
+    expect((await put(a, "Maison Lumen")).status).toBe(204);
+    expect((await fetch(`${base}/v1/entries/a`, { method: "DELETE", headers: { authorization: `Bearer ${a}` } })).status).toBe(204);
+    expect((await put(b, "Usurpée")).status).toBe(403);
+    expect((await fetch(`${base}/v1/entries/a`, { method: "DELETE", headers: { authorization: `Bearer ${b}` } })).status).toBe(403);
+    expect((await put(a, "Maison Lumen")).status).toBe(204);
+    store.revoke("A");
+    expect(((await (await fetch(`${base}/v1/leaderboard`)).json()) as { entries: unknown[] }).entries).toEqual([]);
+  });
+
+  it("publishes only the fields of an entry, whatever else is sent", async () => {
+    const { store, base } = await service();
+    const token = store.issue("A");
+    await fetch(`${base}/v1/entries/a`, { method: "PUT", headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ ...entry("a", "Maison Lumen"), idea: "Secret", html: "<script>" }) });
+    const text = await (await fetch(`${base}/v1/leaderboard`)).text();
+    expect(text).not.toContain("Secret");
+    expect(text).not.toContain("script");
+  });
+
   it("never stores the token itself", async () => {
     const { store } = await service();
     const token = store.issue("A");

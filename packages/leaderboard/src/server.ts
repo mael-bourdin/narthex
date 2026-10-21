@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { rankLeaderboard, validEntry } from "@narthex/core";
+import { rankLeaderboard, validEntry, type LeaderboardEntry } from "@narthex/core";
 import type { LeaderboardStore } from "./store.ts";
 
 const MAX_BODY = 8 * 1024;
@@ -28,12 +28,8 @@ export function startLeaderboard(options: { store: LeaderboardStore; port: numbe
     const token = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     const tokenHash = token ? store.check(token) : undefined;
     if (!tokenHash) return send(res, 401, { error: "Jeton inconnu ou révoqué." });
-    const owner = store.owner(companyId);
-    if (owner && owner !== tokenHash) return send(res, 403, { error: "Cette entreprise est publiée par une autre instance." });
-    if (req.method === "DELETE") {
-      store.remove(companyId);
-      return send(res, 204);
-    }
+    const taken = { error: "Cette entreprise est publiée par une autre instance." };
+    if (req.method === "DELETE") return store.remove(tokenHash, companyId) ? send(res, 204) : send(res, 403, taken);
     const raw = await body(req);
     if (raw === undefined) return send(res, 413, { error: "Entrée trop grande." });
     let entry: unknown;
@@ -43,15 +39,37 @@ export function startLeaderboard(options: { store: LeaderboardStore; port: numbe
       return send(res, 400, { error: "JSON invalide." });
     }
     if (!validEntry(entry) || entry.companyId !== companyId) return send(res, 400, { error: "Entrée invalide." });
-    store.put(tokenHash, { ...entry, updatedAt: now() }, now());
-    return send(res, 204);
+    return store.put(tokenHash, { ...publicFields(entry), updatedAt: now() }, now()) ? send(res, 204) : send(res, 403, taken);
   }
 
   return new Promise((resolve) => server.listen(options.port, options.host ?? "127.0.0.1", () => resolve(server)));
 }
 
+/** Only the fields of a ranking entry are kept, whatever else the request carried. */
+function publicFields(e: LeaderboardEntry): LeaderboardEntry {
+  return {
+    companyId: e.companyId,
+    name: e.name,
+    ...(e.founder !== undefined ? { founder: e.founder } : {}),
+    ...(e.city !== undefined ? { city: e.city } : {}),
+    stage: e.stage,
+    office: e.office,
+    sales: e.sales,
+    revenueBand: e.revenueBand,
+    ...(e.revenue !== undefined ? { revenue: e.revenue } : {}),
+    days: e.days,
+    xp: e.xp,
+    updatedAt: e.updatedAt,
+  };
+}
+
 function body(req: IncomingMessage): Promise<string | undefined> {
   return new Promise((resolve) => {
+    // A slow client cannot hold the request open forever.
+    req.setTimeout(10_000, () => {
+      resolve(undefined);
+      req.destroy();
+    });
     let size = 0;
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => {

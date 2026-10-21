@@ -19,6 +19,8 @@ export class LeaderboardStore {
       PRAGMA journal_mode = WAL;
       CREATE TABLE IF NOT EXISTS tokens (hash TEXT PRIMARY KEY, label TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, revoked INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS entries (company_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, payload TEXT NOT NULL, updated_at INTEGER NOT NULL);
+      -- A company belongs for good to the instance that first published it, even after leaving the ranking.
+      CREATE TABLE IF NOT EXISTS owners (company_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL);
     `);
   }
 
@@ -29,8 +31,13 @@ export class LeaderboardStore {
     return token;
   }
 
+  /** Revokes an instance's token; its companies leave the ranking. */
   revoke(label: string): boolean {
-    return Number(this.db.prepare("UPDATE tokens SET revoked = 1 WHERE label = ?").run(label).changes) > 0;
+    const row = this.db.prepare("SELECT hash FROM tokens WHERE label = ?").get(label) as { hash: string } | undefined;
+    if (!row) return false;
+    this.db.prepare("UPDATE tokens SET revoked = 1 WHERE hash = ?").run(row.hash);
+    this.db.prepare("DELETE FROM entries WHERE token_hash = ?").run(row.hash);
+    return true;
   }
 
   /** The token's hash if it is known and not revoked. */
@@ -39,18 +46,36 @@ export class LeaderboardStore {
     return row?.hash;
   }
 
-  owner(companyId: string): string | undefined {
-    return (this.db.prepare("SELECT token_hash AS t FROM entries WHERE company_id = ?").get(companyId) as { t: string } | undefined)?.t;
+  /**
+   * Claims the company for this token if nobody has, then writes its entry, in one transaction:
+   * false when another instance owns it.
+   */
+  put(tokenHash: string, entry: LeaderboardEntry, now: number): boolean {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.prepare("INSERT INTO owners (company_id, token_hash) VALUES (?, ?) ON CONFLICT(company_id) DO NOTHING").run(entry.companyId, tokenHash);
+      const owner = (this.db.prepare("SELECT token_hash AS t FROM owners WHERE company_id = ?").get(entry.companyId) as { t: string }).t;
+      if (owner !== tokenHash) {
+        this.db.exec("ROLLBACK");
+        return false;
+      }
+      this.db
+        .prepare("INSERT INTO entries (company_id, token_hash, payload, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(company_id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at")
+        .run(entry.companyId, tokenHash, JSON.stringify(entry), now);
+      this.db.exec("COMMIT");
+      return true;
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
+    }
   }
 
-  put(tokenHash: string, entry: LeaderboardEntry, now: number): void {
-    this.db
-      .prepare("INSERT INTO entries (company_id, token_hash, payload, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(company_id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at")
-      .run(entry.companyId, tokenHash, JSON.stringify(entry), now);
-  }
-
-  remove(companyId: string): void {
-    this.db.prepare("DELETE FROM entries WHERE company_id = ?").run(companyId);
+  /** Takes the company out of the ranking (it stays owned by this token): false when another instance owns it. */
+  remove(tokenHash: string, companyId: string): boolean {
+    const owner = (this.db.prepare("SELECT token_hash AS t FROM owners WHERE company_id = ?").get(companyId) as { t: string } | undefined)?.t;
+    if (owner && owner !== tokenHash) return false;
+    this.db.prepare("DELETE FROM entries WHERE company_id = ? AND token_hash = ?").run(companyId, tokenHash);
+    return true;
   }
 
   entries(): LeaderboardEntry[] {
