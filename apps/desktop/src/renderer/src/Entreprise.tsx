@@ -1,12 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ENTERPRISE,
+  filView,
   fmt,
+  markdownTables,
   missions,
+  obligationsFrame,
   overview,
+  pageFrame,
   pageView,
   role,
   spendBreakdown,
+  tablesFrame,
   tablesOf,
   type CompanyState,
   type Deliverable,
@@ -18,14 +23,17 @@ import {
 } from "@narthex/core";
 import { ActionModal } from "./ActionModal.tsx";
 import { DeliverableView } from "./Deliverable.tsx";
-import { Donnees } from "./Donnees.tsx";
-import { firstTableRows, Sign } from "./Fil.tsx";
+import { Donnees, DonneesSide } from "./Donnees.tsx";
+import { Sign } from "./Fil.tsx";
+import { FrameSide, Pilot, Post, TableAttachment, TableIcon } from "./EntrepriseParts.tsx";
+import { Clock } from "./icons.tsx";
 import { PixelAvatar } from "./PixelAvatar.tsx";
 import { SectionTabs } from "./SectionTabs.tsx";
+import "./entreprise.css";
 
 const SECTIONS = ENTERPRISE.map((s) => s.section);
 
-/** The Entreprise tab (Figma section 5), from the team's real work only. */
+/** The Entreprise tab (Figma « Narthex — App », section 174:19827), from the team's real work only. */
 export function Entreprise({
   state,
   status,
@@ -46,35 +54,71 @@ export function Entreprise({
   const [open, setOpen] = useState<Deliverable>();
   const [acting, setActing] = useState<Mission>();
   const events = useEvents(state.lastSeq);
-  const spec = ENTERPRISE.find((s) => s.section === section)!;
+  const spec = ENTERPRISE.find((s) => s.section === section) ?? ENTERPRISE[0]!;
   const current = spec.pages.length ? (page && spec.pages.some((p) => p.page === page) ? page : spec.pages[0]!.page) : undefined;
+  const now = status.now;
+  const on = status.runtime !== "none" && !state.company?.paused;
+  const onTask = (t: Task) => setActing(taskMission(state, t, now));
+  const legalSigns = missions(state, now, status.runtime).filter((m) => m.kind === "legal" || m.kind === "stuck");
+
+  let main: ReactNode = null;
+  let side: ReactNode = null;
+  if (spec.section === "Vue d'ensemble") {
+    main = <Overview state={state} status={status} on={on} onAct={setActing} onAgent={onAgent} />;
+    side = <OverviewSide state={state} now={now} events={events} onOpen={setOpen} />;
+  } else if (spec.section === "Données") {
+    main = <Donnees state={state} status={status} events={events} on={on} onAgent={onAgent} />;
+    side = <DonneesSide state={state} status={status} events={events} />;
+  } else if (spec.section === "Obligations") {
+    const frame = obligationsFrame(state, now);
+    main = (
+      <>
+        <h1 className="ent-title">Obligations</h1>
+        {legalSigns.length > 0 && <Sign signs={legalSigns} state={state} onAct={setActing} />}
+        <Pilot pilot={frame.pilot} on={on} state={state} onAgent={onAgent} />
+        <Obligations state={state} now={now} onAct={setActing} />
+      </>
+    );
+    side = <FrameSide frame={frame} state={state} onAgent={onAgent} />;
+  } else if (spec.section === "Tableaux") {
+    const frame = tablesFrame(state);
+    main = (
+      <>
+        <h1 className="ent-title">Tableaux</h1>
+        <Pilot pilot={frame.pilot} on={on} state={state} onAgent={onAgent} />
+        <Tables state={state} now={now} onOpen={setOpen} />
+      </>
+    );
+    side = <FrameSide frame={frame} state={state} onAgent={onAgent} />;
+  } else if (current) {
+    const frame = pageFrame(state, events, spec.section, current, now);
+    main = (
+      <>
+        <h1 className="ent-title">{spec.section}</h1>
+        <nav className="ent-pages">
+          {spec.pages.map((p) => (
+            <button key={p.page} className={p.page === current ? "on" : ""} onClick={() => onNavigate(spec.section, p.page)}>
+              {p.page}
+            </button>
+          ))}
+        </nav>
+        {spec.section === "Juridique" && current === "Documents" && legalSigns.length > 0 && <Sign signs={legalSigns} state={state} onAct={setActing} />}
+        <Pilot pilot={frame.pilot} on={on} state={state} onAgent={onAgent} />
+        <DomainPage state={state} status={status} section={spec.section} page={current} events={events} onOpen={setOpen} onTask={onTask} />
+      </>
+    );
+    side = <FrameSide frame={frame} state={state} onAgent={onAgent} />;
+  }
 
   return (
-    <div className="columns">
+    <div className="columns ent">
       <div className="main">
-        <SectionTabs items={SECTIONS} active={section} onSelect={(s) => onNavigate(s)} />
-        {spec.pages.length > 0 && (
-          <div className="chips pages">
-            {spec.pages.map((p) => (
-              <button key={p.page} className={p.page === current ? "chip on" : "chip"} onClick={() => onNavigate(section, p.page)}>
-                {p.page}
-              </button>
-            ))}
-          </div>
-        )}
-        {section === "Vue d'ensemble" && <Overview state={state} status={status} onAct={setActing} onOpen={setOpen} />}
-        {section === "Données" && <Donnees state={state} status={status} events={events} />}
-        {section === "Obligations" && <Obligations state={state} now={status.now} onAct={setActing} />}
-        {section === "Tableaux" && <Tables state={state} onOpen={setOpen} />}
-        {current && (
-          <DomainPage state={state} status={status} section={section} page={current} events={events} onOpen={setOpen} onAgent={onAgent} onTask={(t) => setActing(taskMission(state, t, status.now))} />
-        )}
+        <SectionTabs items={SECTIONS} active={spec.section} onSelect={(s) => onNavigate(s)} />
+        {main}
       </div>
-      <aside className="side">
-        {section === "Vue d'ensemble" ? <OverviewSide state={state} status={status} events={events} /> : <SpendCard state={state} events={events} compact />}
-      </aside>
+      <aside className="side">{side}</aside>
       {open && <DeliverableView d={open} state={state} status={status} onClose={() => setOpen(undefined)} onChange={onChange} />}
-      {acting && <ActionModal mission={acting} state={state} now={status.now} onClose={() => setActing(undefined)} onDone={onChange} />}
+      {acting && <ActionModal mission={acting} state={state} now={now} onClose={() => setActing(undefined)} onDone={onChange} />}
     </div>
   );
 }
@@ -117,14 +161,85 @@ function obligationMission(state: CompanyState, o: Obligation): Mission {
   };
 }
 
+/** What the agent said when it delivered, in its own words; the summary when it said nothing. */
+function wordsFor(state: CompanyState, d: Deliverable): string | undefined {
+  return [...state.posts].reverse().find((p) => p.deliverableId === d.id)?.text;
+}
+
+function DeliverablePost({ d, state, now, onOpen }: { d: Deliverable; state: CompanyState; now: number; onOpen(): void }) {
+  const table = markdownTables(d.body).find((t) => t.rows.length > 0);
+  const words = wordsFor(state, d);
+  return (
+    <Post agentId={d.agentId} state={state} at={d.createdAt} now={now}>
+      <p className="text">{words ?? d.summary}</p>
+      {table ? (
+        <TableAttachment title={d.title} header={table.header} rows={table.rows} />
+      ) : (
+        <div className="ent-attach">
+          <div className="ent-attach-title">{d.title}</div>
+          <div className="ent-attach-line">{words ? d.summary : `${d.sources.length} source${d.sources.length > 1 ? "s" : ""} citée${d.sources.length > 1 ? "s" : ""}`}</div>
+        </div>
+      )}
+      <div className="actions">
+        <button className="btn btn-secondary" onClick={onOpen}>
+          {table && <TableIcon />}
+          {table ? "Tableau complet" : "Ouvrir le livrable"}
+        </button>
+      </div>
+    </Post>
+  );
+}
+
+function TaskPost({ t, state, now, onTask }: { t: Task; state: CompanyState; now: number; onTask(t: Task): void }) {
+  const words = [...state.posts].reverse().find((p) => p.taskId === t.id && p.kind !== "deliverable")?.text;
+  const leaving = t.status === "planned" && t.kind === "external" && (t.cancellableUntil ?? 0) > now;
+  const when = t.status === "running" ? `En cours · commencée ${fmt.relative(t.startedAt ?? t.scheduledAt, now)}` : `Prévue ${t.scheduledAt <= now ? "dès que possible" : `${fmt.relative(t.scheduledAt, now)}, ${fmt.day(t.scheduledAt)} à ${fmt.hour(t.scheduledAt)}`}`;
+  return (
+    <Post agentId={t.agentId} state={state} at={t.createdAt} now={now}>
+      {(words ?? t.why) && <p className="text">{words ?? t.why}</p>}
+      <div className="ent-attach">
+        <div className="ent-attach-title">{t.title}</div>
+        <div className="ent-attach-line">
+          {when}
+          {t.kind === "external" ? " · action vers l'extérieur" : ""}
+        </div>
+      </div>
+      <div className="actions">
+        {leaving ? (
+          <>
+            <span className="delay">
+              <Clock /> Part {fmt.relative(t.cancellableUntil!, now)}
+            </span>
+            <button className="btn btn-secondary" onClick={() => onTask(t)}>
+              Annuler
+            </button>
+          </>
+        ) : (
+          <button className="btn btn-quiet" onClick={() => onTask(t)}>
+            Voir la mission
+          </button>
+        )}
+      </div>
+    </Post>
+  );
+}
+
 // ---------- Vue d'ensemble ----------
 
-function Overview({ state, status, onAct, onOpen }: { state: CompanyState; status: EngineStatus; onAct(m: Mission): void; onOpen(d: Deliverable): void }) {
+function Overview({ state, status, on, onAct, onAgent }: { state: CompanyState; status: EngineStatus; on: boolean; onAct(m: Mission): void; onAgent(id: string): void }) {
   const o = overview(state, status.now);
   const signs = missions(state, status.now, status.runtime);
+  const quest = filView(state, status.now).quest;
   const yours = o.milestones.filter((m) => m.state === "you").length;
-  const working = Object.values(state.agents).filter((a) => a.status === "working").length;
+  const agents = Object.values(state.agents);
+  const working = agents.filter((a) => a.status === "working").length;
   const latest = Object.values(state.deliverables).sort((a, b) => b.createdAt - a.createdAt)[0];
+  const margaux = agents.find((a) => a.role === "cofondateur");
+  const pilot = {
+    title: state.company?.paused ? "L'équipe est en pause" : status.runtime === "none" ? "L'équipe attend ta clé pour travailler" : "Margaux tient l'entreprise à jour",
+    detail: [`${agents.length} agent${agents.length > 1 ? "s" : ""}`, working ? `${working} au travail` : "personne au travail en ce moment", latest ? `dernier livrable ${fmt.relative(latest.createdAt, status.now)}` : ""].filter(Boolean).join(" · "),
+    ...(margaux ? { agentId: margaux.id } : {}),
+  };
   return (
     <>
       <div className="company-head">
@@ -133,21 +248,7 @@ function Overview({ state, status, onAct, onOpen }: { state: CompanyState; statu
       </div>
       <p className="muted company-sub">{o.subtitle}</p>
       {signs.length > 0 && <Sign signs={signs} state={state} onAct={onAct} />}
-      <section className="pilot">
-        <span className={`pilot-dot ${status.runtime === "none" || state.company?.paused ? "waiting" : "on"}`} />
-        <div>
-          <div>Margaux tient l'entreprise à jour</div>
-          <div className="muted small">
-            {Object.keys(state.agents).length} agents · {working} au travail
-            {latest ? ` · dernier livrable ${fmt.relative(latest.createdAt, status.now)}` : ""}
-          </div>
-        </div>
-        {latest && (
-          <button className="btn btn-quiet" onClick={() => onOpen(latest)}>
-            Voir le dernier livrable
-          </button>
-        )}
-      </section>
+      <Pilot pilot={pilot} on={on} state={state} onAgent={onAgent} />
       <section className="card">
         <header className="card-head">
           <span>Où en est ta société</span>
@@ -164,47 +265,55 @@ function Overview({ state, status, onAct, onOpen }: { state: CompanyState; statu
           </div>
         ))}
       </section>
+      {quest && (
+        <section className="card">
+          <header className="card-head">
+            <span>Objectif de l'étape</span>
+            <span className="muted">suivi par Margaux</span>
+          </header>
+          <div className="ent-goal">
+            <div className="ent-goal-top">
+              <span>{quest.title}</span>
+              <span className="muted small">
+                {quest.done} sur {quest.total}
+              </span>
+            </div>
+            <div className="ent-goal-bar">
+              <span style={{ width: `${(quest.done / Math.max(1, quest.total)) * 100}%` }} />
+            </div>
+            <div className="muted small">{quest.next ? `Prochaine étape : ${quest.next.charAt(0).toLowerCase()}${quest.next.slice(1)}` : "Tout est fait pour cette étape"}</div>
+          </div>
+        </section>
+      )}
     </>
   );
 }
 
-function OverviewSide({ state, status, events }: { state: CompanyState; status: EngineStatus; events: StoredEvent[] }) {
-  const o = overview(state, status.now);
-  const recent = Object.values(state.tasks)
-    .filter((t) => t.status === "done" && t.deliverableId)
-    .sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0))
-    .slice(0, 3);
-  const month = new Date(status.now).getMonth();
-  const spentMonth = events.filter((e) => e.type === "usage.recorded" && new Date((e as { at?: number }).at ?? e.ts).getMonth() === month).reduce((s, e) => s + (e as { credits: number }).credits, 0);
+function OverviewSide({ state, now, events, onOpen }: { state: CompanyState; now: number; events: StoredEvent[]; onOpen(d: Deliverable): void }) {
+  const o = overview(state, now);
+  const sales = state.sales ?? [];
+  const revenue = sales.reduce((n, s) => n + (s.amountCents ?? 0), 0);
+  const month = fmt.dayKey(now).slice(0, 7);
+  const spentMonth = events.reduce((n, e) => (e.type === "usage.recorded" && fmt.dayKey(e.at ?? e.ts).slice(0, 7) === month ? n + e.credits : n), 0);
+  const week = Object.values(state.deliverables)
+    .filter((d) => now - d.createdAt < 7 * 86_400_000)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 4);
   return (
     <>
-      <section className="card">
-        <header className="card-head">
-          <span>Les chiffres</span>
-          <span className="muted">{new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(status.now)}</span>
-        </header>
-        <div className="kpi">
-          <div>
-            <div>Dépense IA</div>
-            <div className="muted small">Ce mois-ci, sur ton compte Anthropic</div>
-          </div>
-          <div className="kpi-value">{fmt.dollars(spentMonth)}</div>
-        </div>
-        <div className="kpi">
-          <div>
-            <div>Livrables</div>
-            <div className="muted small">Études, documents, listes</div>
-          </div>
-          <div className="kpi-value">{Object.keys(state.deliverables).length}</div>
-        </div>
-        <div className="kpi">
-          <div>
-            <div>Missions faites</div>
-            <div className="muted small">Lancées seules par l'équipe</div>
-          </div>
-          <div className="kpi-value">{Object.values(state.tasks).filter((t) => t.status === "done").length}</div>
-        </div>
-      </section>
+      <FrameSide
+        state={state}
+        onAgent={() => {}}
+        frame={{
+          period: new Intl.DateTimeFormat("fr-FR", { month: "long", timeZone: "Europe/Paris" }).format(now),
+          figures: [
+            { label: "Chiffre d'affaires", value: fmt.euros(revenue), hint: sales.length ? `${sales.length} vente${sales.length > 1 ? "s" : ""} enregistrée${sales.length > 1 ? "s" : ""} par toi` : "Aucune vente enregistrée" },
+            { label: "Dépense IA", value: fmt.dollars(spentMonth), hint: "Ce mois-ci, sur ton compte Anthropic" },
+            { label: "Livrables", value: String(Object.keys(state.deliverables).length), hint: `${Object.values(state.tasks).filter((t) => t.status === "done").length} missions faites par l'équipe` },
+          ],
+          who: [],
+        }}
+      />
       {o.deadlines.length > 0 && (
         <section className="card">
           <header className="card-head">
@@ -218,34 +327,34 @@ function OverviewSide({ state, status, events }: { state: CompanyState; status: 
                 <span className="muted small">{new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(d.due)}</span>
               </span>
               <div>
-                <div className="small">{d.title}</div>
+                <div>{d.title}</div>
                 <div className="muted small">{d.who}</div>
               </div>
             </div>
           ))}
         </section>
       )}
-      {recent.length > 0 && (
-        <section className="card">
-          <header className="card-head">
-            <span>Derniers livrables</span>
-          </header>
-          {recent.map((t) => {
-            const agent = state.agents[t.agentId];
-            return (
-              <div key={t.id} className="member-row">
-                {agent && <PixelAvatar role={agent.role} size={26} />}
-                <div className="member-text">
-                  <div className="small">{t.title}</div>
-                  <div className="muted small">
-                    {agent?.name} · {fmt.relative(t.endedAt ?? t.createdAt, status.now)}
-                  </div>
+      <section className="card">
+        <header className="card-head">
+          <span>Livré cette semaine</span>
+          <span className="muted">par l'équipe</span>
+        </header>
+        {week.length === 0 && <p className="muted small">Rien cette semaine. Chaque livrable terminé arrivera ici.</p>}
+        {week.map((d) => {
+          const agent = state.agents[d.agentId];
+          return (
+            <div key={d.id} className="ent-recent" onClick={() => onOpen(d)}>
+              <PixelAvatar role={agent?.role} size={32} />
+              <div>
+                <div className="ent-recent-title">
+                  {agent?.name} · {d.title}
                 </div>
+                <div className="muted small">{fmt.relative(d.createdAt, now)}</div>
               </div>
-            );
-          })}
-        </section>
-      )}
+            </div>
+          );
+        })}
+      </section>
     </>
   );
 }
@@ -259,7 +368,6 @@ function DomainPage({
   page,
   events,
   onOpen,
-  onAgent,
   onTask,
 }: {
   state: CompanyState;
@@ -268,146 +376,128 @@ function DomainPage({
   page: string;
   events: StoredEvent[];
   onOpen(d: Deliverable): void;
-  onAgent(id: string): void;
   onTask(t: Task): void;
 }) {
-  const v = pageView(state, section, page, status.now);
-  const [selling, setSelling] = useState(false);
-  const sales = state.sales ?? [];
+  const now = status.now;
+  const v = pageView(state, section, page, now);
+  const documents = section === "Juridique" && page === "Documents";
+  const posts = (
+    <>
+      {v.tasks.map((t) => (
+        <TaskPost key={t.id} t={t} state={state} now={now} onTask={onTask} />
+      ))}
+      {!documents &&
+        v.deliverables.map((d) => <DeliverablePost key={d.id} d={d} state={state} now={now} onOpen={() => onOpen(d)} />)}
+      {v.deliverables.length === 0 && v.tasks.length === 0 && v.empty && (
+        <Post
+          state={state}
+          now={now}
+          {...(v.owners[0] ? { agentId: v.owners[0].id } : { ghost: { role: v.spec.owners[0]!, note: "pas encore là" } })}
+        >
+          <p className="text">{role(v.owners[0]?.role ?? v.spec.owners[0]!).mission}</p>
+          <div className="ent-attach">
+            <div className="ent-attach-title">{page}</div>
+            <div className="ent-attach-line">Rien encore. Chaque livrable de {v.owners[0]?.name ?? role(v.spec.owners[0]!).defaultName} pour cette page arrivera ici.</div>
+          </div>
+        </Post>
+      )}
+    </>
+  );
   return (
     <>
-      <h1>{page}</h1>
-      <section className="owners">
-        {v.owners.length > 0
-          ? v.owners.map((a) => (
-              <button key={a.id} className="chip" onClick={() => onAgent(a.id)}>
-                <PixelAvatar role={a.role} size={20} /> {a.name} · {role(a.role).title}
-              </button>
-            ))
-          : v.spec.owners.slice(0, 1).map((r) => (
-              <span key={r} className="chip static ghost">
-                <PixelAvatar role={r} size={20} dim /> {role(r).defaultName} · {role(r).title} · pas encore là
-              </span>
-            ))}
+      {section === "Ventes" && page === "Commandes" && <SalesCard state={state} now={now} />}
+      <section className="fil-list">
+        {page === "Dépenses" && <SpendBlock state={state} events={events} />}
+        {documents && <DocumentsPost state={state} now={now} deliverables={v.deliverables} tasks={v.tasks} onOpen={onOpen} />}
+        {posts}
       </section>
-      {section === "Ventes" && page === "Commandes" && (
-        <section className="card sales">
-          <header className="card-head">
-            <span>Tes ventes</span>
-            <button className="btn btn-secondary" onClick={() => setSelling(true)}>
-              J'ai fait une vente
-            </button>
-          </header>
-          {sales.length === 0 && <p className="muted small">Aucune vente enregistrée. La première fait passer l'entreprise en activité.</p>}
-          {[...sales].reverse().slice(0, 8).map((v) => (
-            <div key={v.id} className="sale-line small">
-              <span>{v.note ?? "Vente"}</span>
-              <span className="muted">
-                {v.amountCents !== undefined ? `${(v.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} · ` : ""}
-                {fmt.day(v.at)}
-              </span>
-            </div>
-          ))}
-          {selling && (
-            <ActionModal
-              mission={{ id: "sale", kind: "rest", eyebrow: "Ventes", title: "Enregistrer une vente", why: "Le montant est facultatif. L'équipe s'en sert pour ses chiffres.", action: "sale", label: "" }}
-              state={state}
-              now={status.now}
-              onClose={() => setSelling(false)}
-              onDone={() => {}}
-            />
-          )}
-        </section>
-      )}
-      {page === "Dépenses" && <SpendCard state={state} events={events} />}
-      {v.tasks.length > 0 && (
-        <section className="card">
-          <header className="card-head">
-            <span>En cours et prévu</span>
-            <span className="muted">{v.tasks.length}</span>
-          </header>
-          {v.tasks.map((t) => (
-            <button key={t.id} className="task-line" onClick={() => onTask(t)}>
-              {state.agents[t.agentId] && <PixelAvatar role={state.agents[t.agentId]!.role} size={22} />}
-              <span className="task-line-title">{t.title}</span>
-              <span className={t.status === "running" ? "small accent" : "muted small"}>{t.status === "running" ? "en cours" : t.scheduledAt <= status.now ? "dès que possible" : fmt.relative(t.scheduledAt, status.now)}</span>
-            </button>
-          ))}
-        </section>
-      )}
-      {v.deliverables.length > 0 ? (
-        <section className="fil-list">
-          {v.deliverables.map((d) => (
-            <DeliverableCard key={d.id} d={d} state={state} now={status.now} onOpen={() => onOpen(d)} />
-          ))}
-        </section>
-      ) : (
-        v.empty && (
-          <section className="fil-empty">
-            <p>Rien ici pour l'instant.</p>
-            <p className="muted">{v.empty}</p>
-          </section>
-        )
-      )}
     </>
   );
 }
 
-function DeliverableCard({ d, state, now, onOpen }: { d: Deliverable; state: CompanyState; now: number; onOpen(): void }) {
-  const agent = state.agents[d.agentId];
-  const rows = firstTableRows(d.body, 3);
+/** Juridique · Documents: every paper of the company in one table (Figma « Documents de la société »). */
+function DocumentsPost({ state, now, deliverables, tasks, onOpen }: { state: CompanyState; now: number; deliverables: Deliverable[]; tasks: Task[]; onOpen(d: Deliverable): void }) {
+  if (deliverables.length === 0) return null;
+  const author = deliverables[0]!.agentId;
+  const rows = deliverables.map((d) => [d.title, fmt.day(d.createdAt), <span key="s" className="ent-state ok">Livré</span>]);
   return (
-    <article className="publication clickable" onClick={onOpen}>
-      <header className="post-head">
-        {agent && <PixelAvatar role={agent.role} size={32} />}
-        <span className="name">{d.title}</span>
-        <span className="muted time">{fmt.relative(d.createdAt, now)}</span>
-      </header>
-      <p className="text muted">{d.summary}</p>
-      {rows.length > 0 && (
-        <div className="attachment">
-          <span className="attachment-table">
-            {rows.map((cells, i) => (
-              <span key={i} className="attachment-row">
-                <span>{cells[0]}</span>
-                <span className="muted">{cells[1] ?? ""}</span>
-              </span>
-            ))}
-          </span>
-        </div>
-      )}
-    </article>
+    <Post agentId={author} state={state} at={deliverables[0]!.createdAt} now={now}>
+      <TableAttachment
+        title="Documents de la société"
+        header={["Document", "Date", "État"]}
+        widths={["62%", "20%", "18%"]}
+        rows={rows}
+        limit={8}
+        onRow={(i) => onOpen(deliverables[i]!)}
+        foot={`Un clic ouvre le document.${tasks.length ? ` ${tasks.length} autre${tasks.length > 1 ? "s" : ""} en préparation.` : ""}`}
+      />
+    </Post>
   );
 }
 
-function SpendCard({ state, events, compact }: { state: CompanyState; events: StoredEvent[]; compact?: boolean }) {
+function SalesCard({ state, now }: { state: CompanyState; now: number }) {
+  const [selling, setSelling] = useState(false);
+  const sales = state.sales ?? [];
+  return (
+    <section className="card sales">
+      <header className="card-head">
+        <span>Tes ventes</span>
+        <button className="btn btn-secondary" onClick={() => setSelling(true)}>
+          J'ai fait une vente
+        </button>
+      </header>
+      {sales.length === 0 ? (
+        <p className="muted small">Aucune vente enregistrée. La première fait passer l'entreprise en activité.</p>
+      ) : (
+        <TableAttachment
+          header={["Vente", "Date", "Montant"]}
+          rows={[...sales].reverse().map((s) => [s.note ?? "Vente", fmt.day(s.at), s.amountCents !== undefined ? fmt.euros(s.amountCents) : "—"])}
+          numLast
+          limit={8}
+        />
+      )}
+      {selling && (
+        <ActionModal
+          mission={{ id: "sale", kind: "rest", eyebrow: "Ventes", title: "Enregistrer une vente", why: "Le montant est facultatif. L'équipe s'en sert pour ses chiffres.", action: "sale", label: "" }}
+          state={state}
+          now={now}
+          onClose={() => setSelling(false)}
+          onDone={() => {}}
+        />
+      )}
+    </section>
+  );
+}
+
+function SpendBlock({ state, events }: { state: CompanyState; events: StoredEvent[] }) {
   const b = spendBreakdown(state, events);
   const max = Math.max(1, ...b.byDay.map((d) => d.credits));
   return (
-    <section className="card">
+    <article className="publication">
       <header className="card-head">
         <span>Dépense IA</span>
-        <span className="muted">{fmt.dollars(b.total)} au total</span>
+        <span className="muted">{fmt.dollars(b.total)} au total · 14 derniers jours</span>
       </header>
-      {!compact && b.byDay.length > 0 && (
+      {b.byDay.length > 0 && (
         <div className="spend-chart" aria-label="Dépense IA par jour, 14 derniers jours">
           {b.byDay.map((d) => (
             <span key={d.day} className="spend-bar" style={{ height: `${Math.max(2, (d.credits / max) * 100)}%` }} title={`${fmt.day(d.day)} : ${fmt.dollars(d.credits)}`} />
           ))}
         </div>
       )}
-      {b.byAgent.length === 0 && <p className="muted small">Aucune dépense pour l'instant.</p>}
-      {b.byAgent.slice(0, compact ? 4 : 10).map((a) => (
-        <div key={a.agentId} className="member-row">
-          <PixelAvatar role={a.role} size={24} />
-          <div className="member-text">
-            <div className="small">{a.name}</div>
-          </div>
-          <span className="small">{fmt.dollars(a.credits)}</span>
-        </div>
-      ))}
-      <p className="muted small">Facturé par Anthropic sur ton compte. Plafond : {fmt.dollars(state.settings.dailyBudgetCredits)} par jour.</p>
-    </section>
+      {b.byAgent.length === 0 ? (
+        <p className="muted small">Aucune dépense pour l'instant.</p>
+      ) : (
+        <TableAttachment
+          title="Par coéquipier"
+          header={["Qui", "Rôle", "Montant"]}
+          rows={b.byAgent.map((a) => [a.name, role(a.role).title, fmt.dollars(a.credits)])}
+          numLast
+          limit={10}
+          foot="Facturé par Anthropic sur ton compte."
+        />
+      )}
+    </article>
   );
 }
 
@@ -415,93 +505,81 @@ function SpendCard({ state, events, compact }: { state: CompanyState; events: St
 
 function Obligations({ state, now, onAct }: { state: CompanyState; now: number; onAct(m: Mission): void }) {
   const all = Object.values(state.obligations).sort((a, b) => (a.due ?? Infinity) - (b.due ?? Infinity));
-  const groups: [string, Obligation[]][] = [
-    ["Pour toi", all.filter((o) => o.owner === "founder" && o.status === "open")],
-    ["Pour l'équipe", all.filter((o) => o.owner !== "founder" && o.status === "open")],
-    ["Faites", all.filter((o) => o.status === "done")],
-  ];
+  const yours = all.filter((o) => o.owner === "founder" && o.status === "open");
+  const team = all.filter((o) => o.owner !== "founder" && o.status === "open");
+  const done = all.filter((o) => o.status === "done").sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
+  const legal = Object.values(state.agents).find((a) => a.role === "juridique") ?? Object.values(state.agents).find((a) => a.role === "cofondateur");
+  const ownerName = (o: Obligation) => (o.owner === "founder" ? "Toi" : (Object.values(state.agents).find((a) => a.role === o.owner)?.name ?? role(o.owner).defaultName));
+  const when = (o: Obligation) => (o.due ? (fmt.dayKey(o.due) === fmt.dayKey(now) ? "aujourd'hui" : fmt.day(o.due)) : "—");
+  const stateOf = (o: Obligation) =>
+    o.stuck ? <span className="ent-state late">Bloquée</span> : o.due && o.due < now ? <span className="ent-state late">En retard</span> : <span className="ent-state team">Suivie</span>;
+  const later = overview(state, now).milestones.filter((m) => m.state === "later" && m.title !== "Étude de marché");
+  if (all.length === 0 && later.length === 0) return null;
+  const last = all.length ? Math.max(...all.map((o) => o.doneAt ?? o.openedAt)) : undefined;
   return (
-    <>
-      <h1>Obligations</h1>
-      {all.length === 0 && (
-        <section className="fil-empty">
-          <p>Aucune obligation ouverte.</p>
-          <p className="muted">Hugo les ouvre quand l'étape de l'entreprise les rend nécessaires, avec la règle et sa source.</p>
-        </section>
-      )}
-      {groups
-        .filter(([, list]) => list.length)
-        .map(([title, list]) => (
-          <section key={title} className="card">
-            <header className="card-head">
-              <span>{title}</span>
-              <span className="muted">{list.length}</span>
-            </header>
-            {list.map((o) => {
-              const owner = o.owner === "founder" ? undefined : Object.values(state.agents).find((a) => a.role === o.owner);
-              const clickable = o.owner === "founder" && o.status === "open";
-              return (
-                <button key={o.id} className={`task-line${clickable ? "" : " static"}`} disabled={!clickable} onClick={() => clickable && onAct(obligationMission(state, o))}>
-                  {owner ? <PixelAvatar role={owner.role} size={22} /> : <PixelAvatar founder size={22} />}
-                  <span className="task-line-title">
-                    {o.title}
-                    <span className="muted small block">{o.why}</span>
-                  </span>
-                  <span className={o.status === "done" ? "muted small" : o.owner === "founder" ? "small accent" : "muted small"}>
-                    {o.status === "done" ? `fait ${fmt.relative(o.doneAt ?? now, now)}` : o.due ? `avant le ${fmt.day(o.due)}` : ""}
-                  </span>
-                </button>
-              );
-            })}
-          </section>
-        ))}
-    </>
+    <section className="fil-list">
+      <Post agentId={legal?.id} state={state} at={last} now={now}>
+        {yours.length > 0 && (
+          <TableAttachment
+            title="Pour toi"
+            header={["Quoi", "Quand", "Pourquoi toi"]}
+            widths={["34%", "18%", "48%"]}
+            rows={yours.map((o) => [o.title, <span key="w" className={o.due && o.due - now < 86_400_000 * 2 ? "ent-you" : undefined}>{when(o)}</span>, o.why])}
+            limit={20}
+            onRow={(i) => onAct(obligationMission(state, yours[i]!))}
+            foot="Un clic t'explique quoi faire."
+          />
+        )}
+        {team.length > 0 && <TableAttachment title="Pour l'équipe" header={["Quoi", "Quand", "Qui", "État"]} widths={["46%", "18%", "18%", "18%"]} rows={team.map((o) => [o.title, when(o), ownerName(o), stateOf(o)])} limit={20} />}
+        {later.length > 0 && (
+          <TableAttachment
+            title="Ensuite"
+            header={["Quoi", "Qui", "État"]}
+            widths={["46%", "36%", "18%"]}
+            rows={later.map((m) => [m.title, m.who, <span key="s" className="ent-state">À venir</span>])}
+            foot="Ouvertes par l'équipe quand l'étape de l'entreprise les rend nécessaires."
+          />
+        )}
+        {done.length > 0 && (
+          <TableAttachment
+            title="Faites"
+            header={["Quoi", "Le", "Qui", "État"]}
+            widths={["46%", "18%", "18%", "18%"]}
+            rows={done.map((o) => [o.title, o.doneAt ? fmt.day(o.doneAt) : "—", ownerName(o), <span key="s" className="ent-state ok">Faite</span>])}
+            limit={8}
+          />
+        )}
+      </Post>
+    </section>
   );
 }
 
 // ---------- Tableaux ----------
 
-function Tables({ state, onOpen }: { state: CompanyState; onOpen(d: Deliverable): void }) {
-  const tables = tablesOf(state);
+function Tables({ state, now, onOpen }: { state: CompanyState; now: number; onOpen(d: Deliverable): void }) {
+  // One publication per deliverable, with all its tables as pièces jointes.
+  const groups = new Map<string, { d: Deliverable; tables: ReturnType<typeof tablesOf> }>();
+  for (const t of tablesOf(state)) {
+    const g = groups.get(t.deliverable.id) ?? { d: t.deliverable, tables: [] };
+    g.tables.push(t);
+    groups.set(t.deliverable.id, g);
+  }
+  if (groups.size === 0) return null;
   return (
-    <>
-      <h1>Tableaux</h1>
-      {tables.length === 0 && (
-        <section className="fil-empty">
-          <p>Pas encore de tableau.</p>
-          <p className="muted">Chaque tableau d'un livrable (prospects, concurrents, prix, échéances) sera rassemblé ici.</p>
-        </section>
-      )}
-      {tables.map((t, i) => (
-        <section key={i} className="card table-card">
-          <header className="card-head">
-            <span>{t.deliverable.title}</span>
-            <button className="btn btn-quiet" onClick={() => onOpen(t.deliverable)}>
-              Ouvrir le livrable
+    <section className="fil-list">
+      {[...groups.values()].map(({ d, tables }) => (
+        <Post key={d.id} agentId={d.agentId} state={state} at={d.createdAt} now={now}>
+          <p className="text">{d.title}</p>
+          {tables.slice(0, 3).map((t, i) => (
+            <TableAttachment key={i} header={t.header} rows={t.rows} limit={5} />
+          ))}
+          <div className="actions">
+            <button className="btn btn-secondary" onClick={() => onOpen(d)}>
+              <TableIcon /> {tables.length > 3 ? `Les ${tables.length} tableaux` : "Tableau complet"}
             </button>
-          </header>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {t.header.map((h, j) => (
-                    <th key={j}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {t.rows.map((r, j) => (
-                  <tr key={j}>
-                    {r.map((c, k) => (
-                      <td key={k}>{c}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        </section>
+        </Post>
       ))}
-    </>
+    </section>
   );
 }

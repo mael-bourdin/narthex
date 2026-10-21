@@ -1,0 +1,89 @@
+/* Entreprise tab (Figma « Narthex — App », section 174:19827), built from the Fil's components:
+   section title + page chips, the pilote line, one card of publications with pièces jointes,
+   and on the right « Les chiffres », the rules and « Qui s'en occupe ». */
+
+.ent-title { font-size: 28px; line-height: 34px; font-weight: 500; letter-spacing: -.02em; margin: 10px 0 2px; }
+.main h1.ent-title { margin: 10px 0 2px; }
+.ent-title-row { display: flex; align-items: center; gap: 12px; }
+.ent-title-row .segmented { margin-left: auto; }
+
+/* Page chips: outlined pills, the active one lighter. */
+.ent-pages { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 2px; }
+.ent-pages button { border: 1px solid var(--border-default); border-radius: 99px; padding: 5px 12px; background: none; color: var(--text-secondary); font-size: 13.5px; cursor: pointer; }
+.ent-pages button:hover { color: var(--text-primary); }
+.ent-pages button.on { color: var(--text-primary); border-color: var(--text-tertiary); background: var(--bg-raised); }
+
+/* The pilote line: dot, what is going on, and who to look at. */
+.ent .pilot > div:nth-child(2) { flex: 1; min-width: 0; }
+.ent .pilot .muted.small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pilot-link { flex: none; background: none; border: 0; padding: 0; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+.pilot-link:hover { color: var(--text-primary); }
+
+/* Publications inside the page card. */
+.ent .publication .attachment { max-width: none; }
+.ent .publication .actions { gap: 4px; }
+.ent .publication .actions .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.ent .publication .actions .btn-quiet { color: var(--text-secondary); }
+.ent .publication .actions .btn-quiet:hover { color: var(--text-primary); }
+.ent .publication .delay { margin-right: 4px; }
+.ent .publication.ghost .post-head { opacity: .6; }
+.post-role { color: var(--text-tertiary); font-size: 13px; }
+
+/* A pièce jointe: titled box, a table or a short line. */
+.ent-attach { margin-top: 12px; padding: 12px 14px 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-app); }
+.ent-attach-title { font-weight: 500; }
+.ent-attach-line { margin-top: 4px; color: var(--text-secondary); font-size: 13px; }
+.ent-attach-foot { margin-top: 8px; color: var(--text-tertiary); font-size: 12.5px; }
+.ent-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; table-layout: fixed; }
+.ent-table th { overflow: hidden; text-overflow: ellipsis; text-align: left; font-weight: 400; color: var(--text-tertiary); padding: 6px 12px 8px 0; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+.ent-table td { padding: 9px 12px 9px 0; border-top: 1px solid var(--border-subtle); color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ent-table tr:first-child td { border-top: 0; }
+.ent-table th:last-child, .ent-table td:last-child { padding-right: 0; }
+.ent-table td.num, .ent-table th.num { text-align: right; white-space: nowrap; }
+.ent-table td.muted { color: var(--text-tertiary); }
+.ent-table td.when { white-space: nowrap; }
+.ent-table tr.clickable { cursor: pointer; }
+.ent-table tr.clickable:hover td { color: var(--accent); }
+.ent-table.auto { table-layout: auto; }
+.ent-table.auto td { overflow: visible; }
+.ent-state { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ent-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); }
+.ent-state.ok::before { background: var(--status-working); }
+.ent-state.you::before { background: #f5c48a; }
+.ent-state.team::before { background: var(--accent); }
+.ent-state.late::before { background: var(--error); }
+.ent-you { color: #f5c48a; }
+
+/* Right column. */
+.ent-figure { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border-subtle); }
+.ent-figure:first-of-type { border-top: 0; padding-top: 4px; }
+.ent-figure > div { min-width: 0; }
+.ent-figure .muted.small { margin-top: 2px; }
+.ent-figure-value { font-size: 20px; font-weight: 500; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
+.ent-rule { padding: 6px 0; }
+.ent-rule:first-of-type { padding-top: 2px; }
+.ent-rule .muted.small { margin-top: 1px; }
+.ent .side .member-row .member-text .small { white-space: normal; }
+.ent .side .member-row.ghost .member-text > div:first-child { color: var(--text-secondary); }
+.ent .card-head .muted { font-weight: 400; font-size: 12.5px; }
+
+/* Vue d'ensemble. */
+.ent .company-head h1 { font-size: 28px; line-height: 34px; }
+.ent-goal { padding: 12px 0 2px; border-top: 1px solid var(--border-subtle); }
+.ent-goal:first-of-type { border-top: 0; padding-top: 4px; }
+.ent-goal-top { display: flex; justify-content: space-between; gap: 12px; }
+.ent-goal-bar { height: 3px; border-radius: 2px; background: var(--border-default); margin: 12px 0 10px; overflow: hidden; }
+.ent-goal-bar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.ent .milestone { padding: 12px 0; border-top: 0; }
+.ent .milestone-icon { width: 22px; height: 22px; }
+.ent .milestone.later { opacity: 1; }
+.ent .milestone.later > div > div:first-child { color: var(--text-secondary); }
+.ent-recent { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border-subtle); cursor: pointer; }
+.ent-recent:first-of-type { border-top: 0; }
+.ent-recent:hover .ent-recent-title { color: var(--accent); }
+.ent .deadline { padding: 12px 0; }
+.ent .deadline-date b { font-size: 18px; }
+
+/* Données: charts and the team table inside publications. */
+.ent .bars { margin-top: 10px; }
+.ent .team-table { font-size: 13px; }

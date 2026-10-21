@@ -27,7 +27,7 @@ const events: DomainEvent[] = [
 describe("ENTERPRISE", () => {
   it("has the sections and pages of the Figma file, plus Données", () => {
     expect(ENTERPRISE.map((s) => s.section)).toEqual(["Vue d'ensemble", "Données", "Finances", "Ventes", "Marketing", "Juridique", "Obligations", "Tableaux"]);
-    expect(ENTERPRISE.find((s) => s.section === "Finances")!.pages.map((p) => p.page)).toEqual(["Trésorerie", "Factures", "Dépenses", "Prévisionnel", "Compta et TVA"]);
+    expect(ENTERPRISE.find((s) => s.section === "Finances")!.pages.map((p) => p.page)).toEqual(["Trésorerie", "Factures et devis", "Dépenses", "Prévisionnel", "Compta et TVA"]);
   });
 });
 
@@ -39,7 +39,7 @@ describe("pageView", () => {
   });
 
   it("says who will take care of an empty page, and when", () => {
-    const v = pageView(replay(events), "Finances", "Factures", NOW);
+    const v = pageView(replay(events), "Finances", "Factures et devis", NOW);
     expect(v.deliverables).toEqual([]);
     expect(v.empty).toBe("Paul (Comptabilité) s'en chargera : il arrive au lancement.");
   });

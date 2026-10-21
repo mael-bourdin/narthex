@@ -11,6 +11,7 @@ export * from "./fil.ts";
 export * from "./missions.ts";
 export * from "./team.ts";
 export * from "./enterprise.ts";
+export * from "./enterprise-page.ts";
 export * from "./bureau.ts";
 export * as fmt from "./format.ts";
 export * from "./deliverable.ts";
