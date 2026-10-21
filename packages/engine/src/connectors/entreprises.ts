@@ -53,13 +53,13 @@ export async function searchCompanies(search: CompanySearch, deps: { fetch?: Fet
     const v = search[key]?.trim();
     if (v) params.set(key, v.slice(0, 200));
   }
-  if (params.size === 1) throw new Error("Donne au moins un critère : un nom, un code postal, un département ou un code NAF.");
+  if (params.size === 1) throw new Error("Give at least one criterion: a name, a postcode, a département or a NAF code.");
   await politely();
   const res = await (deps.fetch ?? (fetch as unknown as Fetch))(`${BASE}?${params}`, {
     signal: deps.signal ?? AbortSignal.timeout(10_000),
-    headers: { accept: "application/json", "user-agent": "Narthex (recherche d'entreprises)" },
+    headers: { accept: "application/json", "user-agent": "Narthex (company search)" },
   });
-  if (!res.ok) throw new Error(`L'annuaire des entreprises ne répond pas (${res.status}). Réessaie plus tard.`);
+  if (!res.ok) throw new Error(`The company directory is not answering (${res.status}). Try again later.`);
   const body = (await res.json()) as { total_results?: unknown; results?: unknown };
   const results = Array.isArray(body.results) ? body.results : [];
   return {

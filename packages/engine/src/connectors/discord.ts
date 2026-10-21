@@ -39,7 +39,7 @@ export class DiscordApi {
       }
       if (res.status === 204) return undefined as T;
       const value = (await res.json().catch(() => ({}))) as T & { message?: string };
-      if (!res.ok) throw new Error(`Discord a refusé (${res.status}) : ${value?.message ?? "erreur inconnue"}.`);
+      if (!res.ok) throw new Error(`Discord refused (${res.status}): ${value?.message ?? "unknown error"}.`);
       return value;
     }
   }
