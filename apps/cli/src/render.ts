@@ -44,8 +44,17 @@ const STAGE: Record<Stage, string> = {
 export function header(s: CompanyState, status: EngineStatus): string {
   const c = s.company!;
   const mode = status.runtime === "simulation" ? yellow("simulation") : status.runtime === "claude-code" ? yellow("Claude Code (dev, abonnement)") : status.runtime === "none" ? yellow("sans clé") : "Claude";
-  const run = c.paused ? yellow("en pause") : status.passive ? dim("équipe à l'arrêt · narthex lancer") : green("l'équipe travaille");
-  return `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· dépense IA ${fmt.dollars(s.usage.credits)}`)}`;
+  const run = c.paused ? yellow("en pause") : status.passive ? dim("équipe à l'arrêt · narthex lancer") : status.unavailable ? yellow("en attente") : green("l'équipe travaille");
+  const spend = status.subscription ? subscriptionLine(status.subscription) : `dépense IA ${fmt.dollars(s.usage.credits)}`;
+  const line = `${bold(clean(c.name))}  ${dim(`· ${STAGE[c.stage]} · ${mode} ·`)} ${run}  ${dim(`· ${spend}`)}`;
+  return status.unavailable ? `${line}\n${yellow("!")} ${clean(status.unavailable)}` : line;
+}
+
+/** « abonnement 42 % (5 h) · 68 % (semaine) »: how full the developer's subscription is. */
+export function subscriptionLine(sub: NonNullable<EngineStatus["subscription"]>): string {
+  const pct = (v: number) => `${Math.round(v * 100)} %`;
+  const parts = [sub.fiveHour !== undefined ? `${pct(sub.fiveHour)} (5 h)` : "", sub.sevenDay !== undefined ? `${pct(sub.sevenDay)} (semaine)` : ""].filter(Boolean);
+  return parts.length ? `abonnement ${parts.join(" · ")}` : "abonnement";
 }
 
 /** The founder's own to-do: only what the law reserves to them, plus what they can still cancel. */

@@ -93,9 +93,18 @@ export function App() {
         <div className="top-right">
           {status.runtime === "simulation" && <span className="pill muted" title="Agents simulés, pour le développement">Simulation</span>}
           {status.runtime === "claude-code" && <span className="pill muted" title="Développement : ton Claude Code et ton abonnement claude.ai, sans clé API">Claude Code (dev)</span>}
-          <span className="pill credits" title="Dépense IA sur ton compte Anthropic, depuis le début">
-            <Bolt /> Dépense IA · {fmt.dollars(state.usage.credits)}
-          </span>
+          {status.subscription ? (
+            <span
+              className={`pill credits${status.unavailable ? " waiting" : ""}`}
+              title={status.unavailable ?? "Ton abonnement claude.ai : part utilisée de la fenêtre de 5 h et de la semaine. Rien de nouveau ne démarre au-delà de 90 %."}
+            >
+              <Bolt /> Abonnement · {[status.subscription.fiveHour, status.subscription.sevenDay].filter((v) => v !== undefined).map((v) => `${Math.round(v! * 100)} %`).join(" · ")}
+            </span>
+          ) : (
+            <span className="pill credits" title="Dépense IA sur ton compte Anthropic, depuis le début">
+              <Bolt /> Dépense IA · {fmt.dollars(state.usage.credits)}
+            </span>
+          )}
           <button className={tab === "Réglages" ? "avatar-btn on" : "avatar-btn"} onClick={() => setTab("Réglages")} aria-label="Réglages" title="Réglages">
             <PixelAvatar founder size={30} />
           </button>

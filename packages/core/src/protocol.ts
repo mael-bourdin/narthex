@@ -73,6 +73,10 @@ export interface EngineStatus {
   running: number;
   /** True when nobody is running the company: actions are recorded, agents wait for `narthex lancer`. */
   passive: boolean;
+  /** Why no new work starts right now (e.g. the developer's subscription window is nearly full). */
+  unavailable?: string;
+  /** claude-code runtime only: how full the developer's subscription is, 0 to 1. */
+  subscription?: { fiveHour?: number; sevenDay?: number; resetsAt?: number };
 }
 
 export interface RpcRequest<M extends Method = Method> {

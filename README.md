@@ -151,7 +151,7 @@ apps/desktop          l'app Electron + React
 
 Chaque changement est un événement ; l'état se recalcule à partir du journal. Les agents tournent sur l'API Messages d'Anthropic, avec la recherche web, des outils stricts et un préfixe mis en cache par métier. Les détails sont dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), la feuille de route dans [docs/PROMPT.md](docs/PROMPT.md).
 
-Pour développer avec tes propres agents sans clé API, `NARTHEX_RUNTIME=claude-code` les fait passer par ton Claude Code, sur ton abonnement claude.ai. Ce mode ne sert qu'à développer Narthex et n'est jamais proposé aux joueurs : Anthropic n'autorise pas les produits tiers à offrir la connexion claude.ai à leurs utilisateurs.
+Pour développer avec tes propres agents sans clé API, `NARTHEX_RUNTIME=claude-code` les fait passer par ton Claude Code, sur ton abonnement claude.ai. La barre du haut montre alors l'usage de ton abonnement (fenêtre de 5 h et semaine) ; rien de nouveau ne démarre au-delà de 90 %, et chaque tâche reste bornée à son budget habituel au prix de l'API. Ce mode ne sert qu'à développer Narthex et n'est jamais proposé aux joueurs : Anthropic n'autorise pas les produits tiers à offrir la connexion claude.ai à leurs utilisateurs.
 
 ## Contribuer
 

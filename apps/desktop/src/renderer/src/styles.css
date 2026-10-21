@@ -379,6 +379,7 @@ a { color: var(--accent); }
 .ranking { margin-top: 12px; }
 .ranking .rg-line.own { color: var(--accent); }
 .ranking .rank { color: var(--text-secondary); }
+.pill.credits.waiting { color: var(--status-waiting); border-color: var(--status-waiting); }
 .lessons { text-align: left; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 4px; }
 .lessons ul { margin: 6px 0; padding-left: 16px; color: var(--text-secondary); display: grid; gap: 4px; }
 .memory-title { font-size: 17px; font-weight: 500; margin: 24px 0 10px; }
