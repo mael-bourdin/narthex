@@ -6,7 +6,7 @@ import { Equipe, type EquipeView } from "./Equipe.tsx";
 import { Fil } from "./Fil.tsx";
 import { Seuil } from "./seuil/Seuil.tsx";
 import { Bolt } from "./icons.tsx";
-import { PixelAvatar } from "./PixelAvatar.tsx";
+import { Avatar } from "./Avatar.tsx";
 import { Logo } from "./ui.tsx";
 import { useCompany } from "./useCompany.ts";
 
@@ -102,7 +102,7 @@ export function App() {
             </span>
           )}
           <button className={tab === "Réglages" ? "avatar-btn on" : "avatar-btn"} onClick={() => setTab("Réglages")} aria-label="Réglages" title="Réglages">
-            <PixelAvatar founder size={30} />
+            <Avatar founder size={30} />
           </button>
         </div>
       </header>

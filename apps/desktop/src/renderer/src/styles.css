@@ -51,7 +51,6 @@ a { color: var(--accent); }
 .tab.active::after { content: ""; position: absolute; left: 30%; right: 30%; bottom: 8px; height: 2px; border-radius: 2px; background: var(--text-primary); }
 .top-right { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
 .pill.credits { display: inline-flex; align-items: center; gap: 5px; }
-.pixel-avatar { flex: none; display: block; }
 .pill { border: 1px solid var(--border-default); border-radius: 99px; padding: 4px 10px; font-size: 12.5px; }
 
 /* Layout: 736 + 320, like the Fil in Figma */
@@ -474,3 +473,10 @@ button.agent-item.clickable:not(:disabled):hover { background: var(--bg-surface)
 .with-avatar { display: inline-flex; align-items: center; gap: 8px; }
 .status-ok { color: var(--status-working); }
 .sections li.open .section-lead { display: none; }
+
+/* Faces: round photos with a small « IA » tag, a silhouette for the founder. */
+.avatar { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-raised); color: var(--text-tertiary); }
+.avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.avatar.empty { border: 1px dashed var(--border-default); background: transparent; }
+.avatar.founder { background: #2a2740; color: #cfc8ff; }
+.avatar-ai { position: absolute; right: -3px; bottom: -2px; font-size: 8px; line-height: 1; font-weight: 600; letter-spacing: .04em; padding: 2px 3px; border-radius: 4px; background: var(--bg-app); color: var(--text-secondary); border: 1px solid var(--border-subtle); }

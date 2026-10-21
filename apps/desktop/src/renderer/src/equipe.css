@@ -39,7 +39,7 @@
 .eq-who.as-link > span:last-child { display: flex; flex-direction: column; }
 
 /* Dashed slot: a teammate who has not arrived yet (Figma « Agent à venir ») */
-.eq-slot { flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px dashed var(--border-default); }
+.eq-slot { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px dashed var(--border-default); }
 
 /* ---------- Organigramme ---------- */
 .card.eq-org { display: flex; flex-direction: column; align-items: center; padding: 24px 24px 28px; }

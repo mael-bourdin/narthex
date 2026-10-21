@@ -17,7 +17,7 @@ import {
   type StoredEvent,
 } from "@narthex/core";
 import { ActionModal } from "./ActionModal.tsx";
-import { PixelAvatar } from "./PixelAvatar.tsx";
+import { Avatar } from "./Avatar.tsx";
 import { SectionTabs } from "./SectionTabs.tsx";
 import "./reglages.css";
 
@@ -104,7 +104,7 @@ function Post({ state, by = "cofondateur", text, children }: { state: CompanySta
   return (
     <article className="publication rg-post">
       <header className="post-head">
-        <PixelAvatar role={by} size={36} />
+        <Avatar role={by} size={36} />
         <span className="name">{agent?.name ?? role(by).defaultName}</span>
         <span className="muted">· {role(by).title}</span>
       </header>
@@ -251,7 +251,7 @@ function Profil({ state, onChange }: { state: CompanyState; onChange(): void }) 
     <Posts>
       <article className="publication rg-post">
         <header className="post-head rg-person">
-          <PixelAvatar founder size={48} />
+          <Avatar founder size={48} />
           <span className="rg-text">
             <span className="rg-person-name">{c.founder.name}</span>
             <span className="rg-sub">
@@ -756,7 +756,7 @@ function ApiModels({ state, status, config, events, onChange }: { state: Company
               return (
                 <Cells key={r} dim={!agent}>
                   <span className="with-avatar">
-                    <PixelAvatar role={r} size={22} dim={!agent} />
+                    <Avatar role={r} size={22} dim={!agent} />
                     {agent?.name ?? role(r).defaultName}
                     <span className="muted small">· {role(r).title}</span>
                   </span>
@@ -812,7 +812,7 @@ function Membres({ state }: { state: CompanyState }) {
         <Table title="Personnes" cols={["Nom", "Rôle", "Accès"]} grid="minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)">
           <Cells>
             <span className="with-avatar">
-              <PixelAvatar founder size={22} />
+              <Avatar founder size={22} />
               {c.founder.name}
             </span>
             <span className="muted">Fondatrice ou fondateur</span>

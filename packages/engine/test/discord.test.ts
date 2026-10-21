@@ -61,7 +61,7 @@ describe("Discord", () => {
     expect(posts.length).toBeGreaterThan(0);
     expect(posts.every((p) => JSON.stringify(p.body!.allowed_mentions) === JSON.stringify({ parse: [] }))).toBe(true);
     const study = posts.find((p) => String(p.body!.content).includes("Étude de marché") && !String(p.path).includes("thread_id"))!;
-    expect(study.body).toMatchObject({ username: expect.any(String), avatar_url: expect.stringContaining("/assets/avatars/") });
+    expect(study.body).toMatchObject({ username: expect.any(String), avatar_url: expect.stringMatching(/\/portraits\/[a-z]+\.jpg$/) });
     expect(calls.some((c) => c.method === "PUT" && c.path.includes(encodeURIComponent("📄")))).toBe(true);
     const reply = posts.find((p) => p.path.includes("thread_id="))!;
     expect(reply.body).toMatchObject({ content: "Bien vu, je m'en sers pour le plan." });

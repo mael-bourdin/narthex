@@ -96,7 +96,7 @@
 .seuil-team .member.later.in { opacity: .38; }
 .seuil-team .spark { width: 56px; height: 56px; margin: 0 auto 14px; position: relative; }
 .seuil-team .spark::before { content: ""; position: absolute; inset: -34px; border-radius: 50%; background: radial-gradient(closest-side, var(--c), transparent); opacity: .55; filter: blur(8px); animation: seuil-breathe 3.4s ease-in-out infinite; z-index: -1; }
-.seuil-team .spark .pixel-avatar { border-radius: 14px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 0 24px 4px color-mix(in srgb, var(--c) 45%, transparent); }
+.seuil-team .spark .avatar { border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 0 24px 4px color-mix(in srgb, var(--c) 45%, transparent); }
 @keyframes seuil-breathe { 50% { transform: scale(1.18); opacity: .75; } }
 .seuil-team .name { font-size: clamp(16px, 1.6vw, 21px); }
 .seuil-team .role { color: var(--text-secondary); font-size: 13px; }

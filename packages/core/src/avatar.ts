@@ -39,5 +39,7 @@ export function avatarColour(p: Palette, part: AvatarPart): string {
 
 /** Where each role's avatar PNG is served from (the public repository), for Discord. */
 export function avatarUrl(role: RoleId | "founder"): string {
+  // The same faces as in the app (Unsplash portraits); the founder keeps a neutral avatar.
+  if (role !== "founder") return `https://raw.githubusercontent.com/mael-bourdin/narthex/main/apps/desktop/src/renderer/src/portraits/${role}.jpg`;
   return `https://raw.githubusercontent.com/mael-bourdin/narthex/main/assets/avatars/${role}.png`;
 }
