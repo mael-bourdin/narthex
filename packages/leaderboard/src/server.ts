@@ -12,7 +12,7 @@ export function startLeaderboard(options: { store: LeaderboardStore; port: numbe
   const { store } = options;
   const now = options.now ?? Date.now;
   const server = createServer((req, res) => {
-    void handle(req, res).catch(() => send(res, 500, { error: "Erreur interne." }));
+    void handle(req, res).catch(() => send(res, 500, { error: "Internal error." }));
   });
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -23,22 +23,22 @@ export function startLeaderboard(options: { store: LeaderboardStore; port: numbe
       return send(res, 200, { updatedAt: now(), entries: rankLeaderboard(store.entries()).slice(0, limit) }, { "cache-control": "public, max-age=60", "access-control-allow-origin": "*" });
     }
     const match = url.pathname.match(/^\/v1\/entries\/([\w-]{1,64})$/);
-    if (!match || (req.method !== "PUT" && req.method !== "DELETE")) return send(res, 404, { error: "Introuvable." });
+    if (!match || (req.method !== "PUT" && req.method !== "DELETE")) return send(res, 404, { error: "Not found." });
     const companyId = match[1]!;
     const token = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
     const tokenHash = token ? store.check(token) : undefined;
-    if (!tokenHash) return send(res, 401, { error: "Jeton inconnu ou révoqué." });
-    const taken = { error: "Cette entreprise est publiée par une autre instance." };
+    if (!tokenHash) return send(res, 401, { error: "Unknown or revoked token." });
+    const taken = { error: "This company is published by another instance." };
     if (req.method === "DELETE") return store.remove(tokenHash, companyId) ? send(res, 204) : send(res, 403, taken);
     const raw = await body(req);
-    if (raw === undefined) return send(res, 413, { error: "Entrée trop grande." });
+    if (raw === undefined) return send(res, 413, { error: "Entry too large." });
     let entry: unknown;
     try {
       entry = JSON.parse(raw);
     } catch {
-      return send(res, 400, { error: "JSON invalide." });
+      return send(res, 400, { error: "Invalid JSON." });
     }
-    if (!validEntry(entry) || entry.companyId !== companyId) return send(res, 400, { error: "Entrée invalide." });
+    if (!validEntry(entry) || entry.companyId !== companyId) return send(res, 400, { error: "Invalid entry." });
     return store.put(tokenHash, { ...publicFields(entry), updatedAt: now() }, now()) ? send(res, 204) : send(res, 403, taken);
   }
 

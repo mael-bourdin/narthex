@@ -47,7 +47,7 @@ describe("escalation", () => {
     const tries = () => Object.values(engine.getState().tasks).filter((t) => t.tag === "X-statuts").length;
     expect(tries()).toBe(3);
     expect(s.obligations["o"]!.stuck?.error).toBe("Le site de l'INPI ne répond pas.");
-    const said = s.posts.filter((p) => p.agentId === "m" && p.text.includes("Rédiger les statuts") && p.text.includes("3 essais"));
+    const said = s.posts.filter((p) => p.agentId === "m" && p.text.includes("Rédiger les statuts") && p.text.includes("3 attempts"));
     expect(said).toHaveLength(1);
     expect(missions(s, clock.now(), "simulation").find((m) => m.kind === "stuck")).toMatchObject({ obligationId: "o", action: "retry", speakerId: "h" });
 
@@ -57,12 +57,12 @@ describe("escalation", () => {
     s = await engine.handle("obligation.retry", { obligationId: "o" });
     expect(s.obligations["o"]!.stuck).toBeUndefined();
     expect(tries()).toBeGreaterThan(3);
-    await expect(engine.handle("obligation.retry", { obligationId: "o" })).rejects.toThrow(/bloquée/);
+    await expect(engine.handle("obligation.retry", { obligationId: "o" })).rejects.toThrow(/not stuck/);
 
     // Three new failures, and the team stops again: one more message, not a loop.
     s = await settle(engine, clock, 24);
     expect(tries()).toBe(6);
     expect(s.obligations["o"]!.stuck).toBeDefined();
-    expect(s.posts.filter((p) => p.agentId === "m" && p.text.includes("3 essais"))).toHaveLength(2);
+    expect(s.posts.filter((p) => p.agentId === "m" && p.text.includes("3 attempts"))).toHaveLength(2);
   });
 });

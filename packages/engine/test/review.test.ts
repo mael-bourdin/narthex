@@ -63,7 +63,7 @@ describe("revision: one writer per company", () => {
   it("lets only one working engine open a data folder", () => {
     const dir = tmp();
     const release = acquireLock(dir);
-    expect(() => acquireLock(dir)).toThrow(/tourne déjà/);
+    expect(() => acquireLock(dir)).toThrow(/already running/);
     release();
     expect(() => acquireLock(dir)()).not.toThrow();
   });
@@ -80,7 +80,7 @@ describe("revision: local server", () => {
     raw.write("null\n42\n\"x\"\n{}\n");
     await new Promise((r) => setTimeout(r, 50));
     const client = (await SocketClient.connect(path))!;
-    await expect(client.call("nope.method" as never, {} as never)).rejects.toThrow(/inconnue/);
+    await expect(client.call("nope.method" as never, {} as never)).rejects.toThrow(/Unknown method/);
     expect((await client.call("engine.status", {})).runtime).toBe("none");
     raw.destroy();
     await client.close();

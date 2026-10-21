@@ -10,7 +10,7 @@ describe("chooseRuntime", () => {
     expect(chooseRuntime({ anthropicApiKey: "sk-ant-x" }, {})).toBe("anthropic");
   });
   it("refuses Claude mode without a key", () => {
-    expect(() => chooseRuntime({ runtime: "anthropic" }, {})).toThrow(/clé/);
+    expect(() => chooseRuntime({ runtime: "anthropic" }, {})).toThrow(/key/);
   });
   it("lets NARTHEX_RUNTIME force the simulation", () => {
     expect(chooseRuntime({ anthropicApiKey: "sk-ant-x" }, { NARTHEX_RUNTIME: "simulation" })).toBe("simulation");

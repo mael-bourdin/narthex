@@ -28,13 +28,13 @@ export function acquireLock(dir: string): () => void {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
       const pid = Number(readFileSync(file, "utf8"));
-      if (pid && alive(pid)) throw new Error(`Narthex tourne déjà sur ces données (processus ${pid}). Utilise-le, ou arrête-le d'abord.`);
+      if (pid && alive(pid)) throw new Error(`Narthex is already running on this data (process ${pid}). Use it, or stop it first.`);
       try {
         unlinkSync(file);
       } catch {}
     }
   }
-  throw new Error("Impossible de prendre la main sur ces données.");
+  throw new Error("Could not take over this data.");
 }
 
 function alive(pid: number): boolean {

@@ -24,7 +24,7 @@ export interface EventStore {
 export function redactFacts(event: DomainEvent, factIds: ReadonlySet<string>): DomainEvent {
   if (event.type !== "facts.extracted" && event.type !== "facts.consolidated") return event;
   if (!event.added.some((f) => factIds.has(f.id))) return event;
-  return { ...event, added: event.added.map((f) => (factIds.has(f.id) ? { ...f, text: "(oublié)", subject: "" } : f)) };
+  return { ...event, added: event.added.map((f) => (factIds.has(f.id) ? { ...f, text: "(forgotten)", subject: "" } : f)) };
 }
 
 export class MemoryEventStore implements EventStore {

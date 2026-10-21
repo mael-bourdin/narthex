@@ -103,7 +103,7 @@ export function pinnedLookup(resolve: (host: string) => Promise<string[]>): Look
     resolve(hostname).then(
       (addresses) => {
         if (addresses.length === 0 || !addresses.every(isPublicAddress)) {
-          return callback(Object.assign(new Error(`${hostname} pointe vers le réseau local : lien non vérifié.`), { code: "ENOTFOUND" }));
+          return callback(Object.assign(new Error(`${hostname} points to the local network: link not checked.`), { code: "ENOTFOUND" }));
         }
         const list = addresses.map((address) => ({ address, family: isIP(address) }));
         if (options?.all) callback(null, list);
@@ -122,7 +122,7 @@ export const httpLinkCheck: LinkCheck = makeLinkCheck({
   fetch: (url, { method, signal }) =>
     new Promise((resolve, reject) => {
       const send = url.startsWith("https:") ? httpsRequest : httpRequest;
-      const req = send(url, { method, signal, lookup: pinnedLookup(resolveAll), headers: { "user-agent": "Narthex (vérification des sources)" } }, (res) => {
+      const req = send(url, { method, signal, lookup: pinnedLookup(resolveAll), headers: { "user-agent": "Narthex (source check)" } }, (res) => {
         res.resume();
         const location = res.headers.location;
         resolve({ status: res.statusCode ?? 0, location: Array.isArray(location) ? location[0] : location });
