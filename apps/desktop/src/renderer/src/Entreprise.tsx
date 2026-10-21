@@ -557,17 +557,25 @@ function Obligations({ state, now, onAct }: { state: CompanyState; now: number; 
 // ---------- Tableaux ----------
 
 function Tables({ state, now, onOpen }: { state: CompanyState; now: number; onOpen(d: Deliverable): void }) {
-  const tables = tablesOf(state);
-  if (tables.length === 0) return null;
+  // One publication per deliverable, with all its tables as pièces jointes.
+  const groups = new Map<string, { d: Deliverable; tables: ReturnType<typeof tablesOf> }>();
+  for (const t of tablesOf(state)) {
+    const g = groups.get(t.deliverable.id) ?? { d: t.deliverable, tables: [] };
+    g.tables.push(t);
+    groups.set(t.deliverable.id, g);
+  }
+  if (groups.size === 0) return null;
   return (
     <section className="fil-list">
-      {tables.map((t, i) => (
-        <Post key={i} agentId={t.deliverable.agentId} state={state} at={t.deliverable.createdAt} now={now}>
-          <p className="text">{t.deliverable.summary}</p>
-          <TableAttachment title={t.deliverable.title} header={t.header} rows={t.rows} limit={6} />
+      {[...groups.values()].map(({ d, tables }) => (
+        <Post key={d.id} agentId={d.agentId} state={state} at={d.createdAt} now={now}>
+          <p className="text">{d.title}</p>
+          {tables.slice(0, 3).map((t, i) => (
+            <TableAttachment key={i} header={t.header} rows={t.rows} limit={5} />
+          ))}
           <div className="actions">
-            <button className="btn btn-secondary" onClick={() => onOpen(t.deliverable)}>
-              <TableIcon /> Tableau complet
+            <button className="btn btn-secondary" onClick={() => onOpen(d)}>
+              <TableIcon /> {tables.length > 3 ? `Les ${tables.length} tableaux` : "Tableau complet"}
             </button>
           </div>
         </Post>
