@@ -17,7 +17,7 @@
     "dev:desktop": "npm run dev -w @narthex/desktop",
     "build": "npm run build -w @narthex/cli && npm run build -w @narthex/desktop",
     "build:cli": "npm run build -w @narthex/cli",
-    "typecheck": "tsc -p packages/core && tsc -p packages/engine && tsc -p apps/cli && tsc -p apps/desktop",
+    "typecheck": "tsc -p packages/core && tsc -p packages/engine && tsc -p packages/leaderboard && tsc -p apps/cli && tsc -p apps/desktop",
     "test": "vitest run",
     "test:watch": "vitest"
   },
