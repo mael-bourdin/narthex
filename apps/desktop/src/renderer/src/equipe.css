@@ -208,3 +208,21 @@
 .eq-h + .eq-lesson { margin-top: -4px; }
 .eq-lesson .small { margin-top: 3px; }
 .eq-lesson-check { color: var(--accent); padding-top: 2px; }
+
+/* Organigramme as a list, in the Fil's grammar: one card, rows split by a line. */
+.eq-list { display: flex; flex-direction: column; }
+.eq-row { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 36px minmax(140px, 0.8fr) 2fr; gap: 14px; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border-subtle); }
+.eq-row:first-child { border-top: 0; }
+.eq-row.clickable { cursor: pointer; transition: background .15s; }
+.eq-row.clickable:hover { background: var(--bg-raised); }
+.eq-row:first-child.clickable { border-radius: var(--radius) var(--radius) 0 0; }
+.eq-row:last-child.clickable { border-radius: 0 0 var(--radius) var(--radius); }
+.eq-row-who { display: flex; flex-direction: column; min-width: 0; }
+.eq-row-name { font-weight: 500; }
+.eq-row-what { display: flex; align-items: baseline; gap: 10px; min-width: 0; line-height: 20px; }
+.eq-row-what .status-dot { flex: none; width: 6px; height: 6px; transform: translateY(-1px); }
+.eq-row-what > span:last-child { min-width: 0; }
+.eq-row-what .block { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eq-row.ghost { border-top-style: dashed; }
+.eq-row.ghost .eq-row-name { color: var(--text-secondary); }
+.eq-row.ghost .eq-row-what { color: var(--text-tertiary); font-size: 13px; }

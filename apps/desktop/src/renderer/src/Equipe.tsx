@@ -172,22 +172,6 @@ function statusLine(row: TeamRow, state: CompanyState, status: EngineStatus): st
   return fmt.dayKey(next) === fmt.dayKey(status.now) ? `Au repos jusqu'à ${fmt.hour(next)}` : `Au repos, reprend ${fmt.day(next)}`;
 }
 
-function NowCard({ state, status, onAgent }: { state: CompanyState; status: EngineStatus; onAgent(id: string): void }) {
-  return (
-    <People
-      title="En ce moment"
-      rows={teamRows(state, status.now).map((r) => ({
-        id: r.agent.id,
-        role: r.agent.role,
-        name: r.agent.name,
-        line: statusLine(r, state, status),
-        resting: r.status === "idle",
-        onClick: () => onAgent(r.agent.id),
-      }))}
-    />
-  );
-}
-
 function margauxOf(state: CompanyState) {
   return Object.values(state.agents).find((a) => a.role === "cofondateur");
 }
@@ -237,8 +221,6 @@ function Organigramme({
   const paused = company?.paused;
   const working = rows.filter((r) => r.status === "working").length;
   const hoursWeek = rows.reduce((h, r) => h + r.hoursThisWeek, 0);
-  const team = [...o.members.map((m) => ({ kind: "member" as const, m })), ...o.upcoming.map((u) => ({ kind: "upcoming" as const, u }))];
-  const firstRow = Math.min(3, team.length);
 
   const side = (
     <>
@@ -251,7 +233,6 @@ function Organigramme({
           { label: "Dépense IA", sub: company ? `Depuis le ${fmt.day(company.foundedAt)}` : "Depuis le début", value: fmt.dollars(state.usage.credits) },
         ]}
       />
-      <NowCard state={state} status={status} onAgent={onAgent} />
     </>
   );
 
@@ -269,57 +250,36 @@ function Organigramme({
         sub={`Organisation à plat · ${status.runtime === "none" ? "attend ta clé pour se mettre au travail" : working ? `${working} au travail en ce moment` : `${margaux?.name ?? "Margaux"} recrute quand le besoin arrive`}`}
         {...(onBureau && margaux ? { action: { label: `Parler à ${margaux.name}`, onClick: onBureau } } : {})}
       />
-      <section className="card eq-org">
-        <button className={`eq-node founder${legalMission ? " clickable" : ""}`} onClick={() => legalMission && setLegal(legalMission)} disabled={!legalMission}>
-          <span className="eq-node-head">
-            <PixelAvatar founder size={32} />
-            <span>
-              <span className="eq-node-name">{o.founder}</span>
+      <section className="fil-list eq-list">
+        {forYou[0] && (
+          <button className={`eq-row${legalMission ? " clickable" : ""}`} onClick={() => legalMission && setLegal(legalMission)} disabled={!legalMission}>
+            <PixelAvatar founder size={36} />
+            <span className="eq-row-who">
+              <span className="eq-row-name">{o.founder}</span>
               <span className="muted small">Fondatrice · toi</span>
             </span>
-          </span>
-          {forYou[0] && (
-            <span className="eq-node-what">
+            <span className="eq-row-what">
               <span className="status-dot waiting-you" />
-              {forYou[0].title} t'attend{forYou.length > 1 ? ` (+ ${forYou.length - 1})` : ""}
+              <span>
+                {forYou[0].title} t'attend{forYou.length > 1 ? ` (+ ${forYou.length - 1})` : ""}
+                <span className="muted small block">La loi te le réserve</span>
+              </span>
             </span>
-          )}
-        </button>
-        {o.cofounder && (
-          <>
-            <span className="eq-org-line" />
-            <OrgNode row={o.cofounder} line={statusLine(o.cofounder, state, status)} onClick={() => onAgent(o.cofounder!.agent.id)} />
-          </>
+          </button>
         )}
-        {team.length > 0 && (
-          <>
-            <span className="eq-org-line" />
-            <span className="eq-org-branch" style={{ ["--n" as string]: firstRow }} />
-          </>
-        )}
-        <div className="eq-org-grid">
-          {team.map((t) =>
-            t.kind === "member" ? (
-              <OrgNode key={t.m.agent.id} row={t.m} line={statusLine(t.m, state, status)} onClick={() => onAgent(t.m.agent.id)} />
-            ) : (
-              <div key={t.u.role.id} className="eq-node ghost">
-                <span className="eq-node-head">
-                  <span className="eq-slot" />
-                  <span>
-                    <span className="eq-node-name">{t.u.role.title}</span>
-                    <span className="muted small">Arrive {t.u.when}</span>
-                  </span>
-                </span>
-                {t.u.why && (
-                  <span className="eq-node-what">
-                    <span className="status-dot" />
-                    {t.u.why}
-                  </span>
-                )}
-              </div>
-            ),
-          )}
-        </div>
+        {rows.map((r) => (
+          <AgentRow key={r.agent.id} row={r} state={state} status={status} onClick={() => onAgent(r.agent.id)} />
+        ))}
+        {o.upcoming.map((u) => (
+          <div key={u.role.id} className="eq-row ghost">
+            <span className="eq-slot" />
+            <span className="eq-row-who">
+              <span className="eq-row-name">{u.role.title}</span>
+              <span className="muted small">Arrive {u.when}</span>
+            </span>
+            <span className="eq-row-what muted">{u.why}</span>
+          </div>
+        ))}
       </section>
       {margaux && (
         <section className="fil-list">
@@ -344,19 +304,30 @@ function Organigramme({
   );
 }
 
-function OrgNode({ row, line, onClick }: { row: TeamRow; line: string; onClick(): void }) {
+/** One teammate: what they are doing and since when, or what comes next for them. */
+function AgentRow({ row, state, status, onClick }: { row: TeamRow; state: CompanyState; status: EngineStatus; onClick(): void }) {
+  const next = Object.values(state.tasks)
+    .filter((t) => t.agentId === row.agent.id && t.status === "planned" && t.kind !== "founder" && t.id !== row.current?.id)
+    .sort((a, b) => a.scheduledAt - b.scheduledAt)[0];
+  const since = row.current?.startedAt ? fmt.duration(status.now - row.current.startedAt) : undefined;
+  const detail = row.current
+    ? [row.current.progress && row.current.progress !== "Au travail…" ? row.current.title : "", since ? `depuis ${since}` : ""].filter(Boolean).join(" · ")
+    : next
+      ? `Ensuite : ${lowerFirst(next.title)}`
+      : "";
   return (
-    <button className="eq-node clickable" onClick={onClick}>
-      <span className="eq-node-head">
-        <PixelAvatar role={row.agent.role} size={32} />
-        <span>
-          <span className="eq-node-name">{row.agent.name}</span>
-          <span className="muted small">{row.title}</span>
-        </span>
+    <button className="eq-row clickable" onClick={onClick}>
+      <PixelAvatar role={row.agent.role} size={36} />
+      <span className="eq-row-who">
+        <span className="eq-row-name">{row.agent.name}</span>
+        <span className="muted small">{row.title}</span>
       </span>
-      <span className="eq-node-what">
+      <span className="eq-row-what">
         <span className={`status-dot ${row.status}`} />
-        {line}
+        <span>
+          {statusLine(row, state, status)}
+          {detail && <span className="muted small block">{detail}</span>}
+        </span>
       </span>
     </button>
   );
