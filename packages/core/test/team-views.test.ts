@@ -88,7 +88,7 @@ describe("journalSummary", () => {
     const j = journalSummary(s, journalEntries(s, stored), NOW);
     expect(j.total).toBe(journalEntries(s, stored).length);
     expect(j.cancelledByYou).toBe(0);
-    expect(j.byRole[0]).toMatchObject({ role: "recherche", title: "Recherche" });
+    expect(j.byRole[0]).toMatchObject({ role: "recherche", title: "Research" });
     expect(j.today).toBeGreaterThan(0);
   });
 });

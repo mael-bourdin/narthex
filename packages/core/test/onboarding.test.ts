@@ -22,8 +22,8 @@ describe("onboardingTeam", () => {
 
 describe("SEUIL copy", () => {
   it("greets the founder by name", () => {
-    expect(SEUIL.askIdea("Inès")).toBe("Enchantée, Inès. Raconte-moi ton idée. Une phrase suffit.");
-    expect(SEUIL.welcome("Maison Lumen")).toBe("Bienvenue chez Maison Lumen. On commence.");
+    expect(SEUIL.askIdea("Inès")).toBe("Nice to meet you, Inès. Tell me your idea. One sentence is enough.");
+    expect(SEUIL.welcome("Maison Lumen")).toBe("Welcome to Maison Lumen. Let's begin.");
   });
 });
 

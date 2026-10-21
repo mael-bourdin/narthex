@@ -48,7 +48,7 @@ const COMMON = new Set(role("cofondateur").guardrails);
 /** A guardrail as a short rule: its first clause, and the law it cites when it cites one. */
 export function ruleOf(guardrail: string): Rule {
   const law = /\(([^)]+)\)/.exec(guardrail)?.[1];
-  const text = guardrail.split(" : ")[0]!.replace(/\s*\([^)]*\)/g, "").replace(/\.$/, "").trim();
+  const text = guardrail.split(/ ?: /)[0]!.replace(/\s*\([^)]*\)/g, "").replace(/\.$/, "").trim();
   return law ? { text, hint: capitalize(law) } : { text };
 }
 

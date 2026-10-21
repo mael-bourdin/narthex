@@ -41,7 +41,7 @@ describe("pageView", () => {
   it("says who will take care of an empty page, and when", () => {
     const v = pageView(replay(events), "Finances", "Factures et devis", NOW);
     expect(v.deliverables).toEqual([]);
-    expect(v.empty).toBe("Paul (Comptabilité) s'en chargera : il arrive au lancement.");
+    expect(v.empty).toBe("Paul (Accounting) s'en chargera : il arrive au lancement.");
   });
 
   it("puts the legal work and duties in Juridique", () => {

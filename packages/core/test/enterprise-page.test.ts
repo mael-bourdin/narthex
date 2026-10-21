@@ -34,7 +34,7 @@ describe("pageFrame", () => {
     expect(f.figures[0]).toMatchObject({ label: "Pistes listées", value: "2" });
     expect(f.pilot.title).toBe("Samir tient cette page à jour");
     expect(f.who).toEqual([{ role: "prospection", name: "Samir", duty: role("prospection").duty, agentId: "samir", here: true }]);
-    expect(f.rules!.items[0]).toEqual({ text: "Prospection B2B uniquement par des adresses professionnelles, avec un lien de désinscription", hint: "CNIL" });
+    expect(f.rules!.items[0]).toEqual({ text: "B2B prospecting only through business addresses, with an unsubscribe link", hint: "CNIL" });
   });
 
   it("never invents a figure the state does not have", () => {
