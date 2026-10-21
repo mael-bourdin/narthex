@@ -27,56 +27,57 @@ export interface SectionSpec {
 }
 
 export const ENTERPRISE: readonly SectionSpec[] = [
-  { section: "Vue d'ensemble", pages: [] },
-  { section: "Données", pages: [] },
+  // Keywords match English titles (agents write English) and French ones (older logs).
+  { section: "Overview", pages: [] },
+  { section: "Data", pages: [] },
   {
     section: "Finances",
     pages: [
-      { page: "Trésorerie", owners: ["comptable", "cofondateur"], keywords: /trésorerie|banque|compte pro|capital/i },
-      { page: "Factures et devis", owners: ["comptable"], keywords: /factur/i },
-      { page: "Dépenses", owners: ["comptable"], keywords: /dépense|achat|abonnement|devis/i },
-      { page: "Prévisionnel", owners: ["comptable", "cofondateur"], keywords: /prévisionnel|budget|chiffre d'affaires|rentab/i, tags: ["forecast"] },
-      { page: "Compta et TVA", owners: ["comptable"], keywords: /tva|compta|cfe|urssaf|impôt/i, tags: ["C5-cfe", "B6-facturation-electronique"] },
+      { page: "Cash", owners: ["comptable", "cofondateur"], keywords: /trésorerie|banque|compte pro|capital|\bcash\b|\bbank|business account/i },
+      { page: "Invoices and quotes", owners: ["comptable"], keywords: /factur|invoic/i },
+      { page: "Expenses", owners: ["comptable"], keywords: /dépense|achat|abonnement|devis|expense|purchase|subscription|\bquotes?\b/i },
+      { page: "Forecast", owners: ["comptable", "cofondateur"], keywords: /prévisionnel|budget|chiffre d'affaires|rentab|forecast|revenue|profitab/i, tags: ["forecast"] },
+      { page: "Accounting and VAT", owners: ["comptable"], keywords: /tva|compta|cfe|urssaf|impôt|\bvat\b|accounting|bookkeeping|\btax/i, tags: ["C5-cfe", "B6-facturation-electronique"] },
     ],
   },
   {
-    section: "Ventes",
+    section: "Sales",
     pages: [
       { page: "Prospects", owners: ["prospection"], keywords: /prospect/i, tags: ["prospects", "outreach"] },
-      { page: "Clients", owners: ["prospection", "support"], keywords: /client/i },
-      { page: "Commandes", owners: ["prospection"], keywords: /commande|vente/i, tags: ["first-sale"] },
-      { page: "Support", owners: ["support"], keywords: /support|réclamation|réponse type/i },
+      { page: "Customers", owners: ["prospection", "support"], keywords: /client|customer/i },
+      { page: "Orders", owners: ["prospection"], keywords: /commande|vente|\border|\bsales?\b/i, tags: ["first-sale"] },
+      { page: "Support", owners: ["support"], keywords: /support|réclamation|réponse type|complaint|canned repl|\bfaq\b/i },
     ],
   },
   {
     section: "Marketing",
     pages: [
-      { page: "Calendrier", owners: ["redaction", "video"], keywords: /calendrier|planning|lancement/i },
-      { page: "Réseaux", owners: ["redaction"], keywords: /linkedin|instagram|tiktok|réseau|post\b/i },
-      { page: "Visuels et vidéos", owners: ["video", "redaction"], keywords: /visuel|logo|photo|vidéo|image/i, tags: ["video-script"] },
-      { page: "Site", owners: ["redaction"], keywords: /site|page d'accueil|boutique en ligne/i, tags: ["site-home"] },
-      { page: "Campagnes", owners: ["redaction", "prospection"], keywords: /campagne|newsletter|e-?mailing|publicité/i },
+      { page: "Calendar", owners: ["redaction", "video"], keywords: /calendrier|planning|lancement|calendar|schedule|\blaunch/i },
+      { page: "Social media", owners: ["redaction"], keywords: /linkedin|instagram|tiktok|réseau|post\b|social/i },
+      { page: "Visuals and videos", owners: ["video", "redaction"], keywords: /visuel|logo|photo|vidéo|image|visual|video/i, tags: ["video-script"] },
+      { page: "Website", owners: ["redaction"], keywords: /site|page d'accueil|boutique en ligne|home page|online shop|landing page/i, tags: ["site-home"] },
+      { page: "Campaigns", owners: ["redaction", "prospection"], keywords: /campagne|newsletter|e-?mailing|publicité|campaign|advert|\bads?\b/i },
     ],
   },
   {
-    section: "Juridique",
+    section: "Legal",
     pages: [
       { page: "Documents", owners: ["juridique"], allOfOwners: true },
-      { page: "Marque", owners: ["juridique"], keywords: /nom|marque|inpi|logo|domaine/i, tags: ["A1-nom"] },
-      { page: "Données personnelles", owners: ["juridique"], keywords: /rgpd|données|cnil|confidentialité|cookies/i, tags: ["C10-rgpd", "B8-mentions-legales"] },
+      { page: "Brand", owners: ["juridique"], keywords: /nom|marque|inpi|logo|domaine|\bname\b|brand|trademark|domain/i, tags: ["A1-nom"] },
+      { page: "Personal data", owners: ["juridique"], keywords: /rgpd|données|cnil|confidentialité|cookies|gdpr|personal data|privacy/i, tags: ["C10-rgpd", "B8-mentions-legales"] },
     ],
   },
   { section: "Obligations", pages: [] },
-  { section: "Tableaux", pages: [] },
+  { section: "Tables", pages: [] },
 ];
 
 const SHE: RoleId[] = ["cofondateur", "recherche", "redaction", "technique"];
 export const ARRIVES: Record<Stage, string> = {
-  idea: "dès l'idée",
-  research: "pendant l'étude",
-  creation: "à la création de la société",
-  launch: "au lancement",
-  operating: "quand l'entreprise sera en activité",
+  idea: "from the idea",
+  research: "during the study",
+  creation: "when the company is set up",
+  launch: "at the launch",
+  operating: "once the company is up and running",
 };
 
 export interface PageView {
@@ -98,7 +99,7 @@ function matches(spec: PageSpec, task: Task | undefined, agent: Agent | undefine
 
 export function pageView(state: CompanyState, section: string, page: string, now: Timestamp): PageView {
   const spec = ENTERPRISE.find((s) => s.section === section)?.pages.find((p) => p.page === page);
-  if (!spec) throw new Error(`Page inconnue : ${section} · ${page}`);
+  if (!spec) throw new Error(`Unknown page: ${section} · ${page}`);
   const agents = Object.values(state.agents);
   const owners = agents.filter((a) => spec.owners.includes(a.role));
   const deliverables = Object.values(state.deliverables)
@@ -116,17 +117,17 @@ export function pageView(state: CompanyState, section: string, page: string, now
 function emptyLine(state: CompanyState, spec: PageSpec, owners: Agent[], _now: Timestamp): string {
   if (owners[0]) {
     const a = owners[0];
-    return `${a.name} n'a encore rien livré ici : ça viendra avec ses prochaines missions.`;
+    return `${a.name} hasn't delivered anything here yet: it will come with ${SHE.includes(a.role) ? "her" : "his"} next missions.`;
   }
   const planned = staffingOf(state).find((e) => spec.owners.includes(e.role));
   const r = role(planned?.role ?? spec.owners[0]!);
-  const pronoun = SHE.includes(r.id) ? "elle" : "il";
+  const she = SHE.includes(r.id);
   return planned
-    ? `${r.defaultName} (${r.title}) s'en chargera : ${pronoun} arrive ${ARRIVES[planned.at]}.`
-    : `${r.defaultName} (${r.title}) s'en chargera quand Margaux le fera venir.`;
+    ? `${r.defaultName} (${r.title}) will take care of it: ${she ? "she" : "he"} arrives ${ARRIVES[planned.at]}.`
+    : `${r.defaultName} (${r.title}) will take care of it when Margaux brings ${she ? "her" : "him"} in.`;
 }
 
-// ---------- Vue d'ensemble ----------
+// ---------- Overview ----------
 
 export interface Milestone {
   title: string;
@@ -143,18 +144,18 @@ export interface Overview {
   deadlines: { title: string; who: string; due: Timestamp }[];
 }
 
-export const STAGE_LABEL: Record<Stage, string> = { idea: "Idée", research: "À l'étude", creation: "En création", launch: "En lancement", operating: "En activité" };
+export const STAGE_LABEL: Record<Stage, string> = { idea: "Idea", research: "Under study", creation: "Being set up", launch: "Launching", operating: "Up and running" };
 
 export function overview(state: CompanyState, now: Timestamp): Overview {
   const c = state.company!;
   const tasks = Object.values(state.tasks);
-  const ownerName = (o: Obligation) => (o.owner === "founder" ? "Toi · la loi l'impose" : (Object.values(state.agents).find((a) => a.role === o.owner)?.name ?? role(o.owner).defaultName));
+  const ownerName = (o: Obligation) => (o.owner === "founder" ? "You · required by law" : (Object.values(state.agents).find((a) => a.role === o.owner)?.name ?? role(o.owner).defaultName));
   const study = tasks.find((t) => t.tag === "market-study");
   const milestones: Milestone[] = [
-    { title: "Idée posée", who: c.founder.name, state: "done", at: c.foundedAt },
+    { title: "Idea written down", who: c.founder.name, state: "done", at: c.foundedAt },
     {
-      title: "Étude de marché",
-      who: study ? (state.agents[study.agentId]?.name ?? "") : "À venir",
+      title: "Market study",
+      who: study ? (state.agents[study.agentId]?.name ?? "") : "Coming up",
       state: study?.status === "done" ? "done" : study ? "team" : "later",
       ...(study?.endedAt ? { at: study.endedAt } : {}),
     },
@@ -172,7 +173,7 @@ export function overview(state: CompanyState, now: Timestamp): Overview {
   }
   const openedCodes = new Set(opened.map((o) => o.code));
   for (const rule of OBLIGATIONS.filter((r) => !openedCodes.has(r.code) && stageIndex(r.opensAt) >= stageIndex(c.stage)).slice(0, 3)) {
-    milestones.push({ title: rule.title, who: rule.owner === "founder" ? "Toi" : role(rule.owner).defaultName, state: "later" });
+    milestones.push({ title: rule.title, who: rule.owner === "founder" ? "You" : role(rule.owner).defaultName, state: "later" });
   }
   const deadlines = Object.values(state.obligations)
     .filter((o) => o.status === "open" && o.due)
@@ -181,7 +182,7 @@ export function overview(state: CompanyState, now: Timestamp): Overview {
   const idea = c.idea.length > 48 ? `${c.idea.slice(0, 47).trimEnd()}…` : c.idea;
   return {
     title: c.name,
-    subtitle: `${c.legalForm ?? "Forme à choisir"} · ${idea} · dirigée par ${c.founder.name}`,
+    subtitle: `${c.legalForm ?? "Legal form to choose"} · ${idea} · run by ${c.founder.name}`,
     stage: STAGE_LABEL[c.stage],
     milestones,
     deadlines,
@@ -193,7 +194,7 @@ export function waitingOnFounder(state: CompanyState): number {
   return forFounder(state).length;
 }
 
-// ---------- Dépense IA ----------
+// ---------- AI spend ----------
 
 export interface SpendBreakdown {
   total: number;
@@ -233,7 +234,7 @@ export function spendBreakdown(state: CompanyState, events: readonly StoredEvent
   };
 }
 
-// ---------- Tableaux ----------
+// ---------- Tables ----------
 
 export interface TableOf {
   deliverable: Deliverable;

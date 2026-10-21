@@ -1,5 +1,5 @@
 import type { StoredEvent } from "./events.ts";
-import { day, hour } from "./format.ts";
+import { day, euros, hour } from "./format.ts";
 import { OFFICES } from "./office.ts";
 import type { CompanyState, RoleId } from "./types.ts";
 
@@ -11,11 +11,11 @@ import type { CompanyState, RoleId } from "./types.ts";
 export type ChannelKey = "general" | "decisions" | "recherche" | "juridique" | "ventes";
 
 export const CHAT_CHANNELS: readonly { key: ChannelKey; name: string; topic: string }[] = [
-  { key: "general", name: "général", topic: "Toute l'équipe : arrivées, étapes, nouvelles." },
-  { key: "decisions", name: "décisions", topic: "Ce qui t'attend, et ce qui part bientôt (tu peux l'annuler)." },
-  { key: "recherche", name: "recherche", topic: "Études de marché et recherche technique." },
-  { key: "juridique", name: "juridique-et-compta", topic: "Société, obligations, chiffres." },
-  { key: "ventes", name: "ventes-et-com", topic: "Prospects, site, contenus." },
+  { key: "general", name: "general", topic: "The whole team: arrivals, stages, news." },
+  { key: "decisions", name: "decisions", topic: "What's waiting for you, and what goes out soon (you can cancel it)." },
+  { key: "recherche", name: "research", topic: "Market studies and technical research." },
+  { key: "juridique", name: "legal-and-accounts", topic: "Company, obligations, numbers." },
+  { key: "ventes", name: "sales-and-marketing", topic: "Prospects, website, content." },
 ];
 
 const CHANNEL_OF: Record<RoleId, ChannelKey> = {
@@ -65,32 +65,32 @@ export function chatFor(state: CompanyState, event: StoredEvent): ChatMessage[] 
     }
     case "obligation.opened": {
       if (event.obligation.owner !== "founder" || !legal) return [];
-      const due = event.obligation.due ? ` Avant le ${day(event.obligation.due)}.` : "";
-      return [{ channel: "decisions", as: speaker(legal), text: `**À faire par toi : ${event.obligation.title}.** ${event.obligation.why}${due} Tu le fais depuis l'app ou le CLI.`, reactions: ["⚖️"] }];
+      const due = event.obligation.due ? ` Before ${day(event.obligation.due)}.` : "";
+      return [{ channel: "decisions", as: speaker(legal), text: `**For you to do: ${event.obligation.title}.** ${event.obligation.why}${due} You can do it from the app or the CLI.`, reactions: ["⚖️"] }];
     }
     case "obligation.stuck": {
       const o = state.obligations[event.obligationId];
       const owner = o && o.owner !== "founder" ? agents.find((a) => a.role === o.owner) : margaux;
       if (!o || !owner) return [];
-      return [{ channel: "decisions", as: speaker(owner), text: `Je bloque sur « ${o.title} » malgré plusieurs essais : ${event.error} Dis-moi de reprendre quand tu veux.`, reactions: ["⚠️"] }];
+      return [{ channel: "decisions", as: speaker(owner), text: `I'm stuck on "${o.title}" after several tries: ${event.error} Tell me to try again whenever you like.`, reactions: ["⚠️"] }];
     }
     case "task.planned": {
       const t = event.task;
       const agent = state.agents[t.agentId];
       if (t.kind !== "external" || !t.cancellableUntil || !agent) return [];
-      return [{ channel: "decisions", as: speaker(agent), text: `Je prévois : **${t.title}**. ${t.why} Tu peux l'annuler jusqu'au ${day(t.cancellableUntil)} à ${hour(t.cancellableUntil)}.`, reactions: ["⏳"] }];
+      return [{ channel: "decisions", as: speaker(agent), text: `I'm planning: **${t.title}**. ${t.why} You can cancel it until ${day(t.cancellableUntil)} at ${hour(t.cancellableUntil)}.`, reactions: ["⏳"] }];
     }
     case "stage.changed":
-      return margaux ? [{ channel: "general", as: speaker(margaux), text: `Nouvelle étape pour ${state.company?.name ?? "la société"} : **${STAGE_SAID[event.stage] ?? event.stage}**.`, reactions: ["🎉"] }] : [];
+      return margaux ? [{ channel: "general", as: speaker(margaux), text: `New stage for ${state.company?.name ?? "the company"}: **${STAGE_SAID[event.stage] ?? event.stage}**.`, reactions: ["🎉"] }] : [];
     case "office.moved": {
       const line = OFFICES[event.tier]?.line;
       return margaux && line ? [{ channel: "general", as: speaker(margaux), text: line, reactions: ["🎉", "🏢"] }] : [];
     }
     case "sale.recorded":
-      return margaux ? [{ channel: "general", as: speaker(margaux), text: `Une vente${event.sale.amountCents !== undefined ? ` de ${(event.sale.amountCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}` : ""} ! ${event.sale.note ?? ""}`.trim(), reactions: ["🎉"] }] : [];
+      return margaux ? [{ channel: "general", as: speaker(margaux), text: `A sale${event.sale.amountCents !== undefined ? ` of ${euros(event.sale.amountCents)}` : ""}! ${event.sale.note ?? ""}`.trim(), reactions: ["🎉"] }] : [];
     default:
       return [];
   }
 }
 
-const STAGE_SAID: Record<string, string> = { research: "on étudie l'idée", creation: "on crée la société", launch: "on prépare le lancement", operating: "l'entreprise est en activité" };
+const STAGE_SAID: Record<string, string> = { research: "we're studying the idea", creation: "we're setting up the company", launch: "we're preparing the launch", operating: "the company is up and running" };

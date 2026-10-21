@@ -2,7 +2,7 @@ import { DEFAULT_STAFFING } from "./policy.ts";
 import { role, ROLES, type RoleDef } from "./roles.ts";
 import type { RoleId, StaffingEntry } from "./types.ts";
 
-/** What the founder sees in the first minutes (« le seuil »). Shared by the app and the CLI. */
+/** What the founder sees in the first minutes ("the threshold", SEUIL). Shared by the app and the CLI. */
 
 export interface Finding {
   text: string;
@@ -26,38 +26,38 @@ export interface FirstLook {
 }
 
 export const SEUIL = {
-  hello: "Bonsoir. Je suis Margaux, ta future co-fondatrice.",
-  askKey: "Pour penser, j'ai besoin d'une clé. Colle ta clé API : Anthropic, OpenAI, ou OpenRouter pour choisir parmi tous les modèles.",
-  keyAside: "Elle reste sur ton ordinateur. Tu peux la retirer quand tu veux.",
-  checking: "Vérification…",
-  askWhatsApp: "Dernière chose : tu veux qu'on t'écrive sur WhatsApp ? Tu suivras l'équipe sans ouvrir l'app.",
-  whatsAppLater: "Tu pourras le brancher plus tard : narthex whatsapp, ou Réglages · Intégrations.",
-  badKey: "Cette clé ne marche pas. Vérifie-la et recolle-la.",
-  skipKey: "Pas de clé pour l'instant ? Plus tard",
-  noKeyYet: "D'accord. L'équipe préparera tout et attendra ta clé pour se mettre au travail.",
-  askName: "Je t'entends. Comment tu t'appelles ?",
-  askNameNoKey: "Comment tu t'appelles ?",
-  askIdea: (name: string) => `Enchantée, ${name}. Raconte-moi ton idée. Une phrase suffit.`,
-  searching: "Je regarde ce qui existe déjà…",
-  noLook: "Je n'ai pas pu chercher maintenant. Léa s'en occupera dès son arrivée.",
-  team: "Il y a de la place pour toi. Je fais venir l'équipe.",
-  later: "Arrivera quand on aura quelque chose à vendre",
-  askCompany: "On l'appelle comment, ta maison ? Même provisoire.",
-  welcome: (company: string) => `Bienvenue chez ${company}. On commence.`,
-  enter: "Entrer",
+  hello: "Good evening. I'm Margaux, your future co-founder.",
+  askKey: "To think, I need a key. Paste your API key: Anthropic, OpenAI, or OpenRouter to choose from every model.",
+  keyAside: "It stays on your computer. You can remove it whenever you like.",
+  checking: "Checking…",
+  askWhatsApp: "One last thing: do you want us to write to you on WhatsApp? You'll follow the team without opening the app.",
+  whatsAppLater: "You can connect it later: narthex whatsapp, or Settings · Integrations.",
+  badKey: "This key doesn't work. Check it and paste it again.",
+  skipKey: "No key for now? Later",
+  noKeyYet: "All right. The team will get everything ready and wait for your key to start working.",
+  askName: "I can hear you. What's your name?",
+  askNameNoKey: "What's your name?",
+  askIdea: (name: string) => `Nice to meet you, ${name}. Tell me your idea. One sentence is enough.`,
+  searching: "I'm looking at what already exists…",
+  noLook: "I couldn't search just now. Léa will take care of it as soon as she arrives.",
+  team: "There's room for you. I'm bringing in the team.",
+  later: "Joins once we have something to sell",
+  askCompany: "What do we call your company? Even a working name will do.",
+  welcome: (company: string) => `Welcome to ${company}. Let's begin.`,
+  enter: "Enter",
 } as const;
 
 /** One line per role: what they will do for the founder. */
 export const ROLE_PROMISE: Record<RoleId, string> = {
-  cofondateur: "Tient la vision et fait venir l'équipe",
-  recherche: "Étudie ton marché et tes concurrents",
-  technique: "Vérifie que c'est faisable, techniquement et au bon coût",
-  juridique: "Crée ta société, suit tes obligations",
-  prospection: "Trouve tes premiers clients",
-  redaction: "Écrit ton site et tes posts",
-  video: "Fait connaître la marque en vidéo",
-  comptable: "Prépare factures, TVA et trésorerie",
-  support: "Répond à tes clients",
+  cofondateur: "Holds the vision and brings in the team",
+  recherche: "Studies your market and your competitors",
+  technique: "Checks it can be done, technically and at the right cost",
+  juridique: "Sets up your company, keeps track of your obligations",
+  prospection: "Finds your first customers",
+  redaction: "Writes your website and your posts",
+  video: "Makes the brand known through video",
+  comptable: "Prepares invoices, VAT and cash flow",
+  support: "Answers your customers",
 };
 
 const KNOWN = new Set<string>(ROLES.map((r) => r.id));
@@ -80,7 +80,7 @@ export function staffingFrom(look?: FirstLook): StaffingEntry[] {
   if (now.length === 0) return [...DEFAULT_STAFFING];
   const later = clean(look?.later, seen, 3);
   // Creating the company waits for a market study: someone has to do it, whoever else Margaux picked.
-  const study = seen.has("recherche") ? [] : [{ role: "recherche" as const, at: "research" as const, why: "L'étude de marché ouvre la création de la société." }];
+  const study = seen.has("recherche") ? [] : [{ role: "recherche" as const, at: "research" as const, why: "The market study opens the way to creating the company." }];
   return [
     DEFAULT_STAFFING[0]!,
     ...now.map((p) => ({ role: p.role, at: "research" as const, why: p.why })),

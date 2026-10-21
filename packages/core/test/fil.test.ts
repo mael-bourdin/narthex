@@ -78,21 +78,21 @@ describe("filView", () => {
   });
 
   it("follows the quest of the current stage", () => {
-    expect(filView(company(), NOW).quest).toEqual({ title: "Valider ton idée", done: 0, total: 1, next: "Étude de marché" });
+    expect(filView(company(), NOW).quest).toEqual({ title: "Validate your idea", done: 0, total: 1, next: "Market study" });
     const s = company(
       { type: "stage.changed", stage: "creation", at: NOW },
       { type: "obligation.opened", obligation: { id: "o1", code: "A1-nom", title: "Nom", why: "", owner: "juridique", status: "open", openedAt: NOW } },
       { type: "obligation.opened", obligation: { id: "o2", code: "A2-activite-reglementee", title: "Activité", why: "", owner: "juridique", status: "open", openedAt: NOW } },
       { type: "obligation.fulfilled", obligationId: "o1", at: NOW, by: "hugo" },
     );
-    expect(filView(s, NOW).quest).toEqual({ title: "Créer ta société", done: 1, total: 2, next: "Activité" });
+    expect(filView(s, NOW).quest).toEqual({ title: "Set up your company", done: 1, total: 2, next: "Activité" });
   });
 });
 
 import { fmt } from "../src/index.ts";
 
 describe("fmt.duration", () => {
-  it("writes durations the French way", () => {
+  it("writes durations in short English", () => {
     expect(fmt.duration(35 * 60_000)).toBe("35 min");
     expect(fmt.duration(130 * 60_000)).toBe("2 h 10");
     expect(fmt.duration(3 * 3_600_000)).toBe("3 h");
@@ -102,15 +102,34 @@ describe("fmt.duration", () => {
 
 describe("fmt.dollars", () => {
   it("shows the AI spend in dollars, never in credits", () => {
-    expect(fmt.dollars(494)).toBe("4,94 $");
-    expect(fmt.dollars(0)).toBe("0,00 $");
-    expect(fmt.dollars(15_000)).toBe("150,00 $");
-    expect(fmt.dollars(123_456)).toBe("1 234,56 $");
+    expect(fmt.dollars(494)).toBe("$4.94");
+    expect(fmt.dollars(0)).toBe("$0.00");
+    expect(fmt.dollars(15_000)).toBe("$150.00");
+    expect(fmt.dollars(123_456)).toBe("$1,234.56");
   });
-  it("reads dollars typed the French or English way", () => {
+  it("reads dollars typed the English or French way", () => {
     expect(fmt.parseDollars("3")).toBe(300);
     expect(fmt.parseDollars("1,50")).toBe(150);
+    expect(fmt.parseDollars("1.50")).toBe(150);
+    expect(fmt.parseDollars("$2.5")).toBe(250);
     expect(fmt.parseDollars("2.5 $")).toBe(250);
     expect(fmt.parseDollars("abc")).toBeNaN();
+  });
+});
+
+describe("fmt dates and times", () => {
+  const at = Date.UTC(2026, 9, 19, 12, 5); // Monday 19 October, 14:05 in Paris
+  it("writes days and hours the English way, in Paris time", () => {
+    expect(fmt.day(at)).toBe("Mon 19 Oct");
+    expect(fmt.hour(at)).toBe("14:05");
+    expect(fmt.hour(Date.UTC(2026, 9, 19, 7, 0))).toBe("09:00");
+  });
+  it("says how long ago or how soon, in English", () => {
+    expect(fmt.relative(at - 20_000, at)).toBe("just now");
+    expect(fmt.relative(at - 2 * 60_000, at)).toBe("2 min ago");
+    expect(fmt.relative(at - 3 * 3_600_000, at)).toBe("3 h ago");
+    expect(fmt.relative(at + 14 * 3_600_000, at)).toBe("in 14 h");
+    expect(fmt.relative(at - 24 * 3_600_000, at)).toBe("yesterday");
+    expect(fmt.relative(at - 2 * 86_400_000, at)).toBe("2 d ago");
   });
 });

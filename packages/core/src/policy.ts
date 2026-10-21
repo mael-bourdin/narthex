@@ -76,14 +76,14 @@ function obligationOpened(state: CompanyState, code: string): boolean {
 
 /** The usual team, when nobody could choose one (no key yet, or no first look). */
 export const DEFAULT_STAFFING: readonly StaffingEntry[] = [
-  { role: "cofondateur", at: "idea", why: "Je suis là dès la première idée." },
-  { role: "recherche", at: "research", why: "Avant de créer quoi que ce soit, il faut connaître le marché." },
-  { role: "juridique", at: "research", why: "Il faut vérifier le nom et l'activité, puis créer la société." },
-  { role: "prospection", at: "creation", why: "L'étude est bonne : il est temps de trouver les premiers clients." },
-  { role: "redaction", at: "creation", why: "Il faut un site et une voix avant le lancement." },
-  { role: "video", at: "launch", why: "La société existe : on la fait connaître." },
-  { role: "comptable", at: "launch", why: "La première facture arrive : la comptabilité doit être prête avant." },
-  { role: "support", at: "operating", why: "Les premiers clients ont besoin de réponses rapides." },
+  { role: "cofondateur", at: "idea", why: "I'm here from the very first idea." },
+  { role: "recherche", at: "research", why: "Before creating anything, we need to know the market." },
+  { role: "juridique", at: "research", why: "Someone has to check the name and the activity, then set up the company." },
+  { role: "prospection", at: "creation", why: "The study looks good: time to find the first customers." },
+  { role: "redaction", at: "creation", why: "We need a website and a voice before the launch." },
+  { role: "video", at: "launch", why: "The company exists: time to make it known." },
+  { role: "comptable", at: "launch", why: "The first invoice is coming: the books have to be ready before it." },
+  { role: "support", at: "operating", why: "The first customers need quick answers." },
 ];
 
 export function staffingOf(state: CompanyState): readonly StaffingEntry[] {
@@ -93,30 +93,30 @@ export function staffingOf(state: CompanyState): readonly StaffingEntry[] {
 /** First mission each role starts with, so the company moves even before any LLM plans. */
 export const KICKOFF: Partial<Record<RoleId, { title: string; why: string; tag: string }>> = {
   cofondateur: {
-    title: "Écrire la fiche de l'entreprise et le plan des 30 premiers jours",
-    why: "Toute l'équipe travaille à partir de cette fiche.",
+    title: "Write the company sheet and the plan for the first 30 days",
+    why: "The whole team works from this sheet.",
     tag: "plan",
   },
   recherche: {
-    title: "Étude de marché : clientes, concurrents, prix",
-    why: "On ne crée rien avant de savoir s'il y a de la place.",
+    title: "Market study: customers, competitors, prices",
+    why: "We create nothing before we know there is room for it.",
     tag: "market-study",
   },
   prospection: {
-    title: "Lister les 50 premiers prospects qualifiés",
-    why: "Pour avoir des rendez-vous avant le lancement.",
+    title: "List the first 50 qualified prospects",
+    why: "So there are meetings booked before the launch.",
     tag: "prospects",
   },
-  redaction: { title: "Écrire la page d'accueil du site", why: "C'est la première chose que verront les clients.", tag: "site-home" },
-  video: { title: "Écrire le script de la vidéo de lancement", why: "Trente secondes pour donner envie.", tag: "video-script" },
-  comptable: { title: "Préparer le prévisionnel sur 12 mois", why: "Pour savoir quand on gagne de l'argent.", tag: "forecast" },
+  redaction: { title: "Write the website's home page", why: "It's the first thing customers will see.", tag: "site-home" },
+  video: { title: "Write the script of the launch video", why: "Thirty seconds to make people want it.", tag: "video-script" },
+  comptable: { title: "Prepare the 12-month forecast", why: "To know when the company starts making money.", tag: "forecast" },
 };
 
 const STAGE_RULES: readonly { to: Stage; when: (s: CompanyState) => boolean; reason: string }[] = [
-  { to: "research", when: (s) => agentsWith(s, "cofondateur").length > 0, reason: "L'équipe étudie l'idée." },
-  { to: "creation", when: (s) => tagDone(s, "market-study"), reason: "L'étude de marché est faite : on crée la société." },
-  { to: "launch", when: (s) => obligationDone(s, "B4-immatriculation"), reason: "La société est immatriculée : on prépare le lancement." },
-  { to: "operating", when: (s) => (s.sales?.length ?? 0) > 0 || tagDone(s, "first-sale"), reason: "Première vente : l'entreprise tourne." },
+  { to: "research", when: (s) => agentsWith(s, "cofondateur").length > 0, reason: "The team is studying the idea." },
+  { to: "creation", when: (s) => tagDone(s, "market-study"), reason: "The market study is done: we're setting up the company." },
+  { to: "launch", when: (s) => obligationDone(s, "B4-immatriculation"), reason: "The company is registered: we're preparing the launch." },
+  { to: "operating", when: (s) => (s.sales?.length ?? 0) > 0 || tagDone(s, "first-sale"), reason: "First sale: the company is up and running." },
 ];
 
 function obligationApplies(state: CompanyState, rule: ObligationRule): boolean {
@@ -163,7 +163,7 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
   for (const o of Object.values(state.obligations)) {
     if (o.status !== "open" || o.owner === "founder" || hiring.has(o.owner) || agentsWith(state, o.owner).length > 0) continue;
     hiring.add(o.owner);
-    intents.push({ type: "hire", role: o.owner, reason: `Il faut quelqu'un pour : ${o.title.charAt(0).toLowerCase()}${o.title.slice(1)}.` });
+    intents.push({ type: "hire", role: o.owner, reason: `Someone is needed to ${o.title.charAt(0).toLowerCase()}${o.title.slice(1)}.` });
   }
 
   for (const rule of OBLIGATIONS) {
@@ -187,7 +187,7 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
     const failures = attempts.filter((t) => t.status === "failed" && !t.interrupted && (t.endedAt ?? 0) >= (o.retriedAt ?? 0)).sort((a, b) => (a.endedAt ?? 0) - (b.endedAt ?? 0));
     const owner = agentsWith(state, o.owner)[0];
     if (!covered && owner && failures.length >= MAX_ATTEMPTS && !o.stuck) {
-      intents.push({ type: "escalate", obligationId: o.id, error: failures.at(-1)?.error ?? "Erreur inconnue." });
+      intents.push({ type: "escalate", obligationId: o.id, error: failures.at(-1)?.error ?? "Unknown error." });
     }
     if (!covered && owner && failures.length < MAX_ATTEMPTS) {
       const lastFailure = Math.max(0, ...failures.map((t) => t.endedAt ?? 0));
@@ -226,7 +226,7 @@ export function decide(state: CompanyState, now: Timestamp): Intent[] {
   return intents;
 }
 
-/** The latest try of this obligation was cancelled by the founder, after any « reprendre ». */
+/** The latest try of this obligation was cancelled by the founder, after any "try again". */
 export function declinedByFounder(state: CompanyState, o: Obligation): boolean {
   const tries = Object.values(state.tasks)
     .filter((t) => t.tag === o.code && (t.endedAt ?? t.createdAt) >= (o.retriedAt ?? 0))
@@ -245,8 +245,8 @@ export function overBudget(state: CompanyState, now: Timestamp): boolean {
 }
 
 function obligationKind(o: Obligation): TaskKind {
-  // Filing with an administration or publishing touches the outside world.
-  return /annonce|immatricul|souscrire|plateforme|déposer|deposer/i.test(o.title) ? "external" : "internal";
+  // Filing with an administration or publishing touches the outside world (French titles kept for older logs).
+  return /annonce|immatricul|souscrire|plateforme|déposer|deposer|\bpublish\b|\bregister the\b|\btake out\b|\bplatform\b|\bfile form\b/i.test(o.title) ? "external" : "internal";
 }
 
 /** Planned tasks that may start now, oldest first. */
@@ -268,10 +268,10 @@ export type GuardResult =
  */
 export function guardTask(state: CompanyState, draft: TaskDraft, now: Timestamp): GuardResult {
   const agent = state.agents[draft.agentId];
-  if (!agent) return { ok: false, reason: "Agent inconnu." };
-  if (draft.kind === "founder") return { ok: false, reason: "Seul l'entrepreneur peut faire cela : c'est une obligation, pas une tâche." };
+  if (!agent) return { ok: false, reason: "Unknown agent." };
+  if (draft.kind === "founder") return { ok: false, reason: "Only the entrepreneur can do this: it's an obligation, not a task." };
   const queued = Object.values(state.tasks).filter((t) => t.agentId === agent.id && t.status === "planned").length;
-  if (queued >= MAX_PLANNED_PER_AGENT) return { ok: false, reason: `${agent.name} a déjà ${queued} tâches prévues.` };
+  if (queued >= MAX_PLANNED_PER_AGENT) return { ok: false, reason: `${agent.name} already has ${queued} tasks planned.` };
 
   const sensitive = (draft.tag !== undefined && state.settings.alwaysAsk.includes(draft.tag)) || reservedTopic(state, draft.title, draft.why) !== undefined;
   // The agent's own label is not trusted: what reads like leaving the company waits for the cancel window.
@@ -294,37 +294,59 @@ export function guardTask(state: CompanyState, draft: TaskDraft, now: Timestamp)
   return { ok: true, task };
 }
 
-/** Topics the founder can keep for themself (Réglages · Autonomie). Recognised from the task's words. */
+/** Topics the founder can keep for themself (Settings · Autonomy). Recognised from the task's words, English or French. */
 export const ALWAYS_ASK: readonly { tag: string; label: string; words: RegExp }[] = [
   // Actions, not mentions: studying prices is research, changing them is the founder's call.
   // Patterns are written without accents: text is normalised first (JS \b ignores accented letters).
+  // Agents write in English; the French alternatives stay for older logs.
   {
     tag: "prix",
-    label: "Changer les prix",
-    words:
-      /\b(changer|baisser|augmenter|relever|monter|modifier|fixer|appliquer|reduire|passer|ajuster|revoir)\b.{0,60}\b(prix|tarifs?|tarification)\b|\b(nouvelle|nouveaux?) (grille tarifaire|prix|tarifs?)\b|\bgrille tarifaire\b.{0,20}[+-]?\d|\b(remise|reduction|rabais|code promo|promotion de|soldes?)\b.{0,20}\d/,
+    label: "Change prices",
+    words: new RegExp(
+      [
+        /\b(changer|baisser|augmenter|relever|monter|modifier|fixer|appliquer|reduire|passer|ajuster|revoir)\b.{0,60}\b(prix|tarifs?|tarification)\b|\b(nouvelle|nouveaux?) (grille tarifaire|prix|tarifs?)\b|\bgrille tarifaire\b.{0,20}[+-]?\d|\b(remise|reduction|rabais|code promo|promotion de|soldes?)\b.{0,20}\d/.source,
+        /\b(change|lower|raise|increase|decrease|cut|drop|reduce|adjust|update|modify|revise|apply|bump)\b.{0,60}\b(prices?|pricing|fees?)\b|\bset (the |our |a |new )?(prices?|pricing)\b|\bnew (price list|pricing|prices?)\b|\bprice list\b.{0,20}[+-]?\d|\b(discount|promo code|coupon|markdown)\b.{0,20}\d|\d+ ?(%|€|\$|euros?) (discount|off)\b/.source,
+      ].join("|"),
+    ),
   },
   {
     tag: "publicite-payante",
-    label: "Publicité payante",
-    words:
-      /\b(lancer|acheter|payer|financer|creer)\b.{0,40}\b(publicites?|pubs?|annonces? sponsorisees?)\b|\b(lancer|booster|sponsoriser|financer)\b.{0,40}\b(campagnes?|posts?|publications?|ads)\b.{0,40}(€|euros?|par (jour|mois))|\b(google|meta|facebook|instagram|tiktok|linkedin) ads\b|campagne (payante|sponsorisee)|\bsponsoriser\b|\bbooster\b.{0,40}(€|euros?)/,
+    label: "Paid advertising",
+    words: new RegExp(
+      [
+        /\b(lancer|acheter|payer|financer|creer)\b.{0,40}\b(publicites?|pubs?|annonces? sponsorisees?)\b|\b(lancer|booster|sponsoriser|financer)\b.{0,40}\b(campagnes?|posts?|publications?|ads)\b.{0,40}(€|euros?|par (jour|mois))|\b(google|meta|facebook|instagram|tiktok|linkedin) ads\b|campagne (payante|sponsorisee)|\bsponsoriser\b|\bbooster\b.{0,40}(€|euros?)/.source,
+        /\b(launch|buy|pay for|fund|run|create|start)\b.{0,40}\b(ads?|adverts?|advertisements?|advertising|sponsored posts?)\b|\b(boost|sponsor|promote|fund)\b.{0,40}\b(campaigns?|posts?)\b.{0,40}(€|\$|euros?|dollars?|(per|a) (day|week|month))|\bpaid (ads?|advertising|campaigns?|posts?)\b|\bsponsored (campaigns?|posts?|ads?)\b|\bboost(ing)?\b.{0,40}(€|\$|euros?|dollars?)/.source,
+      ].join("|"),
+    ),
   },
-  { tag: "presse", label: "Parler à la presse", words: /\b(contacter|ecrire|repondre|envoyer)\b.{0,30}\b(presse|journalistes?)\b|communique de presse|\binterview\b/ },
-  { tag: "contrat-client", label: "Signer un contrat client", words: /\bsigner\b.{0,30}\b(contrat|devis|bon de commande)\b|\benvoyer\b.{0,30}\b(contrat|devis)\b/ },
+  {
+    tag: "presse",
+    label: "Talk to the press",
+    words:
+      /\b(contacter|ecrire|repondre|envoyer)\b.{0,30}\b(presse|journalistes?)\b|communique de presse|\binterview\b|\b(contact|email|e-mail|write to|reply to|respond to|answer|pitch|send)\b.{0,30}\b(press|journalists?|reporters?)\b|\bpress release\b/,
+  },
+  {
+    tag: "contrat-client",
+    label: "Sign a customer contract",
+    words:
+      /\bsigner\b.{0,30}\b(contrat|devis|bon de commande)\b|\benvoyer\b.{0,30}\b(contrat|devis)\b|\bsign\b.{0,30}\b(contracts?|quotes?|purchase orders?|agreements?)\b|\bsend\b.{0,30}\b(contracts?|quotes?)\b/,
+  },
 ];
 
-/** Acting on the outside world (not preparing it): send, publish, order, pay, call, file, put online. */
+/**
+ * Acting on the outside world (not preparing it): send, publish, share, order, pay, call, file, register, put online.
+ * Read from the first words of the title, English or French; when in doubt the task counts as external.
+ */
 const OUTSIDE =
-  /^\s*(envoyer|expedier|publier|poster|diffuser|commander|acheter|payer|regler|virer|appeler|telephoner|relancer|contacter|ecrire a|deposer|souscrire|signer|resilier|mettre en ligne|lancer la campagne|repondre a)\b/;
-const PREPARING = /\b(brouillons?|preparer|rediger|projet de|ebauche)\b/;
+  /^\s*(envoyer|expedier|publier|poster|diffuser|commander|acheter|payer|regler|virer|appeler|telephoner|relancer|contacter|ecrire a|deposer|souscrire|signer|resilier|mettre en ligne|lancer la campagne|repondre a|send|ship|mail|email|e-mail|publish|post(?!-)|tweet|broadcast|announce|release|deploy|upload|share(?! of\b)|message(?! (for|of|on|about)\b)|text(?! (for|of|on|about)\b)|dm|notify|invite|reach out|contact|write to|reply to|respond to|call|phone|follow up|book|order|buy|purchase|pay|transfer|wire|sell|quote (a |the |our )?(price|rate|fee)s?|list (.{0,40} )?on|register|apply (for|to)|file|submit|subscribe|renew|take out|sign|terminate|put (.{0,40} )?online|go live|launch the campaign)\b/;
+const PREPARING = /\b(brouillons?|preparer|rediger|projet de|ebauche|drafts?|drafting|prepare|preparing|outline)\b/;
 
 export function touchesOutside(title: string): boolean {
   const text = plain(title);
   return OUTSIDE.test(text) && !PREPARING.test(text);
 }
 
-/** Lowercase, accents removed, so « Écrire » and « ecrire » are the same word for the rules. */
+/** Lowercase, accents removed, so "Écrire" and "ecrire" are the same word for the rules. */
 function plain(text: string): string {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }

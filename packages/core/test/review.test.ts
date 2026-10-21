@@ -89,8 +89,7 @@ describe("revision: the journal tells the sale", () => {
   it("lists the founder's sale", async () => {
     const { journalEntries } = await import("../src/index.ts");
     const events = [founded, { type: "sale.recorded", sale: { id: "v", at: NOW, amountCents: 3990, note: "Marché" } }].map((e, i) => ({ ...e, seq: i + 1, ts: NOW, companyId: "c" }) as StoredEvent);
-    // French currency formatting puts a narrow no-break space before €.
-    expect(journalEntries(replay(events), events).some((e) => /^Tu as enregistré une vente de 39,90\s€ · Marché$/u.test(e.text))).toBe(true);
+    expect(journalEntries(replay(events), events).some((e) => e.text === "You recorded a sale of €39.90 · Marché")).toBe(true);
   });
 });
 
@@ -102,16 +101,50 @@ describe("revision: guard on external actions", () => {
     "Commander 200 pots chez le fournisseur",
     "Appeler les trois concept stores",
     "Mettre en ligne la page d'accueil",
+    "Send the 50 prospecting emails",
+    "Publish the Instagram launch post",
+    "Order 200 jars from the supplier",
+    "Call the three concept stores",
+    "Put the home page online",
+    "Write to the Lille concept stores",
+    "Post the launch video on TikTok",
+    "Post today's update on LinkedIn",
+    "Reach out to the three concept stores",
+    "Purchase 200 jars from the supplier",
+    "Share the launch video with the press list",
+    "Message the shop owners on Instagram",
+    "Text the supplier about the delivery",
+    "DM the five best leads",
+    "Upload the catalogue to the website",
+    "Notify customers of the new opening hours",
+    "Invite the first customers to the launch",
+    "Book a meeting with the bank",
+    "Renew the domain name",
+    "Deploy the new home page",
+    "Release the spring collection",
+    "Announce the launch on social media",
+    "Tweet the launch date",
+    "Mail the catalogue to the shops",
+    "Sell the first 20 candles at the market",
+    "Quote a price to Maison Verte",
+    "Register the trademark with the INPI",
+    "Apply for the BPI innovation grant",
+    "List the candles on Etsy",
+    "Follow up with the three shops",
+    "Email the supplier",
   ])("never lets « %s » leave without a cancel window, whatever the agent says", (title) => {
     const r = guardTask(s, { agentId: "s", title, why: "", kind: "internal" }, NOW);
     expect(r.ok && r.task.kind).toBe("external");
     expect(r.ok && r.task.cancellableUntil).toBeGreaterThan(NOW);
   });
 
-  it("keeps preparing work internal", () => {
-    const r = guardTask(s, { agentId: "s", title: "Rédiger les e-mails de prospection (brouillons)", why: "", kind: "internal" }, NOW);
-    expect(r.ok && r.task.kind).toBe("internal");
-  });
+  it.each(["Rédiger les e-mails de prospection (brouillons)", "Send the prospecting emails (drafts)", "Write the launch post", "Post-launch review of the first week", "Draft a reply", "Research competitors", "Analyse prices", "List the first 50 qualified prospects", "Share of voice analysis", "Message for the home page", "Text for the about page", "Prepare the release notes"])(
+    "keeps preparing work like « %s » internal",
+    (title) => {
+      const r = guardTask(s, { agentId: "s", title, why: "", kind: "internal" }, NOW);
+      expect(r.ok && r.task.kind).toBe("internal");
+    },
+  );
 
   const asked = replay([{ ...founded, settings: { ...DEFAULT_SETTINGS, alwaysAsk: ["prix", "publicite-payante"] } } as DomainEvent]);
   it.each([
@@ -121,12 +154,21 @@ describe("revision: guard on external actions", () => {
     ["Nouvelle grille tarifaire : +15 %", "prix"],
     ["Augmenter dès le mois prochain, pour tous les abonnés, le prix", "prix"],
     ["Mettre en place une réduction de 20 %", "prix"],
+    ["Launch a Google Ads campaign at €200 a month", "publicite-payante"],
+    ["Boost our Instagram posts with €50", "publicite-payante"],
+    ["Run paid ads on Meta", "publicite-payante"],
+    ["Raise our prices by 10%", "prix"],
+    ["New price list: +15%", "prix"],
+    ["Increase, from next month and for every subscriber, the price", "prix"],
+    ["Offer a 20% discount", "prix"],
   ])("recognises « %s » as reserved", (title, tag) => {
     expect(reservedTopic(asked, title)).toBe(tag);
   });
 
   it("still lets research about prices through", () => {
     expect(reservedTopic(asked, "Étude des prix des concurrents à Lille")).toBeUndefined();
+    expect(reservedTopic(asked, "Study competitors' prices in Lille")).toBeUndefined();
+    expect(reservedTopic(asked, "Market study: customers, competitors, prices")).toBeUndefined();
   });
 });
 
@@ -172,9 +214,23 @@ describe("revision: journal wording", () => {
     ] as DomainEvent[];
     const events = list.map((e, i) => ({ ...e, seq: i + 1, ts: NOW + i, companyId: "c" }) as StoredEvent);
     const entries = journalEntries(replay(events), events);
-    const cut = entries.find((e) => e.text.includes("interrompue"))!;
+    const cut = entries.find((e) => e.text.includes("interrupted"))!;
     expect(cut.kind).not.toBe("problem");
-    expect(entries.some((e) => e.text === "Obligation remplie : « Vérifier que le nom est libre »")).toBe(true);
+    expect(entries.some((e) => e.text === 'Obligation done: "Vérifier que le nom est libre"')).toBe(true);
+  });
+
+  it("reads the English interruption the engine now writes as a cut too", async () => {
+    const { journalEntries } = await import("../src/index.ts");
+    const list = [
+      founded,
+      hire("h", "juridique"),
+      { type: "task.planned", task: { id: "t", agentId: "h", title: "Check that the name is free", why: "", kind: "internal", status: "planned", createdAt: NOW, scheduledAt: NOW } },
+      { type: "task.started", taskId: "t", at: NOW },
+      { type: "task.failed", taskId: "t", at: NOW, error: "Interrupted (Narthex was closed)." },
+    ] as DomainEvent[];
+    const events = list.map((e, i) => ({ ...e, seq: i + 1, ts: NOW + i, companyId: "c" }) as StoredEvent);
+    const entries = journalEntries(replay(events), events);
+    expect(entries[0]).toMatchObject({ text: '"Check that the name is free" interrupted, will resume later', kind: "work" });
   });
 });
 

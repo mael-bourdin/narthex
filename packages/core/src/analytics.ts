@@ -1,5 +1,5 @@
 import type { StoredEvent } from "./events.ts";
-import { xpFor } from "./fil.ts";
+import { INTERRUPTED, xpFor } from "./fil.ts";
 import { dayKey } from "./format.ts";
 import type { CompanyState, Id, RoleId, Stage, Timestamp } from "./types.ts";
 
@@ -54,7 +54,7 @@ export function analytics(state: CompanyState, events: readonly StoredEvent[], n
 
   const tasks = Object.values(state.tasks);
   // Interrupted by closing Narthex: not a failure of the agent (same rule as the policy).
-  const failedFor = tasks.filter((t) => t.status === "failed" && !t.interrupted && !(t.error ?? "").startsWith("Interrompue (Narthex"));
+  const failedFor = tasks.filter((t) => t.status === "failed" && !t.interrupted && !INTERRUPTED.test(t.error ?? ""));
   for (const t of tasks) {
     const p = t.status === "done" && t.endedAt ? at(t.endedAt) : undefined;
     if (p) p.done++;

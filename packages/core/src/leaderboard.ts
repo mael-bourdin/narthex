@@ -25,18 +25,22 @@ export interface LeaderboardEntry {
 }
 
 const BANDS: readonly [number, string][] = [
-  [0, "Pas encore de vente"],
-  [100_000, "Moins de 1 000 €"],
-  [500_000, "1 000 à 5 000 €"],
-  [1_000_000, "5 000 à 10 000 €"],
-  [5_000_000, "10 000 à 50 000 €"],
-  [10_000_000, "50 000 à 100 000 €"],
+  [0, "No sale yet"],
+  [100_000, "Under €1,000"],
+  [500_000, "€1,000–5,000"],
+  [1_000_000, "€5,000–10,000"],
+  [5_000_000, "€10,000–50,000"],
+  [10_000_000, "€50,000–100,000"],
 ];
+const TOP_BAND = "Over €100,000";
+
+/** The same bands as entries sent before the English version wrote them, in the same order. */
+const FRENCH_BANDS = ["Pas encore de vente", "Moins de 1 000 €", "1 000 à 5 000 €", "5 000 à 10 000 €", "10 000 à 50 000 €", "50 000 à 100 000 €", "Plus de 100 000 €"];
 
 export function revenueBand(cents: number): string {
   if (cents <= 0) return BANDS[0]![1];
   for (const [limit, label] of BANDS.slice(1)) if (cents < limit) return label;
-  return "Plus de 100 000 €";
+  return TOP_BAND;
 }
 
 export function leaderboardEntry(state: CompanyState, now: Timestamp, options: { showRevenue: boolean }): LeaderboardEntry {
@@ -63,11 +67,17 @@ export function leaderboardEntry(state: CompanyState, now: Timestamp, options: {
 }
 
 const STAGES: Stage[] = ["idea", "research", "creation", "launch", "operating"];
-const BAND_ORDER = [...BANDS.map(([, l]) => l), "Plus de 100 000 €"];
+const BAND_ORDER = [...BANDS.map(([, l]) => l), TOP_BAND];
+
+/** Where a band sits, lowest first; older French entries rank with their English twin. */
+function bandIndex(band: string): number {
+  const i = BAND_ORDER.indexOf(band);
+  return i >= 0 ? i : FRENCH_BANDS.indexOf(band);
+}
 
 /** Progress first (stage, office, revenue band, sales), then speed: the younger company wins a tie. */
 export function rankLeaderboard(entries: readonly LeaderboardEntry[]): { rank: number; entry: LeaderboardEntry }[] {
-  const key = (e: LeaderboardEntry) => [STAGES.indexOf(e.stage), e.office, BAND_ORDER.indexOf(e.revenueBand), e.sales, -e.days];
+  const key = (e: LeaderboardEntry) => [STAGES.indexOf(e.stage), e.office, bandIndex(e.revenueBand), e.sales, -e.days];
   const sorted = [...entries].sort((a, b) => {
     const ka = key(a);
     const kb = key(b);
@@ -93,7 +103,8 @@ export function validEntry(value: unknown): value is LeaderboardEntry {
     STAGES.includes(e.stage as Stage) &&
     count(e.office, 4) &&
     count(e.sales, 1_000_000) &&
-    BAND_ORDER.includes(e.revenueBand as string) &&
+    typeof e.revenueBand === "string" &&
+    bandIndex(e.revenueBand) >= 0 &&
     (e.revenue === undefined || count(e.revenue, 1e12)) &&
     count(e.days, 100_000) &&
     count(e.xp, 1e9) &&

@@ -6,8 +6,8 @@ import { role } from "./roles.ts";
 import type { CompanyState, Id, RoleId, Timestamp } from "./types.ts";
 
 /**
- * The frame every Entreprise page shares in Figma (section 5): a status line (« pilote »), the figures card
- * (« Les chiffres »), the rules the team follows there and who takes care of it. Real data only: when the
+ * The frame every Entreprise page shares in Figma (section 5): a status line ("pilot"), the figures card
+ * ("The numbers"), the rules the team follows there and who takes care of it. Real data only: when the
  * state has no such number, the figure says so instead of inventing one.
  */
 
@@ -33,7 +33,7 @@ export interface Who {
 
 export interface PageFrame {
   pilot: { title: string; detail: string; agentId?: Id };
-  /** Period the figures cover, e.g. « octobre » or « depuis le début ». */
+  /** Period the figures cover, e.g. "October" or "since the start". */
   period: string;
   figures: Figure[];
   rules?: { title: string; aside: string; items: Rule[] };
@@ -48,7 +48,7 @@ const COMMON = new Set(role("cofondateur").guardrails);
 /** A guardrail as a short rule: its first clause, and the law it cites when it cites one. */
 export function ruleOf(guardrail: string): Rule {
   const law = /\(([^)]+)\)/.exec(guardrail)?.[1];
-  const text = guardrail.split(" : ")[0]!.replace(/\s*\([^)]*\)/g, "").replace(/\.$/, "").trim();
+  const text = guardrail.split(/ ?: /)[0]!.replace(/\s*\([^)]*\)/g, "").replace(/\.$/, "").trim();
   return law ? { text, hint: capitalize(law) } : { text };
 }
 
@@ -80,7 +80,7 @@ function whoOf(state: CompanyState, roles: readonly RoleId[]): Who[] {
     const def = role(r);
     if (agent) return { role: r, name: agent.name, duty: def.duty, agentId: agent.id, here: true };
     const planned = plan.find((e) => e.role === r);
-    return { role: r, name: def.defaultName, duty: planned ? `Arrive ${ARRIVES[planned.at]}` : "Margaux le fera venir si besoin", here: false };
+    return { role: r, name: def.defaultName, duty: planned ? `Arrives ${ARRIVES[planned.at]}` : "Margaux will bring them in if needed", here: false };
   });
 }
 
@@ -89,148 +89,148 @@ function rulesOf(state: CompanyState, roles: readonly RoleId[]): PageFrame["rule
     const items = role(r).guardrails.filter((g) => !COMMON.has(g)).map(ruleOf);
     if (items.length === 0) continue;
     const name = Object.values(state.agents).find((a) => a.role === r)?.name ?? role(r).defaultName;
-    return { title: `Règles que ${name} suit`, aside: "garde-fous", items };
+    return { title: `Rules ${name} follows`, aside: "guardrails", items };
   }
   return undefined;
 }
 
 function pilotOf(state: CompanyState, v: PageView, now: Timestamp): PageFrame["pilot"] {
-  const name = (id: Id) => state.agents[id]?.name ?? "L'équipe";
+  const name = (id: Id) => state.agents[id]?.name ?? "The team";
   const running = v.tasks.find((t) => t.status === "running");
-  if (running) return { title: `${name(running.agentId)} est au travail ici`, detail: `${running.title} · commencé ${relative(running.startedAt ?? running.scheduledAt, now)}`, agentId: running.agentId };
+  if (running) return { title: `${name(running.agentId)} is working here`, detail: `${running.title} · started ${relative(running.startedAt ?? running.scheduledAt, now)}`, agentId: running.agentId };
   const next = v.tasks[0];
   if (next) {
     const leaving = next.kind === "external" && (next.cancellableUntil ?? 0) > now;
     return leaving
-      ? { title: `${name(next.agentId)} : une action part ${relative(next.cancellableUntil!, now)}`, detail: `${next.title} · tu peux l'annuler d'ici là`, agentId: next.agentId }
-      : { title: `${name(next.agentId)} a prévu la suite`, detail: `${next.title} · ${next.scheduledAt <= now ? "dès que possible" : relative(next.scheduledAt, now)}`, agentId: next.agentId };
+      ? { title: `${name(next.agentId)}: an action goes out ${relative(next.cancellableUntil!, now)}`, detail: `${next.title} · you can cancel it until then`, agentId: next.agentId }
+      : { title: `${name(next.agentId)} has planned what's next`, detail: `${next.title} · ${next.scheduledAt <= now ? "as soon as possible" : relative(next.scheduledAt, now)}`, agentId: next.agentId };
   }
   const last = v.deliverables[0];
-  if (last) return { title: `${name(last.agentId)} tient cette page à jour`, detail: `${plural(v.deliverables.length, "livrable")} · dernier ${relative(last.createdAt, now)}`, agentId: last.agentId };
+  if (last) return { title: `${name(last.agentId)} keeps this page up to date`, detail: `${plural(v.deliverables.length, "deliverable")} · latest ${relative(last.createdAt, now)}`, agentId: last.agentId };
   const owner = v.owners[0];
-  return { title: "Rien ici pour l'instant", detail: v.empty ?? "", ...(owner ? { agentId: owner.id } : {}) };
+  return { title: "Nothing here yet", detail: v.empty ?? "", ...(owner ? { agentId: owner.id } : {}) };
 }
 
-/** The frame of a domain page (Finances, Ventes, Marketing, Juridique). */
+/** The frame of a domain page (Finances, Sales, Marketing, Legal). */
 export function pageFrame(state: CompanyState, events: readonly StoredEvent[], section: string, page: string, now: Timestamp): PageFrame {
   const v = pageView(state, section, page, now);
   const m = money(state, events, now);
-  const month = new Intl.DateTimeFormat("fr-FR", { month: "long", timeZone: "Europe/Paris" }).format(now);
+  const month = new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "Europe/Paris" }).format(now);
   const owner = v.owners[0]?.name ?? role(v.spec.owners[0]!).defaultName;
   const who = whoOf(state, v.spec.owners);
   const rules = rulesOf(state, v.spec.owners);
   let pilot = pilotOf(state, v, now);
   const next = v.tasks[0];
   const generic: Figure[] = [
-    { label: "Livrables", value: String(v.deliverables.length), hint: v.deliverables[0] ? `Dernier ${relative(v.deliverables[0].createdAt, now)}` : `${owner} n'a encore rien livré ici` },
-    { label: "En cours et prévu", value: String(v.tasks.length), hint: next ? `${state.agents[next.agentId]?.name ?? ""} · ${next.status === "running" ? "en cours" : next.scheduledAt <= now ? "dès que possible" : relative(next.scheduledAt, now)}` : "Rien de prévu pour l'instant" },
-    { label: "Sources citées", value: String(v.deliverables.reduce((n, d) => n + d.sources.length, 0)), hint: "Dans les livrables de cette page" },
+    { label: "Deliverables", value: String(v.deliverables.length), hint: v.deliverables[0] ? `Latest ${relative(v.deliverables[0].createdAt, now)}` : `${owner} hasn't delivered anything here yet` },
+    { label: "In progress and planned", value: String(v.tasks.length), hint: next ? `${state.agents[next.agentId]?.name ?? ""} · ${next.status === "running" ? "in progress" : next.scheduledAt <= now ? "as soon as possible" : relative(next.scheduledAt, now)}` : "Nothing planned yet" },
+    { label: "Sources cited", value: String(v.deliverables.reduce((n, d) => n + d.sources.length, 0)), hint: "In this page's deliverables" },
   ];
-  const salesHint = m.sales ? `${plural(m.sales, "vente enregistrée", "ventes enregistrées")} par toi` : "Aucune vente enregistrée";
-  let period = "depuis le début";
+  const salesHint = m.sales ? `${plural(m.sales, "sale")} recorded by you` : "No sale recorded yet";
+  let period = "since the start";
   let figures = generic;
   let frameRules = rules;
 
-  if (section === "Finances" && page === "Trésorerie") {
+  if (section === "Finances" && page === "Cash") {
     period = month;
     figures = [
-      { label: "Solde", value: "—", hint: "Ta banque n'est pas encore reliée à Narthex" },
-      { label: "Entrées", value: euros(m.revenue), hint: salesHint },
-      { label: "Dépense IA", value: dollars(m.spentMonth), hint: "Ce mois-ci, sur ton compte Anthropic" },
+      { label: "Balance", value: "—", hint: "Your bank isn't connected to Narthex yet" },
+      { label: "Money in", value: euros(m.revenue), hint: salesHint },
+      { label: "AI spend", value: dollars(m.spentMonth), hint: "This month, on your Anthropic account" },
     ];
-  } else if (section === "Finances" && page === "Factures et devis") {
+  } else if (section === "Finances" && page === "Invoices and quotes") {
     figures = [
-      { label: "Chiffre d'affaires", value: euros(m.revenue), hint: salesHint },
-      { label: "Factures émises", value: "—", hint: "Pas encore d'émission depuis Narthex" },
+      { label: "Revenue", value: euros(m.revenue), hint: salesHint },
+      { label: "Invoices issued", value: "—", hint: "Narthex doesn't issue invoices yet" },
       generic[1]!,
     ];
-  } else if (section === "Finances" && page === "Dépenses") {
+  } else if (section === "Finances" && page === "Expenses") {
     period = month;
     figures = [
-      { label: "Dépense IA", value: dollars(m.spentMonth), hint: "Ce mois-ci, sur ton compte Anthropic" },
-      { label: "Aujourd'hui", value: dollars(m.spentToday), hint: `Sur un plafond de ${dollars(state.settings.dailyBudgetCredits)} par jour` },
-      { label: "Depuis le début", value: dollars(m.spent), hint: "Toute l'équipe" },
+      { label: "AI spend", value: dollars(m.spentMonth), hint: "This month, on your Anthropic account" },
+      { label: "Today", value: dollars(m.spentToday), hint: `Out of a cap of ${dollars(state.settings.dailyBudgetCredits)} a day` },
+      { label: "Since the start", value: dollars(m.spent), hint: "The whole team" },
     ];
-    pilot = { title: "L'équipe ne dépense que de l'IA pour l'instant", detail: `Aucun achat sans toi · plafond de ${dollars(state.settings.dailyBudgetCredits)} par jour, réglable dans Réglages`, ...(pilot.agentId ? { agentId: pilot.agentId } : {}) };
+    pilot = { title: "The team only spends on AI for now", detail: `No purchase without you · cap of ${dollars(state.settings.dailyBudgetCredits)} a day, adjustable in Settings`, ...(pilot.agentId ? { agentId: pilot.agentId } : {}) };
     frameRules = {
-      title: "Règles de dépense",
-      aside: "Réglages",
+      title: "Spending rules",
+      aside: "Settings",
       items: [
-        { text: `${dollars(state.settings.dailyBudgetCredits)} de dépense IA par jour`, hint: "Au-delà, plus rien ne démarre ce jour-là" },
-        { text: `${dollars(state.settings.taskBudgetCredits)} par mission`, hint: "Au-delà, la mission s'arrête et l'agent le dit" },
-        { text: `${state.settings.cancelWindowHours} h pour annuler`, hint: "Avant chaque action vers l'extérieur" },
+        { text: `${dollars(state.settings.dailyBudgetCredits)} of AI spend a day`, hint: "Beyond that, nothing new starts that day" },
+        { text: `${dollars(state.settings.taskBudgetCredits)} per mission`, hint: "Beyond that, the mission stops and the agent says so" },
+        { text: `${state.settings.cancelWindowHours} h to cancel`, hint: "Before every action outside the company" },
       ],
     };
-  } else if (section === "Ventes" && page === "Prospects") {
+  } else if (section === "Sales" && page === "Prospects") {
     const list = v.deliverables.map((d) => ({ d, t: markdownTables(d.body)[0] })).find((x) => x.t && x.t.rows.length > 0);
     const outgoing = v.tasks.filter((t) => t.kind === "external");
     figures = [
       list
-        ? { label: "Pistes listées", value: String(list.t!.rows.length), hint: `Dans la dernière liste de ${state.agents[list.d.agentId]?.name ?? owner}` }
-        : { label: "Pistes listées", value: "—", hint: `${owner} n'a pas encore livré de liste` },
-      { label: "Envois prévus", value: String(outgoing.length), hint: outgoing[0] ? `Le premier ${relative(outgoing[0].scheduledAt, now)}, annulable` : "Chaque envoi attend le délai d'annulation" },
-      { label: "Ventes", value: String(m.sales), hint: m.sales ? "Enregistrées par toi" : "La première fait passer l'entreprise en activité" },
+        ? { label: "Leads listed", value: String(list.t!.rows.length), hint: `In ${state.agents[list.d.agentId]?.name ?? owner}'s latest list` }
+        : { label: "Leads listed", value: "—", hint: `${owner} hasn't delivered a list yet` },
+      { label: "Sends planned", value: String(outgoing.length), hint: outgoing[0] ? `The first one ${relative(outgoing[0].scheduledAt, now)}, can be cancelled` : "Every send waits for the cancel window" },
+      { label: "Sales", value: String(m.sales), hint: m.sales ? "Recorded by you" : "The first one puts the company in business" },
     ];
-  } else if (section === "Ventes" && page === "Commandes") {
+  } else if (section === "Sales" && page === "Orders") {
     figures = [
-      { label: "Ventes", value: String(m.sales), hint: m.sales ? "Enregistrées par toi" : "La première fait passer l'entreprise en activité" },
-      { label: "Chiffre d'affaires", value: euros(m.revenue), hint: "Montants que tu as indiqués" },
-      { label: "Dernière vente", value: m.lastSale ? day(m.lastSale) : "—", hint: m.lastSale ? relative(m.lastSale, now) : "Pas encore de vente" },
+      { label: "Sales", value: String(m.sales), hint: m.sales ? "Recorded by you" : "The first one puts the company in business" },
+      { label: "Revenue", value: euros(m.revenue), hint: "Amounts you entered" },
+      { label: "Last sale", value: m.lastSale ? day(m.lastSale) : "—", hint: m.lastSale ? relative(m.lastSale, now) : "No sale yet" },
     ];
-    if (m.sales) pilot = { title: plural(m.sales, "vente enregistrée", "ventes enregistrées"), detail: `Dernière ${relative(m.lastSale!, now)} · ${euros(m.revenue)} au total`, ...(pilot.agentId ? { agentId: pilot.agentId } : {}) };
-  } else if (section === "Juridique" && page === "Documents") {
+    if (m.sales) pilot = { title: plural(m.sales, "sale recorded", "sales recorded"), detail: `Latest ${relative(m.lastSale!, now)} · ${euros(m.revenue)} in total`, ...(pilot.agentId ? { agentId: pilot.agentId } : {}) };
+  } else if (section === "Legal" && page === "Documents") {
     const open = Object.values(state.obligations).filter((o) => o.status === "open");
     const yours = open.filter((o) => o.owner === "founder");
     figures = [
-      { label: "Documents", value: String(v.deliverables.length), hint: `Rédigés ou vérifiés par ${owner}` },
-      { label: "Pour toi", value: String(yours.length), hint: yours[0] ? yours[0].title : "Rien ne t'attend" },
-      { label: "Obligations suivies", value: String(open.length - yours.length), hint: `Par ${owner} et l'équipe` },
+      { label: "Documents", value: String(v.deliverables.length), hint: `Written or checked by ${owner}` },
+      { label: "For you", value: String(yours.length), hint: yours[0] ? yours[0].title : "Nothing is waiting for you" },
+      { label: "Obligations tracked", value: String(open.length - yours.length), hint: `By ${owner} and the team` },
     ];
   }
   return { pilot, period, figures, ...(frameRules ? { rules: frameRules } : {}), who };
 }
 
-/** Entreprise · Obligations: what the law asks, split between the founder and the team. */
+/** Company · Obligations: what the law asks, split between the founder and the team. */
 export function obligationsFrame(state: CompanyState, now: Timestamp): PageFrame {
   const all = Object.values(state.obligations);
   const open = all.filter((o) => o.status === "open");
   const yours = open.filter((o) => o.owner === "founder");
   const late = open.filter((o) => o.due !== undefined && o.due < now);
-  const company = state.company?.name ?? "ta société";
+  const company = state.company?.name ?? "your company";
   const legal = whoOf(state, ["juridique", "cofondateur"]);
   return {
     pilot:
       all.length === 0
-        ? { title: "Aucune obligation ouverte", detail: `${legal[0]!.name} les ouvre quand l'étape de l'entreprise les rend nécessaires, avec la règle et sa source`, ...(legal[0]!.agentId ? { agentId: legal[0]!.agentId } : {}) }
+        ? { title: "No open obligations", detail: `${legal[0]!.name} opens them when the company's stage calls for them, with the rule and its source`, ...(legal[0]!.agentId ? { agentId: legal[0]!.agentId } : {}) }
         : {
-            title: `L'équipe suit chaque obligation de ${company}`,
-            detail: `${yours.length === 0 ? "Aucune ne te concerne" : `${yours.length} te concerne${yours.length > 1 ? "nt" : ""}`} · ${late.length ? `${late.length} en retard` : "aucune en retard"}`,
+            title: `The team tracks every obligation of ${company}`,
+            detail: `${yours.length === 0 ? "None of them is yours" : `${yours.length} ${yours.length > 1 ? "are" : "is"} yours`} · ${late.length ? `${late.length} overdue` : "none overdue"}`,
             ...(legal.find((w) => w.agentId)?.agentId ? { agentId: legal.find((w) => w.agentId)!.agentId! } : {}),
           },
-    period: "en ce moment",
+    period: "right now",
     figures: [
-      { label: "Pour toi", value: String(yours.length), hint: yours.length ? yours.map((o) => lowerFirst(o.title)).slice(0, 2).join(", ").replace(/^./, (c) => c.toUpperCase()) : "Rien ne t'attend" },
-      { label: "Pour l'équipe", value: String(open.length - yours.length), hint: `Suivies par ${legal.filter((w) => w.here).map((w) => w.name).join(" et ") || "l'équipe"}` },
-      { label: "En retard", value: String(late.length), hint: late[0] ? late[0].title : `Faites : ${all.length - open.length}` },
+      { label: "For you", value: String(yours.length), hint: yours.length ? yours.map((o) => lowerFirst(o.title)).slice(0, 2).join(", ").replace(/^./, (c) => c.toUpperCase()) : "Nothing is waiting for you" },
+      { label: "For the team", value: String(open.length - yours.length), hint: `Tracked by ${legal.filter((w) => w.here).map((w) => w.name).join(" and ") || "the team"}` },
+      { label: "Overdue", value: String(late.length), hint: late[0] ? late[0].title : `Done: ${all.length - open.length}` },
     ],
     who: legal,
   };
 }
 
-/** Entreprise · Tableaux: every table the team produced. */
+/** Company · Tables: every table the team produced. */
 export function tablesFrame(state: CompanyState): PageFrame {
   const tables = tablesOf(state);
   const from = new Set(tables.map((t) => t.deliverable.id));
   const authors = [...new Set(tables.map((t) => t.deliverable.agentId))].map((id) => state.agents[id]).filter((a) => a !== undefined);
   return {
     pilot: tables.length
-      ? { title: `${plural(tables.length, "tableau", "tableaux")} tirés de ${plural(from.size, "livrable")}`, detail: "Prospects, concurrents, prix, échéances : chaque tableau d'un livrable arrive ici" }
-      : { title: "Pas encore de tableau", detail: "Chaque tableau d'un livrable (prospects, concurrents, prix, échéances) sera rassemblé ici" },
-    period: "depuis le début",
+      ? { title: `${plural(tables.length, "table")} taken from ${plural(from.size, "deliverable")}`, detail: "Prospects, competitors, prices, deadlines: every table in a deliverable lands here" }
+      : { title: "No table yet", detail: "Every table in a deliverable (prospects, competitors, prices, deadlines) will be gathered here" },
+    period: "since the start",
     figures: [
-      { label: "Tableaux", value: String(tables.length), hint: `Dans ${plural(from.size, "livrable")}` },
-      { label: "Lignes", value: String(tables.reduce((n, t) => n + t.rows.length, 0)), hint: "Toutes sources confondues" },
-      { label: "Auteurs", value: String(authors.length), hint: authors.map((a) => a.name).join(", ") || "Personne encore" },
+      { label: "Tables", value: String(tables.length), hint: `In ${plural(from.size, "deliverable")}` },
+      { label: "Rows", value: String(tables.reduce((n, t) => n + t.rows.length, 0)), hint: "All sources together" },
+      { label: "Authors", value: String(authors.length), hint: authors.map((a) => a.name).join(", ") || "Nobody yet" },
     ],
     who: authors.map((a) => ({ role: a.role, name: a.name, duty: role(a.role).duty, agentId: a.id, here: true })),
   };

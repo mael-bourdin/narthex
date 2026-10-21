@@ -24,6 +24,9 @@ export interface Mission {
   factId?: string;
 }
 
+/** The progress line an agent shows before it says anything specific (French in older logs). */
+export const WORKING: readonly string[] = ["Working…", "Au travail…"];
+
 export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeName): Mission[] {
   if (!state.company) return [];
   const agents = Object.values(state.agents).sort((a, b) => a.hiredAt - b.hiredAt);
@@ -36,12 +39,12 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
     out.push({
       id: "key",
       kind: "key",
-      eyebrow: "À faire par toi · pour que l'équipe travaille",
-      title: "Ajoute ta clé API",
-      why: "Sans elle, l'équipe prépare tout mais ne peut rien faire. Elle reste sur ton ordinateur.",
+      eyebrow: "For you to do · so the team can work",
+      title: "Add your API key",
+      why: "Without it, the team gets everything ready but can't do any of the work. It stays on your computer.",
       ...(margaux ? { speakerId: margaux.id } : {}),
       action: "key",
-      label: "Ajouter ma clé",
+      label: "Add my key",
     });
   }
 
@@ -49,12 +52,12 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
     out.push({
       id: "budget",
       kind: "budget",
-      eyebrow: "L'équipe s'arrête pour aujourd'hui",
-      title: "Budget du jour atteint",
-      why: `${dollars(spentOn(state, now))} de dépense IA aujourd'hui, sur ${dollars(state.settings.dailyBudgetCredits)} prévus. L'équipe reprend demain, ou tout de suite si tu augmentes le budget.`,
+      eyebrow: "The team stops for today",
+      title: "Today's budget reached",
+      why: `${dollars(spentOn(state, now))} of AI spend today, out of ${dollars(state.settings.dailyBudgetCredits)} planned. The team picks up again tomorrow, or right away if you raise the budget.`,
       ...(margaux ? { speakerId: margaux.id } : {}),
       action: "budget",
-      label: "Ajuster",
+      label: "Adjust",
     });
   }
 
@@ -62,12 +65,12 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
     out.push({
       id: o.id,
       kind: "legal",
-      eyebrow: "À faire par toi · la loi l'impose",
+      eyebrow: "For you to do · required by law",
       title: o.title,
       why: o.why,
       ...(legalSpeaker ? { speakerId: legalSpeaker.id } : {}),
       action: o.code === "A3-forme" ? "form" : "fulfill",
-      label: o.code === "A3-forme" ? "Choisir" : "Voir",
+      label: o.code === "A3-forme" ? "Choose" : "View",
       obligationId: o.id,
     });
   }
@@ -79,14 +82,14 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
     out.push({
       id: `stuck-${o.id}`,
       kind: "stuck",
-      eyebrow: o.stuck ? `Bloqué après ${MAX_ATTEMPTS} essais · il faut ton avis` : "Tu l'as annulée · reprends quand tu veux",
+      eyebrow: o.stuck ? `Stuck after ${MAX_ATTEMPTS} tries · your call is needed` : "You cancelled it · pick it up when you like",
       title: o.title,
       why: o.stuck
-        ? `Dernière erreur : ${o.stuck.error} L'équipe a arrêté d'essayer et attend que tu lui dises de reprendre.`
-        : "L'équipe ne la refera pas sans toi. Elle reste une obligation : reprends-la quand c'est le bon moment.",
+        ? `Last error: ${o.stuck.error} The team stopped trying and is waiting for you to tell it to try again.`
+        : "The team won't do it again without you. It is still an obligation: pick it up again when the time is right.",
       ...(owner ? { speakerId: owner.id } : margaux ? { speakerId: margaux.id } : {}),
       action: "retry",
-      label: "Voir",
+      label: "View",
       obligationId: o.id,
     });
   }
@@ -97,12 +100,12 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
     out.push({
       id: t.id,
       kind: "cancel",
-      eyebrow: `Part ${relative(t.cancellableUntil!, now)} · tu peux l'annuler`,
+      eyebrow: `Goes out ${relative(t.cancellableUntil!, now)} · you can cancel it`,
       title: t.title,
       why: t.why,
       speakerId: t.agentId,
       action: "cancel",
-      label: "Voir",
+      label: "View",
       taskId: t.id,
     });
   }
@@ -114,12 +117,12 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
     out.push({
       id: focus.id,
       kind: "mission",
-      eyebrow: focus.status === "running" ? `En cours · ${state.agents[focus.agentId]?.name ?? ""}` : "Prochaine mission",
+      eyebrow: focus.status === "running" ? `In progress · ${state.agents[focus.agentId]?.name ?? ""}` : "Next mission",
       title: focus.title,
-      why: focus.progress && focus.progress !== "Au travail…" ? focus.progress : focus.why,
+      why: focus.progress && !WORKING.includes(focus.progress) ? focus.progress : focus.why,
       speakerId: focus.agentId,
       action: "open",
-      label: "Voir",
+      label: "View",
       taskId: focus.id,
     });
   }
@@ -129,9 +132,9 @@ export function missions(state: CompanyState, now: Timestamp, runtime: RuntimeNa
     out.push({
       id: "rest",
       kind: "rest",
-      eyebrow: "L'équipe est à jour",
-      title: quest?.next ?? "Rien ne presse",
-      why: quest ? `${quest.title} : ${quest.done} étapes sur ${quest.total}.` : "L'équipe reprendra dès qu'il y aura quelque chose à faire.",
+      eyebrow: "The team is up to date",
+      title: quest?.next ?? "Nothing urgent",
+      why: quest ? `${quest.title}: ${quest.done} of ${quest.total} steps done.` : "The team will pick up again as soon as there's something to do.",
       ...(margaux ? { speakerId: margaux.id } : {}),
       action: "none",
       label: "",

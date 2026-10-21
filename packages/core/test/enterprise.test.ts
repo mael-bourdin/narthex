@@ -11,42 +11,53 @@ const ag = (id: string, name: string, role: "cofondateur" | "recherche" | "jurid
 const done = (id: string, agentId: string, title: string, body = "", tag?: string): DomainEvent[] => [
   { type: "task.planned", task: { id, agentId, title, why: "", kind: "internal", status: "planned", createdAt: NOW - 5 * H, scheduledAt: NOW - 5 * H, ...(tag ? { tag } : {}) } },
   { type: "task.started", taskId: id, at: NOW - 4 * H },
-  { type: "task.completed", taskId: id, at: NOW - 3 * H, deliverable: { id: `d-${id}`, taskId: id, agentId, title, summary: `Résumé ${title}`, body, sources: [], createdAt: NOW - 3 * H } },
+  { type: "task.completed", taskId: id, at: NOW - 3 * H, deliverable: { id: `d-${id}`, taskId: id, agentId, title, summary: `Summary of ${title}`, body, sources: [], createdAt: NOW - 3 * H } },
 ];
 const events: DomainEvent[] = [
-  { type: "company.founded", company: { id: "c", name: "Lumen", idea: "Bougies", founder: { name: "Inès" }, foundedAt: NOW - 10 * H, stage: "creation", legalForm: "SASU", paused: false }, settings: DEFAULT_SETTINGS },
+  { type: "company.founded", company: { id: "c", name: "Lumen", idea: "Candles", founder: { name: "Inès" }, foundedAt: NOW - 10 * H, stage: "creation", legalForm: "SASU", paused: false }, settings: DEFAULT_SETTINGS },
   ag("m", "Margaux", "cofondateur"),
   ag("hugo", "Hugo", "juridique"),
   ag("samir", "Samir", "prospection"),
-  ...done("t1", "samir", "Lister les 50 premiers prospects qualifiés", "| Entreprise | Ville |\n|---|---|\n| Hôtel des Arts | Lille |\n| Fleurs & Co | Roubaix |", "prospects"),
-  ...done("t2", "hugo", "Vérifier que le nom est libre", "Rien", "A1-nom"),
-  { type: "obligation.opened", obligation: { id: "o1", code: "A3-forme", title: "Choisir la forme juridique", why: "", owner: "founder", status: "open", openedAt: NOW, due: NOW + 3 * 24 * H } },
-  { type: "obligation.opened", obligation: { id: "o2", code: "B1-statuts", title: "Préparer les statuts", why: "", owner: "juridique", status: "open", openedAt: NOW, due: NOW + 5 * 24 * H } },
+  ...done("t1", "samir", "List the first 50 qualified prospects", "| Company | City |\n|---|---|\n| Hôtel des Arts | Lille |\n| Fleurs & Co | Roubaix |", "prospects"),
+  ...done("t2", "hugo", "Check that the name is free", "Nothing", "A1-nom"),
+  { type: "obligation.opened", obligation: { id: "o1", code: "A3-forme", title: "Choose the legal form", why: "", owner: "founder", status: "open", openedAt: NOW, due: NOW + 3 * 24 * H } },
+  { type: "obligation.opened", obligation: { id: "o2", code: "B1-statuts", title: "Prepare the articles of association (statuts)", why: "", owner: "juridique", status: "open", openedAt: NOW, due: NOW + 5 * 24 * H } },
 ];
 
 describe("ENTERPRISE", () => {
-  it("has the sections and pages of the Figma file, plus Données", () => {
-    expect(ENTERPRISE.map((s) => s.section)).toEqual(["Vue d'ensemble", "Données", "Finances", "Ventes", "Marketing", "Juridique", "Obligations", "Tableaux"]);
-    expect(ENTERPRISE.find((s) => s.section === "Finances")!.pages.map((p) => p.page)).toEqual(["Trésorerie", "Factures et devis", "Dépenses", "Prévisionnel", "Compta et TVA"]);
+  it("has the sections and pages of the Figma file, plus Data", () => {
+    expect(ENTERPRISE.map((s) => s.section)).toEqual(["Overview", "Data", "Finances", "Sales", "Marketing", "Legal", "Obligations", "Tables"]);
+    expect(ENTERPRISE.find((s) => s.section === "Finances")!.pages.map((p) => p.page)).toEqual(["Cash", "Invoices and quotes", "Expenses", "Forecast", "Accounting and VAT"]);
   });
 });
 
 describe("pageView", () => {
   it("shows the real work of the page's domain", () => {
-    const v = pageView(replay(events), "Ventes", "Prospects", NOW);
-    expect(v.deliverables.map((d) => d.title)).toEqual(["Lister les 50 premiers prospects qualifiés"]);
+    const v = pageView(replay(events), "Sales", "Prospects", NOW);
+    expect(v.deliverables.map((d) => d.title)).toEqual(["List the first 50 qualified prospects"]);
     expect(v.owners.map((o) => o.name)).toEqual(["Samir"]);
   });
 
   it("says who will take care of an empty page, and when", () => {
-    const v = pageView(replay(events), "Finances", "Factures et devis", NOW);
+    const v = pageView(replay(events), "Finances", "Invoices and quotes", NOW);
     expect(v.deliverables).toEqual([]);
-    expect(v.empty).toBe("Paul (Comptabilité) s'en chargera : il arrive au lancement.");
+    expect(v.empty).toBe("Paul (Accounting) will take care of it: he arrives at the launch.");
   });
 
-  it("puts the legal work and duties in Juridique", () => {
-    const v = pageView(replay(events), "Juridique", "Marque", NOW);
-    expect(v.deliverables.map((d) => d.title)).toContain("Vérifier que le nom est libre");
+  it("puts the legal work and duties in Legal", () => {
+    const v = pageView(replay(events), "Legal", "Brand", NOW);
+    expect(v.deliverables.map((d) => d.title)).toContain("Check that the name is free");
+  });
+
+  it("sorts work by English and older French titles alike", () => {
+    const s = replay([
+      ...events,
+      ...done("t3", "samir", "Draft the invoice template"),
+      ...done("t4", "samir", "Modèle de facture"),
+      ...done("t5", "hugo", "Record of processing for GDPR"),
+    ]);
+    expect(pageView(s, "Finances", "Invoices and quotes", NOW).deliverables.map((d) => d.title).sort()).toEqual(["Draft the invoice template", "Modèle de facture"]);
+    expect(pageView(s, "Legal", "Personal data", NOW).deliverables.map((d) => d.title)).toContain("Record of processing for GDPR");
   });
 });
 
@@ -54,11 +65,11 @@ describe("overview", () => {
   it("tells where the company stands, with the founder's steps marked", () => {
     const o = overview(replay(events), NOW);
     expect(o.title).toBe("Lumen");
-    expect(o.subtitle).toBe("SASU · Bougies · dirigée par Inès");
-    expect(o.stage).toBe("En création");
-    const forme = o.milestones.find((m) => m.title === "Choisir la forme juridique")!;
-    expect(forme.state).toBe("you");
-    expect(o.deadlines.map((d) => d.title)).toEqual(["Choisir la forme juridique", "Préparer les statuts"]);
+    expect(o.subtitle).toBe("SASU · Candles · run by Inès");
+    expect(o.stage).toBe("Being set up");
+    const forme = o.milestones.find((m) => m.title === "Choose the legal form")!;
+    expect(forme).toMatchObject({ state: "you", who: "You · required by law" });
+    expect(o.deadlines.map((d) => d.title)).toEqual(["Choose the legal form", "Prepare the articles of association (statuts)"]);
   });
 });
 
@@ -77,7 +88,7 @@ describe("tablesOf", () => {
   it("collects every table the team produced", () => {
     const t = tablesOf(replay(events));
     expect(t).toHaveLength(1);
-    expect(t[0]!.header).toEqual(["Entreprise", "Ville"]);
+    expect(t[0]!.header).toEqual(["Company", "City"]);
     expect(t[0]!.rows).toEqual([["Hôtel des Arts", "Lille"], ["Fleurs & Co", "Roubaix"]]);
   });
 });

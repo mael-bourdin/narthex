@@ -68,6 +68,12 @@ describe("dynamic staffing", () => {
   });
 
   it("knows the technical researcher", () => {
-    expect(role("technique").title).toBe("Recherche technique");
+    expect(role("technique").title).toBe("Technical research");
+  });
+
+  it("tells every agent to write in English, French law and names included", () => {
+    for (const id of ["cofondateur", "recherche", "juridique", "comptable", "support"] as const) {
+      expect(role(id).guardrails.some((g) => g.startsWith("You write everything in English"))).toBe(true);
+    }
   });
 });

@@ -45,10 +45,24 @@ describe("reserved topics with accents", () => {
     expect(reserved("Créer une publicité Instagram")).toBe(true);
     expect(reserved("Répondre au journaliste de La Voix du Nord")).toBe(true);
   });
+  it("recognises the same topics in English", () => {
+    expect(reserved("Write to the local press")).toBe(true);
+    expect(reserved("Reply to the journalist from La Voix du Nord")).toBe(true);
+    expect(reserved("Draft a press release")).toBe(true);
+    expect(reserved("Lower prices by 10%")).toBe(true);
+    expect(reserved("Create an Instagram ad")).toBe(true);
+    expect(reserved("Sign the contract with Maison Verte")).toBe(true);
+    expect(reserved("Send the quote to the shop")).toBe(true);
+  });
+  it("labels the topics in English", () => {
+    expect(ALWAYS_ASK.map((t) => t.label)).toEqual(["Change prices", "Paid advertising", "Talk to the press", "Sign a customer contract"]);
+  });
   it("also reads the reason given for the task", () => {
     expect(reserved("Préparer l'offre de Noël", "Pour baisser les prix pendant les fêtes")).toBe(true);
   });
   it("still lets research about these topics through", () => {
     expect(reserved("Étude des prix des concurrents")).toBe(false);
+    expect(reserved("Study competitors' prices")).toBe(false);
+    expect(reserved("Market study: customers, competitors, prices")).toBe(false);
   });
 });

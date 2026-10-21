@@ -56,7 +56,7 @@ describe("deliverableSheet", () => {
   it("says who wrote it, how long it took and where the sources come from", () => {
     const s = replay(events);
     const sheet = deliverableSheet(s, s.deliverables["d"]!, [], NOW, "anthropic");
-    expect(sheet.meta).toEqual(["Rédigé par Hugo", "2 h 10 de travail", "3 sources", "legifrance.gouv.fr, inpi.fr"]);
+    expect(sheet.meta).toEqual(["Written by Hugo", "2 h 10 of work", "3 sources", "legifrance.gouv.fr, inpi.fr"]);
   });
 
   it("counts the AI spend of the task that produced it", () => {
@@ -94,7 +94,8 @@ describe("deliverableMarkdown", () => {
   it("writes the document with its title, author and sources, ready to keep", () => {
     const s = replay(events);
     const md = deliverableMarkdown(s, s.deliverables["d"]!);
-    expect(md.startsWith("# Statuts\n\n_Rédigé par Hugo · ")).toBe(true);
+    expect(md.startsWith("# Statuts\n\n_Written by Hugo · ")).toBe(true);
+    expect(md).toMatch(/^_Written by Hugo · \d{1,2} [A-Z][a-z]+ 20\d\d_$/m);
     expect(md).toContain("## Art. 2 · Objet");
     expect(md).toContain("## Sources\n\n- [Légifrance](https://www.legifrance.gouv.fr/x)\n- [INPI](https://www.inpi.fr/y)");
   });

@@ -2,34 +2,34 @@ import { role, type ToolName } from "./roles.ts";
 import type { CompanyState, Id, LegalForm, RoleId, Timestamp } from "./types.ts";
 import type { StoredEvent } from "./events.ts";
 
-/** What the law makes of the founder, by legal form (Réglages · Profil, « Ton rôle »). Neutral wording, no gender guessed. */
+/** What the law makes of the founder, by legal form (Settings · Profile, "Your role"). Neutral wording, no gender guessed. */
 export function founderRoles(form: LegalForm | undefined): { title: string; detail: string }[] {
   switch (form) {
     case "SASU":
       return [
-        { title: "Présidence", detail: "Tu signes au nom de la société" },
-        { title: "Toutes les actions", detail: "Tu approuves toi-même les comptes chaque année" },
+        { title: "President", detail: "You sign on behalf of the company" },
+        { title: "All the shares", detail: "You approve the accounts yourself every year" },
       ];
     case "SAS":
       return [
-        { title: "Présidence", detail: "Tu signes au nom de la société" },
-        { title: "Des actions", detail: "Les associés approuvent les comptes chaque année" },
+        { title: "President", detail: "You sign on behalf of the company" },
+        { title: "Some of the shares", detail: "The shareholders approve the accounts every year" },
       ];
     case "EURL":
       return [
-        { title: "Gérance", detail: "Tu signes au nom de la société" },
-        { title: "Toutes les parts", detail: "Tu approuves toi-même les comptes chaque année" },
+        { title: "Manager (gérant)", detail: "You sign on behalf of the company" },
+        { title: "All the shares", detail: "You approve the accounts yourself every year" },
       ];
     case "SARL":
       return [
-        { title: "Gérance", detail: "Tu signes au nom de la société" },
-        { title: "Des parts sociales", detail: "Les associés approuvent les comptes chaque année" },
+        { title: "Manager (gérant)", detail: "You sign on behalf of the company" },
+        { title: "Some of the shares", detail: "The partners approve the accounts every year" },
       ];
     case "EI":
     case "micro":
-      return [{ title: "Entreprise individuelle", detail: "Pas de société : tu signes et factures en ton nom" }];
+      return [{ title: "Sole trader (entreprise individuelle)", detail: "No company: you sign and invoice in your own name" }];
     default:
-      return [{ title: "Fondatrice ou fondateur", detail: "Ton rôle légal dépendra de la forme juridique que tu choisiras" }];
+      return [{ title: "Founder", detail: "Your legal role will depend on the legal form you choose" }];
   }
 }
 
@@ -42,7 +42,7 @@ export interface AgentSpend {
   top?: { taskId: Id; title: string; credits: number };
 }
 
-/** AI spend per agent since `since`, with the task that cost each one the most (Réglages · Budget, « Par agent »). */
+/** AI spend per agent since `since`, with the task that cost each one the most (Settings · Budget, "By agent"). */
 export function spendByAgent(state: CompanyState, events: readonly StoredEvent[], since: Timestamp): AgentSpend[] {
   const byAgent = new Map<Id, { credits: number; byTask: Map<Id, number> }>();
   for (const e of events) {
@@ -68,7 +68,7 @@ export function spendByAgent(state: CompanyState, events: readonly StoredEvent[]
     .sort((x, y) => y.credits - x.credits);
 }
 
-/** Names of the hired agents whose job sheet includes `tool`, in hiring order (Réglages · Intégrations, « Qui »). */
+/** Names of the hired agents whose job sheet includes `tool`, in hiring order (Settings · Integrations, "Who"). */
 export function toolUsers(state: CompanyState, tool: ToolName): string[] {
   return Object.values(state.agents)
     .sort((a, b) => a.hiredAt - b.hiredAt)
