@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentSheet, DEFAULT_SETTINGS, journalEntries, orgChart, recruitments, replay, type DomainEvent, type StoredEvent } from "../src/index.ts";
+import { agentSheet, calendarSummary, DEFAULT_SETTINGS, journalEntries, journalSummary, orgChart, recruitments, replay, type DomainEvent, type StoredEvent } from "../src/index.ts";
 
 const H = 3_600_000;
 const NOW = Date.UTC(2026, 9, 19, 12);
@@ -23,7 +23,7 @@ const events: DomainEvent[] = [
     type: "task.completed",
     taskId: "t1",
     at: NOW - 4 * H,
-    deliverable: { id: "d1", taskId: "t1", agentId: "lea", title: "Étude", summary: "La demande existe", body: "", sources: [{ title: "INSEE" }, { title: "Pappers" }], createdAt: NOW - 4 * H },
+    deliverable: { id: "d1", taskId: "t1", agentId: "lea", title: "Étude", summary: "La demande existe", body: "", sources: [{ title: "INSEE" }, { title: "Pappers", url: "https://www.pappers.fr/entreprise/x" }], createdAt: NOW - 4 * H },
   },
   { type: "task.planned", task: { id: "t2", agentId: "lea", title: "Sonder 30 clientes", why: "Choisir le parfum", kind: "internal", status: "planned", createdAt: NOW, scheduledAt: NOW + 20 * H } },
 ];
@@ -53,6 +53,7 @@ describe("agentSheet", () => {
     expect(sheet.next.map((t) => t.title)).toEqual(["Sonder 30 clientes"]);
     expect(sheet.finished[0]).toMatchObject({ task: { title: "Étude" }, result: "La demande existe" });
     expect(sheet.sources).toEqual(["INSEE", "Pappers"]);
+    expect(sheet.sourceSites).toEqual(["INSEE", "pappers.fr"]);
   });
 });
 
@@ -64,5 +65,30 @@ describe("journalEntries", () => {
     expect(j[0]!.text).toBe("Léa a terminé « Étude »");
     expect(j.at(-1)!.text).toBe("Inès a fondé Lumen");
     expect(j.find((e) => e.text.startsWith("Léa rejoint"))?.agentId).toBe("lea");
+  });
+});
+
+describe("calendarSummary", () => {
+  it("counts the period's tasks, done and running, and what waits for the founder", () => {
+    const s = replay([
+      ...events,
+      { type: "obligation.opened", obligation: { id: "o1", code: "B5-signer-statuts", title: "Signer les statuts", why: "La loi", owner: "founder", status: "open", openedAt: NOW } },
+    ] as DomainEvent[]);
+    const c = calendarSummary(s, NOW - 24 * H, NOW + 24 * H);
+    expect(c).toMatchObject({ total: 2, done: 1, running: 0 });
+    expect(c.forYou.map((o) => o.title)).toEqual(["Signer les statuts"]);
+    expect(calendarSummary(s, NOW - 24 * H, NOW + 24 * H, "m")).toMatchObject({ total: 0, forYou: [] });
+  });
+});
+
+describe("journalSummary", () => {
+  it("counts actions, today's, the founder's cancels and the roles behind them", () => {
+    const s = replay(events);
+    const stored = events.map((e, i) => ({ ...e, companyId: "c", seq: i + 1, ts: NOW - (events.length - i) * H })) as StoredEvent[];
+    const j = journalSummary(s, journalEntries(s, stored), NOW);
+    expect(j.total).toBe(journalEntries(s, stored).length);
+    expect(j.cancelledByYou).toBe(0);
+    expect(j.byRole[0]).toMatchObject({ role: "recherche", title: "Recherche" });
+    expect(j.today).toBeGreaterThan(0);
   });
 });

@@ -1,8 +1,10 @@
 import type { StoredEvent } from "./events.ts";
 import { filView, xpFor, type TeamRow } from "./fil.ts";
 import { staffingOf } from "./policy.ts";
+import { dayKey } from "./format.ts";
 import { role, type RoleDef } from "./roles.ts";
-import type { Agent, CompanyState, Id, Lesson, Stage, Task, Timestamp } from "./types.ts";
+import type { Agent, CompanyState, Id, Lesson, Obligation, RoleId, Stage, Task, Timestamp } from "./types.ts";
+import { calendar, forFounder } from "./views.ts";
 
 /** Read models of the Équipe tab. Pure, from real events only. */
 
@@ -51,6 +53,8 @@ export interface AgentSheet {
   next: Task[];
   finished: { task: Task; result?: string; deliverableId?: Id }[];
   sources: string[];
+  /** The same sources, short: the site's name when there is a link (« insee.fr »), else the title. */
+  sourceSites: string[];
   /** L4: what this role learnt from its work, most useful first. */
   lessons: Lesson[];
 }
@@ -78,8 +82,18 @@ export function agentSheet(state: CompanyState, agentId: Id, now: Timestamp): Ag
       return { task, ...(d ? { result: d.summary, deliverableId: d.id } : {}) };
     }),
     sources,
+    sourceSites: [...new Set(done.flatMap((t) => deliverableOf(t)?.sources.map(siteOf) ?? []))],
     lessons: [...(state.playbooks?.[agent.role] ?? [])].sort((a, b) => b.helpful - b.harmful - (a.helpful - a.harmful) || b.learntAt - a.learntAt),
   };
+}
+
+function siteOf(source: { title: string; url?: string }): string {
+  try {
+    if (source.url) return new URL(source.url).hostname.replace(/^www\./, "");
+  } catch {
+    // Not a URL: the title says it.
+  }
+  return source.title;
 }
 
 export interface JournalEntry {
@@ -137,4 +151,49 @@ export function journalEntries(state: CompanyState, events: readonly StoredEvent
     }
   });
   return entries.reverse();
+}
+
+/** The calendar's side card: how much of the shown period is work, done, running, and what waits for the founder. */
+export interface CalendarSummary {
+  total: number;
+  done: number;
+  running: number;
+  /** Steps the law leaves to the founder, still open (they have no hour: they wait for the founder). */
+  forYou: Obligation[];
+}
+
+export function calendarSummary(state: CompanyState, from: Timestamp, to: Timestamp, agentId?: string): CalendarSummary {
+  const tasks = calendar(state, from, to, agentId);
+  return {
+    total: tasks.length,
+    done: tasks.filter((t) => t.status === "done").length,
+    running: tasks.filter((t) => t.status === "running").length,
+    forYou: agentId ? [] : forFounder(state),
+  };
+}
+
+export interface JournalSummary {
+  total: number;
+  /** Entries of the current Paris day, and how many agents they involve. */
+  today: number;
+  todayAgents: number;
+  cancelledByYou: number;
+  /** Entries per role of the agent involved, most active first. */
+  byRole: { role: RoleId; title: string; count: number }[];
+}
+
+export function journalSummary(state: CompanyState, entries: readonly JournalEntry[], now: Timestamp): JournalSummary {
+  const today = entries.filter((e) => dayKey(e.at) === dayKey(now));
+  const counts = new Map<RoleId, number>();
+  for (const e of entries) {
+    const r = e.agentId ? state.agents[e.agentId]?.role : undefined;
+    if (r) counts.set(r, (counts.get(r) ?? 0) + 1);
+  }
+  return {
+    total: entries.length,
+    today: today.length,
+    todayAgents: new Set(today.flatMap((e) => (e.agentId ? [e.agentId] : []))).size,
+    cancelledByYou: Object.values(state.tasks).filter((t) => t.status === "cancelled" && t.cancelledBy === "founder").length,
+    byRole: [...counts].map(([r, count]) => ({ role: r, title: role(r).title, count })).sort((a, b) => b.count - a.count),
+  };
 }
