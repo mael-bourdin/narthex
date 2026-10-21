@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { OFFICES, STAGE_LABEL, type CompanyState } from "@narthex/core";
+import { fmt, OFFICES, STAGE_LABEL, type CompanyState } from "@narthex/core";
 
 type Board = Awaited<ReturnType<typeof window.narthex.leaderboard.get>>;
-const euros = (cents: number) => (cents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
 /**
  * The public ranking of the companies run on the hosted version of Narthex. Anyone can look;
@@ -50,7 +49,7 @@ export function Classement({ state }: { state: CompanyState }) {
                   </span>,
                   <span key={`${e.companyId}s`} className={`small${own}`}>{STAGE_LABEL[e.stage]}</span>,
                   <span key={`${e.companyId}o`} className={`small${own}`}>{OFFICES[e.office]?.name ?? ""}</span>,
-                  <span key={`${e.companyId}c`} className={`small${own}`}>{e.revenue !== undefined ? euros(e.revenue) : e.revenueBand}</span>,
+                  <span key={`${e.companyId}c`} className={`small${own}`}>{e.revenue !== undefined ? fmt.euros(e.revenue) : e.revenueBand}</span>,
                   <span key={`${e.companyId}v`} className={`small${own}`}>{e.sales}</span>,
                   <span key={`${e.companyId}d`} className={`small muted${own}`}>{e.days} j</span>,
                 ];

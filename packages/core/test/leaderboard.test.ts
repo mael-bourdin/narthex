@@ -49,3 +49,10 @@ describe("leaderboard", () => {
     expect(validEntry({ nope: true })).toBe(false);
   });
 });
+
+describe("fmt.euros", () => {
+  it("shows revenue in whole euros", async () => {
+    const { fmt } = await import("../src/index.ts");
+    expect(fmt.euros(125_000)).toBe("1 250 €");
+  });
+});

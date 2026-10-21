@@ -84,19 +84,30 @@ export class LeaderboardPublisher {
 
   /** The founder stopped sharing: the company leaves the ranking. */
   async withdraw(companyId: string): Promise<void> {
-    const s = this.options.settings();
-    if (s.edition !== "hosted" || !s.url || !s.token) return;
-    await this.send(s, "DELETE", companyId).catch(() => {});
+    await withdrawFromLeaderboard(this.options.settings(), companyId, this.options.fetch);
   }
 
   private async send(s: LeaderboardSettings, method: "PUT" | "DELETE", companyId: string, body?: string): Promise<void> {
-    await this.options.fetch(`${s.url!.replace(/\/$/, "")}/v1/entries/${encodeURIComponent(companyId)}`, {
-      method,
-      headers: { authorization: `Bearer ${s.token}`, "content-type": "application/json" },
-      ...(body ? { body } : {}),
-      signal: AbortSignal.timeout(15_000),
-    });
+    await send(this.options.fetch, s, method, companyId, body);
   }
+}
+
+async function send(fetchImpl: Fetch, s: LeaderboardSettings, method: "PUT" | "DELETE", companyId: string, body?: string): Promise<{ ok: boolean; status: number }> {
+  return fetchImpl(`${s.url!.replace(/\/$/, "")}/v1/entries/${encodeURIComponent(companyId)}`, {
+    method,
+    headers: { authorization: `Bearer ${s.token}`, "content-type": "application/json" },
+    ...(body ? { body } : {}),
+    signal: AbortSignal.timeout(15_000),
+  });
+}
+
+/** Removes a company from the ranking, whether or not the team is running. False when the service could not be reached. */
+export async function withdrawFromLeaderboard(s: LeaderboardSettings, companyId: string, fetchImpl: Fetch = globalThis.fetch as unknown as Fetch): Promise<boolean> {
+  if (s.edition !== "hosted" || !s.url || !s.token) return true;
+  return send(fetchImpl, s, "DELETE", companyId).then(
+    (r) => r.ok || r.status === 404,
+    () => false,
+  );
 }
 
 /** The public ranking, read by the app and the CLI (any edition can look). */

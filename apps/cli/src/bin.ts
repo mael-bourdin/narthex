@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { ALWAYS_ASK, deliverableMarkdown, fmt, ROLES, STAGE_LABEL, type CompanyState, type LegalForm } from "@narthex/core";
+import { ALWAYS_ASK, deliverableMarkdown, fmt, OFFICES, ROLES, STAGE_LABEL, type CompanyState, type LegalForm } from "@narthex/core";
 import {
   archiveCompany,
   chooseRuntime,
@@ -10,6 +10,10 @@ import {
   openEngine,
   startDiscord,
   checkDiscordToken,
+  fetchLeaderboard,
+  leaderboardSettings,
+  LeaderboardPublisher,
+  withdrawFromLeaderboard,
   saveConfig,
   serve,
   SocketClient,
@@ -46,6 +50,7 @@ ${bold("Regarder")}
   narthex pourquoi "<question>"     Retrouver une décision et sa raison dans le journal
   narthex entreprises               Tes entreprises (toutes tournent ; « init » en crée une autre)
   narthex choisir <nom>             Afficher une autre entreprise dans le CLI et l'app
+  narthex classement                Le classement des entreprises de la version hébergée
   narthex livrable <id|dernier>     Lire un livrable (--fichier x.md pour l'enregistrer)
 
 ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque chose)
@@ -55,6 +60,7 @@ ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque c
   narthex reessayer <id>                Relancer une obligation bloquée après plusieurs échecs
   narthex pause | reprendre             Mettre l'équipe en pause
   narthex discord [jeton | serveur <id> | off]  L'équipe écrit sur ton Discord (un salon par équipe)
+  narthex classement rejoindre | quitter | montant <oui|non>  Ta place au classement (version hébergée)
   narthex recommencer [--oui]           Archiver l'entreprise et revoir le premier lancement
 
 ${bold("Réglages")}
@@ -113,6 +119,8 @@ async function main(): Promise<void> {
       return recommencer();
     case "discord":
       return discord();
+    case "classement":
+      return classement();
   }
   await withClient(async (client) => {
     if (command === "entreprises" || command === "choisir") return companies(client);
@@ -249,7 +257,7 @@ function afterAction(_state: CompanyState, passive: boolean): void {
 // ---------- Connecting ----------
 
 /** Talks to a running `narthex lancer` when there is one, else opens the company read-and-record only. */
-async function withClient(fn: (client: Client) => Promise<void>): Promise<void> {
+async function withClient<T>(fn: (client: Client) => Promise<T>): Promise<T> {
   const socket = await SocketClient.connect(socketPath(dir));
   if (socket) {
     try {
@@ -260,7 +268,7 @@ async function withClient(fn: (client: Client) => Promise<void>): Promise<void> 
   }
   const { engine } = openEngine({ dir, passive: true });
   try {
-    await fn(new InProcessClient(engine));
+    return await fn(new InProcessClient(engine));
   } finally {
     await engine.close();
   }
@@ -310,6 +318,42 @@ async function discord(): Promise<void> {
   print(`Bot ${clean(check.bot)} reconnu. Choisis le serveur :`);
   for (const g of check.guilds) print(`  ${clean(g.name)} ${dim(g.id)}`);
   print(check.guilds.length ? `→ ${bold("narthex discord serveur <nom ou id>")}` : "Il n'est sur aucun serveur : invite-le d'abord (OAuth2 · URL Generator · bot, avec Gérer les salons, Gérer les webhooks, Envoyer des messages, Ajouter des réactions, Créer des fils publics).");
+}
+
+// ---------- classement ----------
+
+async function classement(): Promise<void> {
+  const current = loadConfig(dir);
+  const settings = leaderboardSettings(current);
+  const [action, value] = args;
+  if (action) {
+    if (settings.edition !== "hosted") throw new Error("Tu utilises la version open source : tes entreprises restent chez toi et n'apparaissent pas au classement.");
+    if (!settings.token) throw new Error("Cette instance n'a pas encore de jeton de classement.");
+    const leaderboard = { ...current.leaderboard };
+    if (action === "rejoindre") leaderboard.share = true;
+    else if (action === "quitter") leaderboard.share = false;
+    else if (action === "montant" && (value === "oui" || value === "non")) leaderboard.showRevenue = value === "oui";
+    else throw new Error("Usage : narthex classement rejoindre | quitter | montant <oui|non>");
+    saveConfig(dir, { ...current, leaderboard });
+    if (action === "quitter") {
+      const ids = await withClient((client) => client.call("companies.list", {})).then((l) => l.map((c) => c.id));
+      const gone = await Promise.all(ids.map((id) => withdrawFromLeaderboard(settings, id)));
+      return print(gone.every(Boolean) ? "Tes entreprises ont quitté le classement." : "C'est noté. Le classement ne répond pas : tes entreprises en sortiront dès qu'il répondra (relance « narthex classement quitter »).");
+    }
+    if (action === "rejoindre") return print(`${bold("C'est noté.")} Tes entreprises apparaîtront au classement dès que l'équipe tourne (app ou « narthex lancer »). Nom, ville, ton prénom, étape, bureau, ventes : jamais ton idée ni tes documents.`);
+    return print(leaderboard.showRevenue ? "Le montant exact de ton chiffre d'affaires sera affiché." : "Seule une tranche de chiffre d'affaires sera affichée.");
+  }
+  if (!settings.url) return print("Le classement n'est pas encore en ligne. Il réunira les entreprises de la version hébergée de Narthex.");
+  const entries = await fetchLeaderboard(settings.url);
+  if (opts.json) return print(JSON.stringify(entries, null, 2));
+  if (!entries.length) return print("Personne n'y figure encore.");
+  const mine = new Set(await withClient((client) => client.call("companies.list", {})).then((l) => l.map((c) => c.id)).catch(() => [] as string[]));
+  print(bold("Classement"));
+  for (const { rank, entry: e } of entries) {
+    const line = `${String(rank).padStart(3)}  ${clean(e.name)} ${dim(`· ${[e.city, STAGE_LABEL[e.stage], OFFICES[e.office]?.name, e.revenue !== undefined ? fmt.euros(e.revenue) : e.revenueBand, `${e.sales} vente${e.sales > 1 ? "s" : ""}`, `${e.days} j`].filter(Boolean).join(" · ")}`)}`;
+    print(mine.has(e.companyId) ? violet(line) : line);
+  }
+  if (settings.edition !== "hosted") print(dim("\nTu utilises la version open source : tes entreprises n'y figurent pas, tes données restent chez toi."));
 }
 
 // ---------- entreprises ----------
@@ -380,6 +424,8 @@ async function lancer(): Promise<void> {
   engine.start();
   const stopDiscord = startDiscord(engine, dir, (e) => print(dim(`  Discord : ${e.message}`)));
   if (stopDiscord) print(dim(`Discord : l'équipe écrit aussi sur ${loadConfig(dir).discord?.guildName ?? "ton serveur"}.`));
+  const publisher = new LeaderboardPublisher({ host: engine, settings: () => leaderboardSettings(loadConfig(dir)) });
+  publisher.start();
 
   let stopping = false;
   const stop = async () => {
@@ -389,6 +435,7 @@ async function lancer(): Promise<void> {
     }
     stopping = true;
     stopDiscord?.();
+    publisher.stop();
     print(dim("\nJ'attends que l'équipe finisse ce qu'elle a commencé… (Ctrl+C encore pour couper net)"));
     server.close();
     await engine.close();
