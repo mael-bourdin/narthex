@@ -1,0 +1,89 @@
+/* ---------- Réglages (Figma « Narthex — App », section Réglages; components from « Narthex — Components ») ---------- */
+
+/* Sections Réglages: 14/20, 22 px apart, the active one white with a 14 × 2 repère under it. */
+.reglages .section-tabs { gap: 22px; margin-bottom: 0; }
+.reglages .section-tabs button { font-size: 14px; line-height: 20px; padding: 0 0 8px; }
+.reglages .section-tabs button.on::after { left: 50%; right: auto; width: 14px; transform: translateX(-50%); border-radius: 1px; }
+/* Narthex/Title: 28/34, -2 %. */
+.reglages h1 { font-size: 28px; line-height: 34px; letter-spacing: -0.02em; margin: 8px 0 4px; }
+.reglages { gap: 16px; }
+
+/* Publications: posts in one card, as in the Fil. */
+.rg-post { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 14px; }
+.rg-post .post-head { gap: 10px; }
+.rg-post .post-head .muted { font-size: 13px; }
+.rg-post .text { margin: 0; line-height: 20px; }
+.rg-post > .actions, .rg-post > .error, .rg-post > .muted.small { margin: 0; }
+.rg-person { align-items: center; }
+.rg-person-name { font-size: 16px; line-height: 24px; font-weight: 500; }
+
+/* Buttons (Figma « Bouton »): radius 8, 8 × 16, 14/20. */
+.rg-actions { margin-top: 0; gap: 8px; }
+.rg-actions .btn, .rg-table .btn { border-radius: 8px; padding: 8px 16px; line-height: 20px; font-size: 14px; }
+.rg-table .btn-quiet { padding: 8px 12px; }
+.rg-actions .btn-primary:disabled { opacity: 0.35; cursor: default; }
+.rg-icon-btn { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Tableau: black box, 10 radius, 12 × 14, rows split by a line. */
+.rg-table { display: flex; flex-direction: column; background: var(--bg-app); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px 14px; }
+.rg-table-title { font-weight: 500; line-height: 20px; padding-bottom: 6px; }
+.rg-table .chips { padding: 8px 0 2px; }
+.rg-lead { margin: 0; }
+.rg-note { margin: 10px 0 0; font-size: 13px; line-height: 18px; color: var(--text-tertiary); }
+
+.rg-row { display: flex; align-items: center; gap: 16px; padding: 10px 0; border-top: 1px solid var(--border-subtle); min-height: 52px; }
+.rg-table > .rg-row:first-child { border-top: 0; padding-top: 0; }
+.rg-table-title + .rg-row { border-top: 0; }
+label.rg-row { cursor: text; }
+.rg-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 20px; }
+.rg-sub { font-size: 13px; line-height: 18px; color: var(--text-tertiary); overflow-wrap: anywhere; }
+.rg-value { white-space: nowrap; }
+.rg-mono { font-variant-numeric: tabular-nums; }
+
+.rg-cells { display: grid; grid-template-columns: var(--grid, 1fr); gap: 16px; align-items: center; }
+.rg-head { font-size: 13px; line-height: 18px; color: var(--text-tertiary); padding-bottom: 6px; }
+.rg-head > span:last-child:not(:first-child) { text-align: right; }
+.rg-line { padding: 10px 0; border-top: 1px solid var(--border-subtle); min-height: 41px; }
+.rg-line > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rg-line > .rg-text { white-space: normal; }
+.rg-line > .rg-text > span { overflow: hidden; text-overflow: ellipsis; }
+.rg-line.dim { color: var(--text-tertiary); }
+.rg-line > :last-child:not(:first-child) { justify-self: end; text-align: right; }
+.rg-num { font-variant-numeric: tabular-nums; }
+.rg-center { display: flex; justify-content: center; }
+.rg-line > .rg-center:last-child { justify-self: end; }
+.rg-end { display: flex; justify-content: flex-end; }
+
+/* État: a 6 px dot and a word. */
+.rg-state { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; line-height: 18px; color: var(--text-secondary); white-space: nowrap; }
+.rg-state i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); }
+.rg-state.ok i { background: var(--status-working); }
+.rg-state.bad i { background: var(--error); }
+
+/* Interrupteur: 32 × 18, lavender when on (Figma #8C7BEA), knob 14. */
+.rg-switch { position: relative; width: 32px; height: 18px; flex: none; padding: 0; border: 0; border-radius: 9px; background: var(--border-subtle); cursor: pointer; transition: background 0.15s; }
+.rg-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-primary); transition: transform 0.15s; }
+.rg-switch.on { background: #8c7bea; }
+.rg-switch.on::after { transform: translateX(14px); }
+.rg-switch:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+/* Choix: surface, 8 radius, 32 high, chevron down. */
+.rg-select, .rg-input { height: 32px; background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-primary); font-size: 14px; line-height: 20px; outline: none; }
+.rg-select { appearance: none; -webkit-appearance: none; width: 160px; padding: 0 32px 0 10px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5l5 5 5-5' stroke='%23EDEDEF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; background-size: 20px; }
+.rg-select.wide { width: 100%; }
+.rg-input { width: 260px; padding: 0 10px; }
+.rg-input.wide { width: 320px; }
+.rg-select:focus, .rg-input:focus { border-color: var(--accent); }
+.rg-steps { margin: 4px 0 10px; }
+
+/* Right column cards: « Liste » and « Les chiffres ». */
+.rg-side { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0 8px 10px; display: flex; flex-direction: column; }
+.rg-side > header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 8px 6px; font-weight: 500; line-height: 20px; }
+.rg-side > header .muted { font-weight: 400; font-size: 13px; }
+.rg-side-item { display: flex; flex-direction: column; gap: 1px; padding: 7px 8px; line-height: 20px; }
+.rg-side-item > span:first-child { font-weight: 500; }
+.rg-figure { display: flex; align-items: flex-start; gap: 12px; margin: 0 8px; padding: 10px 0; border-top: 1px solid var(--border-subtle); }
+.rg-side > header + .rg-figure { border-top: 0; padding-top: 4px; }
+.rg-figure-value { font-size: 20px; line-height: 26px; font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; font-variant-numeric: tabular-nums; }
