@@ -105,7 +105,8 @@ export class CompatibleRuntime implements AgentRuntime {
   constructor(options: CompatibleRuntimeOptions) {
     this.name = options.provider;
     if (options.provider === "compatible" && !options.baseURL) throw new Error("Il manque l'adresse de l'API compatible.");
-    this.base = (options.baseURL ?? BASE[options.provider as Exclude<Provider, "compatible">]).replace(/\/$/, "");
+    // A provider's key only ever goes to that provider: a saved address is for the compatible API alone.
+    this.base = (options.provider === "compatible" ? options.baseURL! : BASE[options.provider]).replace(/\/$/, "");
     this.key = options.apiKey;
     this.levels = { ...DEFAULT_LEVELS[options.provider], ...options.levels };
     this.models = options.models ?? {};

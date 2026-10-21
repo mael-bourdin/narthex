@@ -68,7 +68,7 @@ export function makeRuntime(config: Config, env: NodeJS.ProcessEnv = process.env
     case "openrouter":
     case "openai":
     case "compatible":
-      return new CompatibleRuntime({ provider: name, apiKey: config.keys![name]!, ...(config.baseUrl ? { baseURL: config.baseUrl } : {}), ...(config.levels ? { levels: config.levels } : {}), ...common });
+      return new CompatibleRuntime({ provider: name, apiKey: config.keys![name]!, ...(name === "compatible" && config.baseUrl ? { baseURL: config.baseUrl } : {}), ...(config.levels ? { levels: config.levels } : {}), ...common });
     case "simulation":
       return new SimulationRuntime();
     default:

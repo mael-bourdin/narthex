@@ -35,3 +35,23 @@ describe("any provider's key", () => {
     expect(await verifyKey("bonjour")).toMatchObject({ ok: false });
   });
 });
+
+describe("a key goes to its own provider only", () => {
+  it("never sends an OpenRouter or OpenAI key to the address saved for a compatible API", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "narthex-prov-"));
+    saveProviderKey(dir, "compatible", "local", "http://127.0.0.1:4800/v1");
+    saveProviderKey(dir, "openrouter", "sk-or-v1-secret");
+    const runtime = makeRuntime(loadConfig(dir), {}) as CompatibleRuntime;
+    const urls: string[] = [];
+    (runtime as unknown as { call: CompatibleFetch }).call = async (url) => (urls.push(url), { ok: true, status: 200, json: async () => ({ choices: [{ message: { role: "assistant", content: "ok" } }], usage: {} }), text: async () => "" });
+    await runtime.remark({ speaker: { name: "Léa", role: "recherche" }, author: "Hugo", text: "x", company: "L", signal: new AbortController().signal });
+    expect(urls[0]).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(urls.every((u) => u.startsWith("https://openrouter.ai/"))).toBe(true);
+    expect(() => new CompatibleRuntime({ provider: "openai", apiKey: "sk-x", baseURL: "http://evil.example/v1" })).not.toThrow();
+    const urls2: string[] = [];
+    const r2 = new CompatibleRuntime({ provider: "openai", apiKey: "sk-x", baseURL: "http://evil.example/v1", fetch: async (url) => (urls2.push(url), { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: "ok" } }], usage: {} }), text: async () => "" }) });
+    await r2.remark({ speaker: { name: "Léa", role: "recherche" }, author: "Hugo", text: "x", company: "L", signal: new AbortController().signal });
+    expect(urls2[0]).toBe("https://api.openai.com/v1/chat/completions");
+    expect(urls2.some((u) => u.includes("evil.example"))).toBe(false);
+  });
+});
