@@ -134,8 +134,8 @@ export function Sign({ signs, state, onAct }: { signs: Mission[]; state: Company
 /** « Ton entreprise tourne toute seule »: what is running and what comes next. */
 function Pilot({ state, status, view }: { state: CompanyState; status: EngineStatus; view: FilView }) {
   const paused = state.company?.paused;
-  const waiting = status.runtime === "none";
-  const title = paused ? "L'équipe est en pause" : waiting ? "L'équipe attend ta clé pour travailler" : "Ton entreprise tourne toute seule";
+  const waiting = status.runtime === "none" || Boolean(status.unavailable);
+  const title = paused ? "L'équipe est en pause" : status.runtime === "none" ? "L'équipe attend ta clé pour travailler" : status.unavailable ?? "Ton entreprise tourne toute seule";
   const parts: string[] = [];
   if (!waiting && !paused) parts.push(view.pilot.running === 0 ? "aucune mission en cours" : `${view.pilot.running} mission${view.pilot.running > 1 ? "s" : ""} en cours`);
   if (view.pilot.next) {
