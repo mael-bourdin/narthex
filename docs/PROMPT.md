@@ -123,6 +123,7 @@ Cocher dans ce fichier au fil des PR.
 - [x] Data avancées : Entreprise · Données (chiffre d'affaires, dépense IA, coût par livrable, liens qui répondent ; graphiques par jour depuis la création, 7 ou 30 jours ; équipe : missions, réussite, temps, XP, dépense ; progression), `narthex data` ; jours de Paris, vrais événements seulement.
 - [x] Bureau qui évolue (`core/office.ts`) : petite maison délabrée → petit local → bureaux en ville → plateau → tour (3 étages, ascenseur, vue) ; seuils cachés sur les vrais résultats (étape, chiffre d'affaires, ventes, équipe) ; déménagement annoncé par Margaux (Fil, Discord) ; plans par palier dans `bureau-layouts.ts`.
 - [x] Classement des entreprises de la version hébergée : `packages/leaderboard` (service HTTP + SQLite, jetons par instance, une entreprise appartient à un seul jeton, seuls les champs publics sont gardés) ; `LeaderboardPublisher` publie à chaque étape, bureau, vente (jamais en open source, seulement si le fondateur l'a choisi) ; chiffre d'affaires en tranche sauf choix contraire ; onglet Classement, `narthex classement [rejoindre|quitter|montant oui|non]`.
+- [x] Mode développeur `claude-code` : usage de l'abonnement lu dans le flux de Claude Code (`rate_limit_event`), aucune nouvelle tâche au-delà de 90 % d'une fenêtre, `--max-budget-usd` au budget de la tâche ; affiché à la place de la dépense IA.
 - [ ] Nouvelle direction artistique, à partir de l'histoire et des valeurs (maquettes Figma d'abord).
 
 **Plus tard** : version hébergée (PostgreSQL derrière `EventStore`, comptes, crédits), mobile.
