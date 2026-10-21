@@ -45,3 +45,26 @@ describe("company.update", () => {
     await expect(e.handle("company.update", { name: "  " })).rejects.toThrow(/nom/);
   });
 });
+
+describe("the level an agent chose for a task", () => {
+  it("picks a lighter or stronger Claude, unless the founder chose a model", async () => {
+    const models: string[] = [];
+    const client = {
+      beta: { messages: { stream: (p: { model: string }) => (models.push(p.model), { finalMessage: async () => ({ stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: "text", text: "ok" }] }) }) } },
+    } as unknown as Anthropic;
+    const agent: Agent = { id: "l", name: "Léa", role: "recherche", hiredAt: 0, status: "working", skill: { success: 0, failure: 0 }, autonomy: 1 };
+    const task = (level?: "light" | "deep"): Task => ({ id: "t", agentId: "l", title: "x", why: "", kind: "internal", status: "running", createdAt: 0, scheduledAt: 0, ...(level ? { level } : {}) });
+    const ctx = (t: Task) => ({ state: emptyState(), agent, task: t, now: 0, signal: new AbortController().signal, progress() {}, plan: () => null, recruit: () => null, spend() {} }) as unknown as WorkContext;
+    await new AnthropicRuntime({ client }).run(ctx(task("light")));
+    await new AnthropicRuntime({ client }).run(ctx(task("deep")));
+    await new AnthropicRuntime({ client }).run(ctx(task()));
+    await new AnthropicRuntime({ client, models: { recherche: "claude-sonnet-5-5" } }).run(ctx(task("deep")));
+    expect(models).toEqual(["claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5-5"]);
+  });
+
+  it("is read from plan_task", async () => {
+    const { parseFollowUp } = await import("../src/index.ts");
+    expect(parseFollowUp({ title: "a", why: "b", kind: "internal", in_hours: 0, assignee: "self", level: "deep" }).level).toBe("deep");
+    expect(parseFollowUp({ title: "a", why: "b", kind: "internal", in_hours: 0, assignee: "self", level: "max" }).level).toBeUndefined();
+  });
+});

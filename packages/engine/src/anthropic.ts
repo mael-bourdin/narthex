@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { fmt, recallFacts, role, ROLES, type Lesson, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
+import { CLAUDE_BY_LEVEL, fmt, recallFacts, role, ROLES, type Lesson, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
 import { searchCompanies, type CompanySearch } from "./connectors/entreprises.ts";
 import type { AgentRuntime, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, RemarkInput, RemarkResult, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
@@ -148,7 +148,8 @@ export class AnthropicRuntime implements AgentRuntime {
 
   async run(ctx: WorkContext): Promise<WorkResult> {
     const def = role(ctx.agent.role);
-    const model = this.models[ctx.agent.role] ?? this.chosen ?? def.model;
+    // The founder's choice wins; otherwise the level the agent chose for this task, else the role's own model.
+    const model = this.models[ctx.agent.role] ?? this.chosen ?? (ctx.task.level ? CLAUDE_BY_LEVEL[ctx.task.level] : def.model);
     const tools = toolsFor(def);
     const system: Anthropic.Beta.BetaTextBlockParam[] = [
       { type: "text", text: identity(def, ctx.agent.name, ctx.state.playbooks?.[ctx.agent.role]) },
@@ -666,6 +667,9 @@ const SEARCH_COMPANIES: Tool = {
 const ROLE_IDS = ROLES.map((r) => r.id);
 const TEAM_CHOICES = ROLES.filter((r) => r.id !== "cofondateur").map((r) => `${r.id} (${r.title})`).join(", ");
 
+export const LEVEL_HELP =
+  "Profondeur : light (vérification, reformulation, petite liste : modèle rapide et peu cher), standard (travail courant), deep (droit, chiffres, décision difficile : modèle le plus fort, plus cher). Choisis le plus léger qui suffit.";
+
 const PLAN: Tool = {
   name: "plan_task",
   description:
@@ -674,13 +678,14 @@ const PLAN: Tool = {
   input_schema: {
     type: "object",
     additionalProperties: false,
-    required: ["title", "why", "kind", "in_hours", "assignee"],
+    required: ["title", "why", "kind", "in_hours", "assignee", "level"],
     properties: {
       title: { type: "string" },
       why: { type: "string", description: "Pourquoi c'est utile maintenant, en une phrase." },
       kind: { type: "string", enum: ["internal", "external"] },
       in_hours: { type: "number", description: "Dans combien d'heures la commencer (0 = dès que possible)." },
       assignee: { type: "string", enum: ["self", ...ROLE_IDS] },
+      level: { type: "string", enum: ["light", "standard", "deep"], description: LEVEL_HELP },
     },
   },
 };
@@ -749,5 +754,6 @@ export function parseFollowUp(input: Record<string, unknown>): FollowUp {
     ? (input.assignee as RoleId)
     : undefined;
   const inHours = typeof input.in_hours === "number" && input.in_hours >= 0 ? Math.min(input.in_hours, 24 * 30) : 0;
-  return { title: requireString(input, "title", 200), why: requireString(input, "why", 500), kind, inHours, ...(assignee ? { assignee } : {}) };
+  const level = input.level === "light" || input.level === "standard" || input.level === "deep" ? input.level : undefined;
+  return { title: requireString(input, "title", 200), why: requireString(input, "why", 500), kind, inHours, ...(assignee ? { assignee } : {}), ...(level ? { level } : {}) };
 }

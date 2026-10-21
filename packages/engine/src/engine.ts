@@ -784,6 +784,7 @@ export class Engine {
       parentId,
       scheduledAt: this.now() + (f.inHours ?? 0) * 3_600_000,
       ...(f.tag ? { tag: f.tag } : {}),
+      ...(f.level ? { level: f.level } : {}),
     });
   }
 

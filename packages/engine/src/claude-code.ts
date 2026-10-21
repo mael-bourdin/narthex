@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
-import { fmt, role, ROLES, type FirstLook, type RoleId } from "@narthex/core";
-import { REMARK_SCHEMA, remarkSystem, REFLECT_SCHEMA, REFLECT_SYSTEM, reflectionFrom, reflectPrompt, TIDY_SCHEMA, TIDY_SYSTEM, tidyFrom, tidyPrompt, brief, companySheet, DEFAULT_MODEL, FACTS_SCHEMA, FACTS_SYSTEM, factsFrom, factsPrompt, MEMORY_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
+import { CLAUDE_BY_LEVEL, fmt, role, ROLES, type FirstLook, type RoleId } from "@narthex/core";
+import { REMARK_SCHEMA, remarkSystem, REFLECT_SCHEMA, REFLECT_SYSTEM, reflectionFrom, reflectPrompt, TIDY_SCHEMA, TIDY_SYSTEM, tidyFrom, tidyPrompt, brief, companySheet, DEFAULT_MODEL, LEVEL_HELP, FACTS_SCHEMA, FACTS_SYSTEM, factsFrom, factsPrompt, MEMORY_MODEL, firstLookFrom, firstLookPrompt, firstLookSystem, identity, parseDeliverable, parseFollowUp } from "./anthropic.ts";
 import type { AgentRuntime, SubscriptionUsage, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, RemarkInput, RemarkResult, FactsInput, FactsResult, WorkContext, WorkResult } from "./runtime.ts";
 
 /**
@@ -127,7 +127,7 @@ export class ClaudeCodeRuntime implements AgentRuntime {
         system: `${identity(def, ctx.agent.name, ctx.state.playbooks?.[ctx.agent.role])}\n\n${HOW_TO_ANSWER}${def.tools.includes("search_companies") ? `\n${REGISTRY_BY_FETCH}` : ""}\n\n${companySheet(ctx)}`,
         prompt: brief(ctx),
         schema: workSchema(cofounder),
-        model: this.models[ctx.agent.role] ?? this.chosen ?? def.model,
+        model: this.models[ctx.agent.role] ?? this.chosen ?? (ctx.task.level ? CLAUDE_BY_LEVEL[ctx.task.level] : def.model),
         effort: def.effort,
         web: def.tools.includes("web_search") || def.tools.includes("web_fetch"),
         ...(ctx.remainingCredits ? { budgetCredits: ctx.remainingCredits() } : {}),
@@ -343,6 +343,7 @@ function workSchema(cofounder: boolean): object {
             kind: { type: "string", enum: ["internal", "external"] },
             in_hours: { type: "number" },
             assignee: { type: "string", enum: ["self", ...ROLE_IDS] },
+            level: { type: "string", enum: ["light", "standard", "deep"], description: LEVEL_HELP },
           },
         },
       },
