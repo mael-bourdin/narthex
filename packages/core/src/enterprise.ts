@@ -33,7 +33,7 @@ export const ENTERPRISE: readonly SectionSpec[] = [
     section: "Finances",
     pages: [
       { page: "Trésorerie", owners: ["comptable", "cofondateur"], keywords: /trésorerie|banque|compte pro|capital/i },
-      { page: "Factures", owners: ["comptable"], keywords: /factur/i },
+      { page: "Factures et devis", owners: ["comptable"], keywords: /factur/i },
       { page: "Dépenses", owners: ["comptable"], keywords: /dépense|achat|abonnement|devis/i },
       { page: "Prévisionnel", owners: ["comptable", "cofondateur"], keywords: /prévisionnel|budget|chiffre d'affaires|rentab/i, tags: ["forecast"] },
       { page: "Compta et TVA", owners: ["comptable"], keywords: /tva|compta|cfe|urssaf|impôt/i, tags: ["C5-cfe", "B6-facturation-electronique"] },
@@ -53,7 +53,7 @@ export const ENTERPRISE: readonly SectionSpec[] = [
     pages: [
       { page: "Calendrier", owners: ["redaction", "video"], keywords: /calendrier|planning|lancement/i },
       { page: "Réseaux", owners: ["redaction"], keywords: /linkedin|instagram|tiktok|réseau|post\b/i },
-      { page: "Visuels", owners: ["video", "redaction"], keywords: /visuel|logo|photo|vidéo|image/i, tags: ["video-script"] },
+      { page: "Visuels et vidéos", owners: ["video", "redaction"], keywords: /visuel|logo|photo|vidéo|image/i, tags: ["video-script"] },
       { page: "Site", owners: ["redaction"], keywords: /site|page d'accueil|boutique en ligne/i, tags: ["site-home"] },
       { page: "Campagnes", owners: ["redaction", "prospection"], keywords: /campagne|newsletter|e-?mailing|publicité/i },
     ],
@@ -63,7 +63,7 @@ export const ENTERPRISE: readonly SectionSpec[] = [
     pages: [
       { page: "Documents", owners: ["juridique"], allOfOwners: true },
       { page: "Marque", owners: ["juridique"], keywords: /nom|marque|inpi|logo|domaine/i, tags: ["A1-nom"] },
-      { page: "Données", owners: ["juridique"], keywords: /rgpd|données|cnil|confidentialité|cookies/i, tags: ["C10-rgpd", "B8-mentions-legales"] },
+      { page: "Données personnelles", owners: ["juridique"], keywords: /rgpd|données|cnil|confidentialité|cookies/i, tags: ["C10-rgpd", "B8-mentions-legales"] },
     ],
   },
   { section: "Obligations", pages: [] },
@@ -71,7 +71,7 @@ export const ENTERPRISE: readonly SectionSpec[] = [
 ];
 
 const SHE: RoleId[] = ["cofondateur", "recherche", "redaction", "technique"];
-const ARRIVES: Record<Stage, string> = {
+export const ARRIVES: Record<Stage, string> = {
   idea: "dès l'idée",
   research: "pendant l'étude",
   creation: "à la création de la société",
@@ -241,21 +241,26 @@ export interface TableOf {
   rows: string[][];
 }
 
-/** Every Markdown table the team produced, newest first. */
-export function tablesOf(state: CompanyState): TableOf[] {
-  const out: TableOf[] = [];
+/** The Markdown tables of one text, in order (header, then rows; bold marks dropped). */
+export function markdownTables(body: string): { header: string[]; rows: string[][] }[] {
+  const out: { header: string[]; rows: string[][] }[] = [];
   const cells = (line: string) => line.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim().replace(/\*\*/g, ""));
-  for (const d of Object.values(state.deliverables).sort((a, b) => b.createdAt - a.createdAt)) {
-    const lines = d.body.split("\n");
-    for (let i = 0; i < lines.length - 1; i++) {
-      if (!lines[i]!.trim().startsWith("|") || !/^\s*\|?\s*:?-{2,}/.test(lines[i + 1] ?? "")) continue;
-      const header = cells(lines[i]!);
-      const rows: string[][] = [];
-      let j = i + 2;
-      for (; j < lines.length && lines[j]!.trim().startsWith("|"); j++) rows.push(cells(lines[j]!));
-      out.push({ deliverable: d, header, rows });
-      i = j;
-    }
+  const lines = body.split("\n");
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (!lines[i]!.trim().startsWith("|") || !/^\s*\|?\s*:?-{2,}/.test(lines[i + 1] ?? "")) continue;
+    const header = cells(lines[i]!);
+    const rows: string[][] = [];
+    let j = i + 2;
+    for (; j < lines.length && lines[j]!.trim().startsWith("|"); j++) rows.push(cells(lines[j]!));
+    out.push({ header, rows });
+    i = j;
   }
   return out;
+}
+
+/** Every Markdown table the team produced, newest first. */
+export function tablesOf(state: CompanyState): TableOf[] {
+  return Object.values(state.deliverables)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .flatMap((deliverable) => markdownTables(deliverable.body).map((t) => ({ deliverable, ...t })));
 }

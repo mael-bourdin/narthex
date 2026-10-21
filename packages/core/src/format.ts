@@ -51,3 +51,8 @@ export function duration(ms: number): string {
   const m = minutes % 60;
   return m ? `${h} h ${String(m).padStart(2, "0")}` : `${h} h`;
 }
+
+/** Money the company made, from euro cents: « 1 250 € », « 42,50 € ». */
+export function euros(cents: number): string {
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100).replace(/[  ]/g, " ");
+}

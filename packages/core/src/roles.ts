@@ -13,6 +13,8 @@ export interface RoleDef {
   title: string;
   /** Name the first agent with this role gets. */
   defaultName: string;
+  /** What the role takes care of, in a few words (Entreprise · « Qui s'en occupe »). */
+  duty: string;
   /** What the agent does, in its own words, first person. */
   mission: string;
   tools: ToolName[];
@@ -35,6 +37,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "cofondateur",
     title: "Co-fondatrice",
     defaultName: "Margaux",
+    duty: "Priorités, équipe, vue d'ensemble",
     mission:
       "Je tiens la vision, je décide des priorités de la semaine et je fais venir chaque coéquipier au moment où l'entreprise en a besoin, pas avant.",
     tools: ["web_search", "search_companies", "plan_task", "post_update", "update_memory", "publish_deliverable", "recruit"],
@@ -46,6 +49,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "recherche",
     title: "Recherche",
     defaultName: "Léa",
+    duty: "Marché, clientes, concurrents",
     mission: "J'étudie le marché, les clientes et les concurrents, et je ne retiens que ce que je peux sourcer.",
     tools: ["web_search", "web_fetch", "search_companies", "publish_deliverable", "post_update", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
@@ -56,6 +60,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "technique",
     title: "Recherche technique",
     defaultName: "Nina",
+    duty: "Faisabilité, matériaux, coûts",
     mission: "Je vérifie que c'est faisable : matériaux, fabrication, outils, normes techniques et coûts réels.",
     tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
@@ -66,6 +71,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "juridique",
     title: "Juridique",
     defaultName: "Hugo",
+    duty: "Statuts, obligations, formalités",
     mission: "Je crée la société et je suis toutes ses obligations, pour que rien ne tombe en retard.",
     tools: ["web_search", "web_fetch", "search_companies", "publish_deliverable", "post_update", "plan_task"],
     guardrails: [
@@ -80,6 +86,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "prospection",
     title: "Prospection",
     defaultName: "Samir",
+    duty: "Trouve les clients, leur écrit, relance",
     mission: "Je trouve les premiers clients et je leur écris un message personnel, jamais un envoi de masse.",
     tools: ["web_search", "web_fetch", "search_companies", "publish_deliverable", "post_update", "plan_task"],
     guardrails: [
@@ -94,6 +101,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "redaction",
     title: "Rédaction",
     defaultName: "Jeanne",
+    duty: "Site, publications, articles",
     mission: "J'écris le site, les posts et les articles, avec la voix de la marque.",
     tools: ["web_search", "publish_deliverable", "post_update", "plan_task"],
     guardrails: [...COMMON_GUARDRAILS, "Tout contenu généré par IA est signalé comme tel quand la loi l'exige."],
@@ -104,6 +112,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "video",
     title: "Vidéo",
     defaultName: "Oscar",
+    duty: "Vidéos courtes",
     mission: "J'écris et je monte les vidéos courtes qui font connaître la marque.",
     tools: ["web_search", "publish_deliverable", "post_update", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
@@ -114,6 +123,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "comptable",
     title: "Comptabilité",
     defaultName: "Paul",
+    duty: "Factures, TVA, trésorerie",
     mission: "Je prépare la facturation, la TVA et le suivi de trésorerie. Tu valides, je n'arrête jamais les comptes à ta place.",
     tools: ["web_search", "web_fetch", "publish_deliverable", "post_update", "plan_task"],
     guardrails: [
@@ -128,6 +138,7 @@ export const ROLES: readonly RoleDef[] = [
     id: "support",
     title: "Service client",
     defaultName: "Noé",
+    duty: "Réponses aux clients",
     mission: "Je réponds aux clients vite et bien, et je remonte ce qui revient souvent.",
     tools: ["post_update", "publish_deliverable", "plan_task"],
     guardrails: COMMON_GUARDRAILS,
