@@ -14,6 +14,7 @@ import {
   type Host,
 } from "@narthex/engine";
 import { bold, clean, colours, dim, streamWords, violet } from "./style.ts";
+import { linkWhatsApp } from "./whatsapp.ts";
 
 export interface SeuilOptions {
   dir: string;
@@ -114,6 +115,15 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
         await client.call("company.found", { name: company, idea, founderName: name, firstLook: look });
         print();
         await say(SEUIL.welcome(company));
+        if (options.interactive) {
+          await say(SEUIL.askWhatsApp);
+          const answer = (await reader()!.question(`  ${violet("›")} (o/n) `)).trim().toLowerCase();
+          if (answer.startsWith("o")) {
+            io.rl?.close();
+            io.rl = null;
+            await linkWhatsApp(options.dir);
+          } else print(dim(`  ${SEUIL.whatsAppLater}`));
+        }
         break;
       } catch (e) {
         if (!options.interactive) throw e;

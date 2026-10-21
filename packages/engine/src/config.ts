@@ -25,6 +25,8 @@ export interface Config {
   models?: Partial<Record<import("@narthex/core").RoleId, string>>;
   /** Desktop notifications the player wants. */
   notifications?: { legal?: boolean; leaving?: boolean; budget?: boolean; deliverables?: boolean };
+  /** The founder's WhatsApp, linked through wacli: the team writes to this number's own chat. */
+  whatsapp?: { phone: string };
   /** The founder's Discord: bot token, server, and the channels made for each company. */
   discord?: { token: string; guildId?: string; guildName?: string; setups?: Record<string, import("./connectors/discord.ts").DiscordCompanySetup> };
   /** Open source (default: everything stays at home) or the hosted version (can join the public ranking). */

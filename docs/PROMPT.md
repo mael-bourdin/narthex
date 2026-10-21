@@ -125,6 +125,8 @@ Cocher dans ce fichier au fil des PR.
 - [x] Classement des entreprises de la version hébergée : `packages/leaderboard` (service HTTP + SQLite, jetons par instance, une entreprise appartient à un seul jeton, seuls les champs publics sont gardés) ; `LeaderboardPublisher` publie à chaque étape, bureau, vente (jamais en open source, seulement si le fondateur l'a choisi) ; chiffre d'affaires en tranche sauf choix contraire ; onglet Classement, `narthex classement [rejoindre|quitter|montant oui|non]`.
 - [x] Mode développeur `claude-code` : usage de l'abonnement lu dans le flux de Claude Code (`rate_limit_event`), aucune nouvelle tâche au-delà de 90 % d'une fenêtre, `--max-budget-usd` au budget de la tâche ; affiché à la place de la dépense IA.
 - [x] N'importe quel modèle : `CompatibleRuntime` (OpenRouter avec recherche et lecture web côté OpenRouter et coût exact, OpenAI, API compatible) ; clé reconnue par son préfixe et vérifiée sans frais ; niveau de tâche choisi par l'agent (léger, normal, approfondi) qui choisit le modèle ; le choix du fondateur pour un rôle passe avant.
+- [x] App simplifiée : Fil · Équipe · Réglages (Bureau, Entreprise, Classement retirés de l'app) ; visages humains (photos Unsplash, badge « IA ») ; WhatsApp par wacli proposé dès le premier lancement (QR, l'équipe écrit dans « Messages à moi-même »), `narthex whatsapp`.
+- [ ] WhatsApp, suite : répondre à l'équipe depuis WhatsApp (annuler, valider).
 - [ ] Nouvelle direction artistique, à partir de l'histoire et des valeurs (maquettes Figma d'abord).
 
 **Plus tard** : version hébergée (PostgreSQL derrière `EventStore`, comptes, crédits), mobile.

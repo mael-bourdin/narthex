@@ -17,6 +17,7 @@
   "dependencies": {
     "@narthex/core": "0.1.0",
     "@narthex/engine": "0.1.0",
+    "qrcode": "1.5.4",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },
@@ -30,6 +31,7 @@
     "geist": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "vite": "^8.3.4"
+    "vite": "^8.3.4",
+    "@types/qrcode": "1.5.5"
   }
 }

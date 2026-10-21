@@ -20,3 +20,5 @@ export * from "./connectors/discord.ts";
 export * from "./discord-bridge.ts";
 export * from "./leaderboard.ts";
 export * from "./compatible.ts";
+export * from "./connectors/whatsapp.ts";
+export * from "./whatsapp-bridge.ts";

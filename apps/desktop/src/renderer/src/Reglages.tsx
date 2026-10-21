@@ -19,6 +19,7 @@ import {
 import { ActionModal } from "./ActionModal.tsx";
 import { Avatar } from "./Avatar.tsx";
 import { SectionTabs } from "./SectionTabs.tsx";
+import { WhatsAppQr } from "./seuil/WhatsAppStep.tsx";
 import "./reglages.css";
 
 export type ReglagesView = "Profil" | "Budget" | "Notifications" | "Autonomie" | "Intégrations" | "API et modèles" | "Membres" | "Sécurité";
@@ -511,15 +512,43 @@ const LATER = [
 function Integrations({ state }: { state: CompanyState }) {
   type Status = Awaited<ReturnType<typeof window.narthex.discord.get>>;
   const [discord, setDiscord] = useState<Status>();
+  const [wa, setWa] = useState<Awaited<ReturnType<typeof window.narthex.whatsapp.get>>>();
+  const [waPairing, setWaPairing] = useState(false);
+  const [waMessage, setWaMessage] = useState<string>();
   const tokenRef = useRef<HTMLInputElement>(null);
-  const reload = () => void window.narthex.discord.get().then(setDiscord);
+  const reload = () => {
+    void window.narthex.discord.get().then(setDiscord);
+    void window.narthex.whatsapp.get().then(setWa);
+  };
   useEffect(reload, []);
+  const linkWhatsApp = async () => {
+    setWaMessage(undefined);
+    setWaPairing(true);
+    const r = await window.narthex.whatsapp.pair();
+    setWaPairing(false);
+    setWaMessage(r.ok ? `Relié au +${r.phone}. L'équipe t'écrit dans tes messages à toi-même.` : r.message);
+    reload();
+  };
   const who = (names: string[]) => (names.length > 3 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ") || "—");
   const grid = "minmax(0, 0.95fr) minmax(0, 1.5fr) minmax(0, 0.75fr) 96px";
   return (
     <>
-      <Pilot on title="L'équipe se sert de ce qui est branché" sub="Rien n'agit à ta place sans délai d'annulation. Discord se débranche à tout moment." />
+      <Pilot on title="L'équipe se sert de ce qui est branché" sub="Rien n'agit à ta place sans délai d'annulation. WhatsApp et Discord se débranchent à tout moment." />
       <Posts>
+        {wa && !wa.phone && (
+          <Post state={state} text="Relie ton WhatsApp et l'équipe t'écrit dans tes messages à toi-même : chaque nouvelle, signée par la personne qui l'a faite.">
+            <Table title="WhatsApp">
+              <p className="rg-lead muted small">{wa.installed ? wa.risk : wa.install}</p>
+              {waPairing && <WhatsAppQr risk="" onCancel={() => void window.narthex.whatsapp.cancel()} />}
+              <div className="actions rg-actions">
+                <button className="btn btn-primary" disabled={!wa.installed || waPairing} onClick={() => void linkWhatsApp()}>
+                  {waPairing ? "En attente du scan…" : "Relier WhatsApp"}
+                </button>
+              </div>
+              {waMessage && <p className="muted small">{waMessage}</p>}
+            </Table>
+          </Post>
+        )}
         {discord && !discord.connected && (
           <Post
             state={state}
@@ -542,6 +571,18 @@ function Integrations({ state }: { state: CompanyState }) {
               <span className="muted">{who(toolUsers(state, "search_companies"))}</span>
               <State tone="ok">Inclus</State>
             </Cells>
+            {wa?.phone && (
+              <Cells>
+                <span>WhatsApp · +{wa.phone}</span>
+                <span className="muted">Tes messages à toi-même, signés par l'agent</span>
+                <span className="muted">Toute l'équipe</span>
+                <span className="rg-end">
+                  <button className="btn btn-quiet" onClick={() => void window.narthex.whatsapp.unlink().then(reload)}>
+                    Débrancher
+                  </button>
+                </span>
+              </Cells>
+            )}
             {discord?.connected && (
               <Cells>
                 <span>Discord · {discord.guildName}</span>

@@ -33,31 +33,21 @@ La capture ci-dessus vient d'une vraie partie. Hugo, l'agent juridique, a interr
 | | |
 |---|---|
 | **Le Fil** | Ce que l'équipe a fait, avec ses livrables, ses sources et le temps passé. En haut, la pancarte de ce qui t'attend. |
-| **Une équipe qui grandit seule** | Margaux recrute quand c'est utile, jamais pour faire joli. Chaque agent a son métier, ses outils, ses garde-fous et son modèle Claude (Opus pour le juridique, Haiku pour le support). |
-| **Le Bureau** | Ton équipe en pixel art, dans des locaux qui évoluent avec tes vrais résultats : petite maison délabrée, petit local, bureaux en ville, plateau, puis une tour avec ascenseur et vue. Les paliers sont cachés. |
-| **L'entreprise** | Finances, ventes, marketing, juridique, obligations légales, données jour par jour : tout vient des livrables et des événements réels. Une case sans donnée reste vide plutôt qu'inventée. |
+| **Une équipe, avec des visages** | Margaux recrute quand c'est utile, jamais pour faire joli. Chaque agent a un visage, un métier, ses outils et ses garde-fous, et choisit pour chaque tâche un modèle léger ou fort. Un badge « IA » rappelle toujours que ce sont des agents. |
+| **Sur WhatsApp** | Dès le premier lancement, relie ton WhatsApp : l'équipe t'écrit dans tes messages à toi-même, chaque nouvelle signée par l'agent qui l'a faite. Tu suis ta société sans ouvrir l'app. (Par [wacli](https://wacli.sh), non officiel : WhatsApp peut délier un numéro relié ainsi.) |
 | **Une mémoire** | Faits datés tirés des livrables, rappel par pertinence, leçons apprises par métier. Tu peux en effacer un pour de bon. |
 | **Plusieurs entreprises** | Elles tournent toutes en même temps, chacune avec son budget. |
-| **Discord** | L'équipe écrit sur ton serveur, un salon par équipe, chaque agent sous son nom et son avatar. Tu suis sans ouvrir l'app. |
-| **Le classement** | Pour la version hébergée, à venir : les entreprises qui avancent le plus, classées par étape, bureau, chiffre d'affaires et ventes. |
+| **Discord aussi** | Un salon par équipe, chaque agent sous son nom et son visage. |
 | **Tout en ligne de commande** | Chaque écran a sa commande, chaque commande accepte `--json`. |
 
 <table>
 <tr>
-<td width="50%"><img src="docs/images/bureau.png" alt="Le Bureau : la petite maison délabrée, l'équipe autour d'une table"></td>
-<td width="50%"><img src="docs/images/equipe.png" alt="L'organigramme de l'équipe"></td>
+<td width="50%"><img src="docs/images/equipe.png" alt="L'équipe : chaque agent, ce qu'il fait et la suite"></td>
+<td width="50%"><img src="docs/images/whatsapp.png" alt="Relier WhatsApp : le QR code à scanner"></td>
 </tr>
 <tr>
-<td><b>Le Bureau.</b> On commence dans une petite maison, avec une fuite au plafond.</td>
-<td><b>L'équipe.</b> Qui fait quoi, qui arrive ensuite et pourquoi.</td>
-</tr>
-<tr>
-<td width="50%"><img src="docs/images/entreprise.png" alt="Vue d'ensemble de l'entreprise"></td>
-<td width="50%"><img src="docs/images/classement.png" alt="Le classement de la version hébergée"></td>
-</tr>
-<tr>
-<td><b>L'entreprise.</b> Où en est ta société, les échéances, ce qui a été livré.</td>
-<td><b>Le classement.</b> Tu choisis d'y apparaître, et ce que tu montres.</td>
+<td><b>L'équipe.</b> Chacun, ce qu'il fait, depuis quand, et la suite.</td>
+<td><b>WhatsApp.</b> Un QR code à scanner, et l'équipe t'écrit.</td>
 </tr>
 </table>
 
@@ -117,7 +107,7 @@ Hugo · Juridique · il y a 2 j
 | `narthex equipe` · qui fait quoi | `narthex annuler <id>` · annuler une action prévue |
 | `narthex calendrier --semaine` | `narthex vente 1250` · enregistrer une vente |
 | `narthex entreprise finances` | `narthex pause` · `narthex reprendre` |
-| `narthex data --semaine` · les chiffres | `narthex discord <jeton>` · brancher Discord |
+| `narthex data --semaine` · les chiffres | `narthex whatsapp` · relier WhatsApp |
 | `narthex memoire` · ce que l'équipe sait | `narthex classement rejoindre` · version hébergée |
 | `narthex livrable dernier` | `narthex init` · une entreprise de plus |
 

@@ -6,6 +6,7 @@ import { Findings } from "./Findings.tsx";
 import { Speech } from "./Speech.tsx";
 import { TeamReveal } from "./TeamReveal.tsx";
 import { TypeLine } from "./TypeLine.tsx";
+import { WhatsAppChoice, WhatsAppQr } from "./WhatsAppStep.tsx";
 import "./seuil.css";
 
 const SKIP = Symbol("skip");
@@ -23,6 +24,7 @@ interface Scene {
   findings?: Finding[];
   team?: { dimmed: boolean };
   enter?: boolean;
+  whatsapp?: "choose" | { risk: string };
 }
 
 /**
@@ -34,6 +36,7 @@ export function Seuil({ onDone }: { onDone: () => void }) {
   const spoken = useRef<() => void>(() => {});
   const answered = useRef<(v: string | typeof SKIP) => void>(() => {});
   const looked = useRef<() => void>(() => {});
+  const chose = useRef<(connect: boolean) => void>(() => {});
   const started = useRef(false);
   const lines = useRef(0);
   // The team shown is the one Margaux chose for this idea (from her first look).
@@ -139,6 +142,25 @@ export function Seuil({ onDone }: { onDone: () => void }) {
           await say(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : String(e), { raised: true });
         }
       }
+      // WhatsApp, right away: the founder can follow the team without opening the app.
+      set({ team: undefined });
+      await say(SEUIL.askWhatsApp, { raised: true });
+      const connect = await new Promise<boolean>((resolve) => {
+        chose.current = resolve;
+        set({ whatsapp: "choose" });
+      });
+      set({ whatsapp: undefined });
+      if (connect) {
+        const wa = await window.narthex.whatsapp.get();
+        if (!wa.installed) await say(wa.install, { raised: true, aside: SEUIL.whatsAppLater });
+        else {
+          set({ whatsapp: { risk: wa.risk } });
+          const linked = await window.narthex.whatsapp.pair();
+          set({ whatsapp: undefined });
+          await say(linked.ok ? `C'est branché. Je t'écris sur WhatsApp, dans tes messages à toi-même (+${linked.phone}).` : `${linked.message} ${SEUIL.whatsAppLater}`, { raised: true });
+        }
+      } else await say(SEUIL.whatsAppLater, { raised: true });
+
       set({ door: "small" });
       await wait(900);
       set({ enter: true });
@@ -166,6 +188,8 @@ export function Seuil({ onDone }: { onDone: () => void }) {
           {SEUIL.skipKey}
         </button>
       )}
+      {scene.whatsapp === "choose" && <WhatsAppChoice onChoose={(c) => chose.current(c)} />}
+      {scene.whatsapp && scene.whatsapp !== "choose" && <WhatsAppQr risk={scene.whatsapp.risk} onCancel={() => void window.narthex.whatsapp.cancel()} />}
       {scene.enter && (
         <button className="seuil-enter" autoFocus onClick={onDone}>
           {SEUIL.enter}
