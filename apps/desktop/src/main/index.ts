@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, Notification, shell } from "electron";
-import { deliverableMarkdown, overBudget, type Method, type Params, type RoleId, type StoredEvent } from "@narthex/core";
+import { deliverableMarkdown, overBudget, type Method, type Params, type RoleId, type StoredEvent, type TaskLevel } from "@narthex/core";
 import {
   AnthropicRuntime,
   apiKey,
@@ -23,7 +23,12 @@ import {
   serve,
   SocketClient,
   socketPath,
-  verifyAnthropicKey,
+  verifyKey,
+  PROVIDER_LABEL,
+  MODEL_CHOICES,
+  levelModels,
+  saveProviderKey,
+  makeRuntime,
   type Client,
   type Host,
 } from "@narthex/engine";
@@ -95,7 +100,13 @@ function snapshot(win: BrowserWindow, file: string): void {
   win.webContents.once("did-finish-load", () => {
     const tab = process.env.NARTHEX_SNAPSHOT_TAB;
     // The tabs appear once the engine answered: try for a while.
-    if (tab) void win.webContents.executeJavaScript(`(async () => { for (let i = 0; i < 100; i++) { const b = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(tab)} || b.getAttribute("aria-label") === ${JSON.stringify(tab)}); if (b) return b.click(); await new Promise((r) => setTimeout(r, 200)); } })()`);
+    // « Réglages>API et modèles »: one click after the other.
+    if (tab)
+      void win.webContents
+        .executeJavaScript(
+          `(async () => { const done = []; for (const name of ${JSON.stringify(tab.normalize("NFC").split(">"))}) { for (let i = 0; i < 100; i++) { const b = [...document.querySelectorAll("button")].find((b) => b.textContent.trim().normalize("NFC") === name || b.getAttribute("aria-label") === name); if (b) { b.click(); done.push(name); break; } await new Promise((r) => setTimeout(r, 200)); } await new Promise((r) => setTimeout(r, 300)); } return done; })()`,
+        )
+        .then((done: string[]) => process.env.NARTHEX_SNAPSHOT_DEBUG && process.stderr.write(`clicked: ${done.join(" > ")}\n`));
     setTimeout(async () => {
       const image = await win.webContents.capturePage();
       writeFileSync(file, image.toPNG());
@@ -112,11 +123,11 @@ ipcMain.handle("narthex:call", async (_event, method: Method, params: Params<Met
 // First launch (« le seuil »). The key never reaches the page's storage: it goes straight to config.json.
 ipcMain.handle("narthex:onboarding:needsKey", () => needsKey(loadConfig(dir)));
 ipcMain.handle("narthex:onboarding:submitKey", async (_event, key: string) => {
-  const check = await verifyAnthropicKey(String(key));
+  const check = await verifyKey(String(key));
   if (!check.ok) return check;
-  const config = saveKey(dir, check.key);
-  // When we run the engine, the team starts working with Claude right away.
-  engine?.useRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}), ...(config.models ? { models: config.models } : {}) }));
+  const config = saveProviderKey(dir, check.provider, check.key);
+  // When we run the engine, the team starts working with that provider right away.
+  engine?.useRuntime(makeRuntime(config));
   return { ok: true, applied: Boolean(engine) };
 });
 
@@ -124,13 +135,18 @@ ipcMain.handle("narthex:onboarding:submitKey", async (_event, key: string) => {
 
 ipcMain.handle("narthex:config:get", () => {
   const config = loadConfig(dir);
-  const key = config.anthropicApiKey;
+  const provider = config.provider && config.provider !== "anthropic" && config.keys?.[config.provider] ? config.provider : "anthropic";
+  const key = provider === "anthropic" ? config.anthropicApiKey : config.keys?.[provider];
   return {
     dir,
     hasKey: Boolean(key),
     keyHint: key ? `${key.slice(0, 7)}…${key.slice(-4)}` : null,
+    provider,
+    providerLabel: PROVIDER_LABEL[provider],
     runtime: chooseRuntime(config),
     models: config.models ?? {},
+    levels: levelModels(provider, config.levels),
+    choices: provider === "compatible" ? [] : MODEL_CHOICES[provider],
     notifications: { legal: true, leaving: true, budget: true, deliverables: false, ...config.notifications },
     ownsEngine: Boolean(engine),
   };
@@ -197,12 +213,11 @@ ipcMain.handle("narthex:discord:off", () => {
   restartDiscord();
 });
 
-ipcMain.handle("narthex:config:setModels", (_e, models: Partial<Record<RoleId, string>>) => {
-  const config = { ...loadConfig(dir), models };
+ipcMain.handle("narthex:config:setModels", (_e, models: Partial<Record<RoleId, string>>, levels?: Partial<Record<TaskLevel, string>>) => {
+  const config = { ...loadConfig(dir), models, ...(levels ? { levels } : {}) };
   saveConfig(dir, config);
-  const key = apiKey(config, {});
   // The team picks the new models from its next turn on.
-  if (engine && key && chooseRuntime(config) === "anthropic") engine.useRuntime(new AnthropicRuntime({ apiKey: key, models, ...(config.model ? { model: config.model } : {}) }));
+  if (engine && chooseRuntime(config) !== "none") engine.useRuntime(makeRuntime(config));
 });
 
 ipcMain.handle("narthex:config:setNotifications", (_e, notifications: Record<string, boolean>) => {

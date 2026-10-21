@@ -129,7 +129,7 @@ export function DonneesSide({ state, status, events }: { state: CompanyState; st
         period: "depuis le début",
         figures: [
           { label: "Chiffre d'affaires", value: fmt.euros(a.money.revenue), hint: `${a.money.sales} vente${a.money.sales > 1 ? "s" : ""} enregistrée${a.money.sales > 1 ? "s" : ""}` },
-          { label: "Dépense IA", value: fmt.dollars(a.money.spend), hint: "Sur ton compte Anthropic" },
+          { label: "Dépense IA", value: fmt.dollars(a.money.spend), hint: "Chez ton fournisseur d'IA" },
           { label: "Par livrable", value: a.money.costPerDeliverable === null ? "—" : fmt.dollars(a.money.costPerDeliverable), hint: `${a.quality.deliverables} livrables` },
           { label: "Liens qui répondent", value: percent(a.quality.linksAnswering), hint: a.quality.sourcesPerDeliverable === null ? "Pas encore de livrable" : `${a.quality.sourcesPerDeliverable.toLocaleString("fr-FR")} sources par livrable` },
         ],

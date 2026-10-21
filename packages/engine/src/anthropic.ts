@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { fmt, recallFacts, role, ROLES, type Lesson, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
+import { CLAUDE_BY_LEVEL, fmt, recallFacts, role, ROLES, type Lesson, type FirstLook, type Finding, type RoleDef, type RoleId, type Source, type TaskKind, type TeamPick } from "@narthex/core";
 import { searchCompanies, type CompanySearch } from "./connectors/entreprises.ts";
 import type { AgentRuntime, ConsolidationInput, ConsolidationResult, ReflectionInput, ReflectionResult, RemarkInput, RemarkResult, FactsInput, FactsResult, FollowUp, WorkContext, WorkResult } from "./runtime.ts";
 
@@ -148,7 +148,8 @@ export class AnthropicRuntime implements AgentRuntime {
 
   async run(ctx: WorkContext): Promise<WorkResult> {
     const def = role(ctx.agent.role);
-    const model = this.models[ctx.agent.role] ?? this.chosen ?? def.model;
+    // The founder's choice wins; otherwise the level the agent chose for this task, else the role's own model.
+    const model = this.models[ctx.agent.role] ?? this.chosen ?? (ctx.task.level ? CLAUDE_BY_LEVEL[ctx.task.level] : def.model);
     const tools = toolsFor(def);
     const system: Anthropic.Beta.BetaTextBlockParam[] = [
       { type: "text", text: identity(def, ctx.agent.name, ctx.state.playbooks?.[ctx.agent.role]) },
@@ -158,6 +159,13 @@ export class AnthropicRuntime implements AgentRuntime {
     let deliverable: WorkResult["deliverable"];
     let memory: string | undefined;
     const consulted = new Set<string>();
+    const work: ToolWork = {
+      ctx,
+      consulted,
+      companies: this.companies,
+      deliver: (d) => (deliverable = d),
+      remember: (m) => (memory = m),
+    };
 
     for (let turn = 0; turn < this.maxTurns; turn++) {
       if (ctx.signal.aborted) throw new Error("Annulée");
@@ -200,56 +208,75 @@ export class AnthropicRuntime implements AgentRuntime {
       }
 
       // All results go back in a single user message, so parallel tool use keeps working.
-      const results: ToolResult[] = await Promise.all(calls.map(async (call): Promise<ToolResult> => {
-        const input = call.input as Record<string, unknown>;
-        try {
-          switch (call.name) {
-            case "search_companies": {
-              const search: CompanySearch = {};
-              for (const k of ["q", "code_postal", "departement", "activite_principale"] as const) if (typeof input[k] === "string") search[k] = input[k] as string;
-              const found = await this.companies(search, { signal: ctx.signal });
-              // Sheets built from the official SIREN: real pages, safe to check later.
-              for (const hit of found.results) consulted.add(hit.fiche);
-              ctx.progress(`Je cherche au registre : ${search.q ?? search.activite_principale ?? search.code_postal ?? search.departement}`);
-              return ok(call.id, JSON.stringify(found));
-            }
-            case "publish_deliverable":
-              deliverable = parseDeliverable(input);
-              ctx.progress(`Livrable prêt : ${deliverable.title}`);
-              return ok(call.id, "Livrable enregistré. Termine par ton message pour le Fil.");
-            case "plan_task": {
-              const refused = ctx.plan(parseFollowUp(input));
-              return refused ? error(call.id, refused) : ok(call.id, "Tâche prévue.");
-            }
-            case "post_progress":
-              ctx.progress(requireString(input, "note"));
-              return ok(call.id, "Noté.");
-            case "recruit": {
-              const refused = ctx.recruit(requireString(input, "role") as RoleId, requireString(input, "why"));
-              return refused ? error(call.id, refused) : ok(call.id, "Recruté : il ou elle commence tout de suite.");
-            }
-            case "update_memory": {
-              // Read by every agent on every turn: a long or injected sheet would steer and cost forever.
-              const next = requireString(input, "memory");
-              if (next.length > MAX_MEMORY_CHARS) return error(call.id, `Trop longue (${next.length} caractères) : 300 mots, ${MAX_MEMORY_CHARS} caractères au plus.`);
-              memory = next;
-              return ok(call.id, "Fiche de l'entreprise mise à jour.");
-            }
-            default:
-              return error(call.id, `Outil inconnu : ${call.name}`);
-          }
-        } catch (e) {
-          return error(call.id, e instanceof Error ? e.message : String(e));
-        }
-      }));
+      const results: ToolResult[] = await Promise.all(
+        calls.map(async (call): Promise<ToolResult> => {
+          const out = await useTool(call.name, call.input as Record<string, unknown>, work);
+          return out.ok ? ok(call.id, out.content) : error(call.id, out.content);
+        }),
+      );
       messages.push({ role: "user", content: results });
     }
     throw new Error(`Pas terminé après ${this.maxTurns} tours.`);
   }
 }
 
+/** What a Narthex tool needs to act on a task, whatever the model provider. */
+export interface ToolWork {
+  ctx: WorkContext;
+  consulted: Set<string>;
+  companies: typeof searchCompanies;
+  deliver(d: NonNullable<WorkResult["deliverable"]>): void;
+  remember(memory: string): void;
+}
+
+/** Runs one of Narthex's own tools for an agent. Every input is checked again here. */
+export async function useTool(name: string, input: Record<string, unknown>, w: ToolWork): Promise<{ ok: boolean; content: string }> {
+  const { ctx } = w;
+  try {
+    switch (name) {
+      case "search_companies": {
+        const search: CompanySearch = {};
+        for (const k of ["q", "code_postal", "departement", "activite_principale"] as const) if (typeof input[k] === "string") search[k] = input[k] as string;
+        const found = await w.companies(search, { signal: ctx.signal });
+        // Sheets built from the official SIREN: real pages, safe to check later.
+        for (const hit of found.results) w.consulted.add(hit.fiche);
+        ctx.progress(`Je cherche au registre : ${search.q ?? search.activite_principale ?? search.code_postal ?? search.departement}`);
+        return { ok: true, content: JSON.stringify(found) };
+      }
+      case "publish_deliverable": {
+        const deliverable = parseDeliverable(input);
+        w.deliver(deliverable);
+        ctx.progress(`Livrable prêt : ${deliverable.title}`);
+        return { ok: true, content: "Livrable enregistré. Termine par ton message pour le Fil." };
+      }
+      case "plan_task": {
+        const refused = ctx.plan(parseFollowUp(input));
+        return refused ? { ok: false, content: refused } : { ok: true, content: "Tâche prévue." };
+      }
+      case "post_progress":
+        ctx.progress(requireString(input, "note"));
+        return { ok: true, content: "Noté." };
+      case "recruit": {
+        const refused = ctx.recruit(requireString(input, "role") as RoleId, requireString(input, "why"));
+        return refused ? { ok: false, content: refused } : { ok: true, content: "Recruté : il ou elle commence tout de suite." };
+      }
+      case "update_memory": {
+        // Read by every agent on every turn: a long or injected sheet would steer and cost forever.
+        const next = requireString(input, "memory");
+        if (next.length > MAX_MEMORY_CHARS) return { ok: false, content: `Trop longue (${next.length} caractères) : 300 mots, ${MAX_MEMORY_CHARS} caractères au plus.` };
+        w.remember(next);
+        return { ok: true, content: "Fiche de l'entreprise mise à jour." };
+      }
+      default:
+        return { ok: false, content: `Outil inconnu : ${name}` };
+    }
+  } catch (e) {
+    return { ok: false, content: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 const MAX_MEMORY_CHARS = 2500;
-const MAX_POST_CHARS = 2000;
+export const MAX_POST_CHARS = 2000;
 const MAX_SOURCES = 40;
 
 /**
@@ -308,7 +335,7 @@ export function creditsFor(model: string, u: UsageLike): number {
   return Math.ceil(usd * 100 - 1e-9) + (u.server_tool_use?.web_search_requests ?? 0) * WEB_SEARCH_CREDITS;
 }
 
-function addUsage(total: NonNullable<WorkResult["usage"]>, u: Anthropic.Beta.BetaUsage, model: string): void {
+export function addUsage(total: NonNullable<WorkResult["usage"]>, u: Anthropic.Beta.BetaUsage, model: string): void {
   total.inputTokens += u.input_tokens + (u.cache_creation_input_tokens ?? 0);
   total.outputTokens += u.output_tokens;
   total.cacheReadTokens += u.cache_read_input_tokens ?? 0;
@@ -472,7 +499,7 @@ export const FACTS_SCHEMA = {
   },
 } as const;
 
-const RECORD_FACTS: Tool = {
+export const RECORD_FACTS: Tool = {
   name: "record_facts",
   description: "Enregistre ce que l'équipe a appris de ce livrable, et les faits connus qu'il rend faux.",
   strict: true,
@@ -532,7 +559,7 @@ export const TIDY_SCHEMA = {
   },
 } as const;
 
-const TIDY_FACTS: Tool = {
+export const TIDY_FACTS: Tool = {
   name: "tidy_facts",
   description: "Range la mémoire : doublons fusionnés, faits contredits, réflexions.",
   strict: true,
@@ -591,7 +618,7 @@ export const REFLECT_SCHEMA = {
   properties: { add: { type: "array", items: { type: "string" } }, helpful: { type: "array", items: { type: "string" } }, harmful: { type: "array", items: { type: "string" } } },
 } as const;
 
-const UPDATE_PLAYBOOK: Tool = {
+export const UPDATE_PLAYBOOK: Tool = {
   name: "update_playbook",
   description: "Ajoute au plus deux leçons et note celles qui ont aidé ou nui.",
   strict: true,
@@ -606,7 +633,7 @@ export function reflectionFrom(value: unknown): Omit<ReflectionResult, "usage"> 
 
 // ---------- Tools ----------
 
-function toolsFor(def: RoleDef): Tool[] {
+export function toolsFor(def: RoleDef): Tool[] {
   const tools: Tool[] = [];
   // Searches launched from the tool's own code each count as a use.
   if (def.tools.includes("web_search")) tools.push({ type: "web_search_20260209", name: "web_search", max_uses: 20 });
@@ -666,6 +693,9 @@ const SEARCH_COMPANIES: Tool = {
 const ROLE_IDS = ROLES.map((r) => r.id);
 const TEAM_CHOICES = ROLES.filter((r) => r.id !== "cofondateur").map((r) => `${r.id} (${r.title})`).join(", ");
 
+export const LEVEL_HELP =
+  "Profondeur : light (vérification, reformulation, petite liste : modèle rapide et peu cher), standard (travail courant), deep (droit, chiffres, décision difficile : modèle le plus fort, plus cher). Choisis le plus léger qui suffit.";
+
 const PLAN: Tool = {
   name: "plan_task",
   description:
@@ -674,13 +704,14 @@ const PLAN: Tool = {
   input_schema: {
     type: "object",
     additionalProperties: false,
-    required: ["title", "why", "kind", "in_hours", "assignee"],
+    required: ["title", "why", "kind", "in_hours", "assignee", "level"],
     properties: {
       title: { type: "string" },
       why: { type: "string", description: "Pourquoi c'est utile maintenant, en une phrase." },
       kind: { type: "string", enum: ["internal", "external"] },
       in_hours: { type: "number", description: "Dans combien d'heures la commencer (0 = dès que possible)." },
       assignee: { type: "string", enum: ["self", ...ROLE_IDS] },
+      level: { type: "string", enum: ["light", "standard", "deep"], description: LEVEL_HELP },
     },
   },
 };
@@ -749,5 +780,6 @@ export function parseFollowUp(input: Record<string, unknown>): FollowUp {
     ? (input.assignee as RoleId)
     : undefined;
   const inHours = typeof input.in_hours === "number" && input.in_hours >= 0 ? Math.min(input.in_hours, 24 * 30) : 0;
-  return { title: requireString(input, "title", 200), why: requireString(input, "why", 500), kind, inHours, ...(assignee ? { assignee } : {}) };
+  const level = input.level === "light" || input.level === "standard" || input.level === "deep" ? input.level : undefined;
+  return { title: requireString(input, "title", 200), why: requireString(input, "why", 500), kind, inHours, ...(assignee ? { assignee } : {}), ...(level ? { level } : {}) };
 }

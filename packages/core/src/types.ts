@@ -73,6 +73,9 @@ export interface Agent {
 export type TaskKind = "internal" | "external" | "founder";
 export type TaskStatus = "planned" | "running" | "done" | "failed" | "cancelled";
 
+/** How deep a task goes: a quick answer, ordinary work, or a careful one. Each maps to a model. */
+export type TaskLevel = "light" | "standard" | "deep";
+
 export interface Task {
   id: Id;
   agentId: Id;
@@ -87,6 +90,8 @@ export interface Task {
   scheduledAt: Timestamp;
   /** For external tasks: the founder can cancel until then. */
   cancellableUntil?: Timestamp;
+  /** How deep the agent chose to go: picks a lighter or stronger model. */
+  level?: TaskLevel;
   startedAt?: Timestamp;
   endedAt?: Timestamp;
   progress?: string;

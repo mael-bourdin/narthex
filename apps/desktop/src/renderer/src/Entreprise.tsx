@@ -308,7 +308,7 @@ function OverviewSide({ state, now, events, onOpen }: { state: CompanyState; now
           period: new Intl.DateTimeFormat("fr-FR", { month: "long", timeZone: "Europe/Paris" }).format(now),
           figures: [
             { label: "Chiffre d'affaires", value: fmt.euros(revenue), hint: sales.length ? `${sales.length} vente${sales.length > 1 ? "s" : ""} enregistrée${sales.length > 1 ? "s" : ""} par toi` : "Aucune vente enregistrée" },
-            { label: "Dépense IA", value: fmt.dollars(spentMonth), hint: "Ce mois-ci, sur ton compte Anthropic" },
+            { label: "Dépense IA", value: fmt.dollars(spentMonth), hint: "Ce mois-ci, chez ton fournisseur d'IA" },
             { label: "Livrables", value: String(Object.keys(state.deliverables).length), hint: `${Object.values(state.tasks).filter((t) => t.status === "done").length} missions faites par l'équipe` },
           ],
           who: [],
@@ -494,7 +494,7 @@ function SpendBlock({ state, events }: { state: CompanyState; events: StoredEven
           rows={b.byAgent.map((a) => [a.name, role(a.role).title, fmt.dollars(a.credits)])}
           numLast
           limit={10}
-          foot="Facturé par Anthropic sur ton compte."
+          foot="Facturé sur ton compte, chez ton fournisseur d'IA."
         />
       )}
     </article>

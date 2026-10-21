@@ -15,6 +15,9 @@ import {
   LeaderboardPublisher,
   withdrawFromLeaderboard,
   saveConfig,
+  saveProviderKey,
+  verifyKey,
+  PROVIDER_LABEL,
   serve,
   SocketClient,
   socketPath,
@@ -65,7 +68,9 @@ ${bold("Agir")} (seulement ce que la loi te réserve, ou pour arrêter quelque c
 
 ${bold("Réglages")}
   narthex config                    Voir la configuration
-  narthex config cle                Enregistrer ta clé API Anthropic (ou ANTHROPIC_API_KEY)
+  narthex config cle                Enregistrer ta clé API : Anthropic, OpenAI ou OpenRouter (tous les modèles)
+  narthex config api <adresse> [clé]  Une API compatible OpenAI (Mistral, Ollama, LM Studio…)
+  narthex config niveau <leger|normal|approfondi> <modèle>  Le modèle de chaque niveau de tâche
   narthex config mode <auto|simulation|anthropic>
   narthex config modele <id>        Modèle Claude (défaut : claude-opus-5-5)
   narthex config delai <heures>     Délai pour annuler une action externe
@@ -410,8 +415,8 @@ async function lancer(): Promise<void> {
   }
   const server = await serve(engine, socketPath(dir));
   print(render.fil(engine.getState(), engine.status(), 8));
-  if (engine.status().runtime === "anthropic") {
-    print(dim(`Agents réels : Claude (${loadConfig(dir).model ?? DEFAULT_MODEL}) avec ta clé. Chaque tâche a un coût en dollars sur ton compte Anthropic ; la dépense IA s'affiche en haut du Fil.`));
+  if (["anthropic", "openrouter", "openai", "compatible"].includes(engine.status().runtime)) {
+    print(dim(`Agents réels avec ta clé (${PROVIDER_LABEL[engine.status().runtime as "anthropic"] ?? engine.status().runtime}). Chaque tâche a un coût en dollars sur ton compte ; la dépense IA s'affiche en haut du Fil.`));
   }
   if (engine.status().runtime === "claude-code") print(dim("Développement : les agents passent par ton Claude Code, sur ton abonnement claude.ai. Aucune clé API, aucune dépense en dollars."));
   print(rule());
@@ -463,15 +468,31 @@ async function config(): Promise<void> {
       const shown = {
         ...current,
         ...(current.anthropicApiKey ? { anthropicApiKey: `${current.anthropicApiKey.slice(0, 10)}…` } : {}),
+        ...(current.keys ? { keys: Object.fromEntries(Object.entries(current.keys).map(([p, k]) => [p, `${String(k).slice(0, 8)}…`])) } : {}),
         ...(current.discord ? { discord: { serveur: current.discord.guildName ?? current.discord.guildId ?? "à choisir", jeton: "masqué" } } : {}),
       };
       print(`${bold("Dossier")} ${dir}\n${bold("Mode")} ${chooseRuntime(current)}\n${JSON.stringify(shown, null, 2)}`);
       return;
     }
     case "cle": {
-      const k = value ?? (await readSecret("Clé API Anthropic (sk-ant-…) › "));
-      if (!k.startsWith("sk-ant-")) throw new Error("Ça ne ressemble pas à une clé Anthropic (sk-ant-…).");
-      next.anthropicApiKey = k;
+      const k = value ?? (await readSecret("Clé API (Anthropic sk-ant-…, OpenAI sk-…, OpenRouter sk-or-…) › "));
+      const check = await verifyKey(k);
+      if (!check.ok) throw new Error(check.message);
+      saveProviderKey(dir, check.provider, check.key);
+      return print(`Clé ${PROVIDER_LABEL[check.provider]} enregistrée. L'équipe l'utilise au prochain « narthex lancer » (ou dans l'app).`);
+    }
+    case "api": {
+      // An OpenAI-compatible API: narthex config api <adresse> <clé> (Mistral, Ollama, LM Studio…).
+      const key = args[2] ?? "local";
+      if (!value || !/^https?:\/\//.test(value)) throw new Error("Usage : narthex config api <adresse, ex. http://localhost:11434/v1> [clé]");
+      saveProviderKey(dir, "compatible", key, value);
+      return print(`API compatible enregistrée (${clean(value)}). Choisis ses modèles : narthex config niveau normal <id>.`);
+    }
+    case "niveau": {
+      const level = ({ leger: "light", léger: "light", normal: "standard", approfondi: "deep" } as const)[value as "leger"];
+      const model = args[2];
+      if (!level || !model) throw new Error("Usage : narthex config niveau <leger|normal|approfondi> <modèle>");
+      next.levels = { ...next.levels, [level]: model };
       break;
     }
     case "mode":

@@ -13,7 +13,15 @@ export interface Config {
   model?: string;
   /** Prefer the ANTHROPIC_API_KEY environment variable; this is for players who want it saved. */
   anthropicApiKey?: string;
-  /** A Claude model per role, chosen in Réglages · API et modèles. */
+  /** The provider of the key the player gave: Claude (anthropicApiKey) or another one (keys). */
+  provider?: "anthropic" | "openrouter" | "openai" | "compatible";
+  /** Keys for the other providers, saved for Narthex only. */
+  keys?: { openrouter?: string; openai?: string; compatible?: string };
+  /** The address of an OpenAI-compatible API (Mistral, Ollama, LM Studio…). */
+  baseUrl?: string;
+  /** The model for each level (léger, normal, approfondi), over the provider's defaults. */
+  levels?: Partial<Record<import("@narthex/core").TaskLevel, string>>;
+  /** A model per role, chosen in Réglages · API et modèles. */
   models?: Partial<Record<import("@narthex/core").RoleId, string>>;
   /** Desktop notifications the player wants. */
   notifications?: { legal?: boolean; leaving?: boolean; budget?: boolean; deliverables?: boolean };
@@ -67,13 +75,16 @@ export function chooseRuntime(config: Config, env: NodeJS.ProcessEnv = process.e
     if (!apiKey(config, env)) throw new Error("Mode Claude choisi, mais aucune clé : « narthex config cle » ou ANTHROPIC_API_KEY.");
     return "anthropic";
   }
+  const other = config.provider && config.provider !== "anthropic" ? config.provider : undefined;
+  if (other && config.keys?.[other] && (other !== "compatible" || config.baseUrl)) return other;
   return config.anthropicApiKey ? "anthropic" : "none";
 }
 
 /** The first launch asks for a key unless the player already chose: a saved key, or a mode. */
 export function needsKey(config: Config, env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.NARTHEX_RUNTIME === "simulation" || env.NARTHEX_RUNTIME === "claude-code") return false;
-  return !(config.anthropicApiKey || config.runtime === "anthropic" || config.runtime === "simulation");
+  const other = config.provider && config.provider !== "anthropic" ? config.keys?.[config.provider] : undefined;
+  return !(config.anthropicApiKey || other || config.runtime === "anthropic" || config.runtime === "simulation");
 }
 
 /** The ranking settings with their defaults: open source, not shared, revenue as a band. */

@@ -76,7 +76,7 @@ describe("saving the choice", () => {
     dir = mkdtempSync(join(tmpdir(), "narthex-"));
     chooseSimulation(dir);
     saveKey(dir, "sk-ant-x");
-    expect(loadConfig(dir)).toEqual({ anthropicApiKey: "sk-ant-x" });
+    expect(loadConfig(dir)).toEqual({ provider: "anthropic", anthropicApiKey: "sk-ant-x" });
   });
 
   it("remembers the simulation", () => {

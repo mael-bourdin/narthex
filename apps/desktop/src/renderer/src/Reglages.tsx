@@ -3,7 +3,9 @@ import {
   ALWAYS_ASK,
   fmt,
   founderRoles,
+  LEVEL_LABEL,
   role,
+  roleLevel,
   ROLES,
   spendBreakdown,
   spendByAgent,
@@ -22,11 +24,6 @@ import "./reglages.css";
 export type ReglagesView = "Profil" | "Budget" | "Notifications" | "Autonomie" | "Intégrations" | "API et modèles" | "Membres" | "Sécurité";
 const VIEWS: ReglagesView[] = ["Profil", "Budget", "Notifications", "Autonomie", "Intégrations", "API et modèles", "Membres", "Sécurité"];
 
-const MODELS = [
-  { id: "claude-opus-5-5", label: "Claude Opus 5.5", hint: "Le plus solide" },
-  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", hint: "Deux fois moins cher" },
-  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5", hint: "Le plus léger" },
-];
 
 const DAY = 86_400_000;
 
@@ -80,7 +77,7 @@ export function Reglages({ state, status, view, onView, onChange }: { state: Com
           <SideList
             title="État"
             items={[
-              { title: "Tout en local", detail: "Aucun serveur Narthex entre toi et Anthropic" },
+              { title: "Tout en local", detail: "Aucun serveur Narthex entre toi et ton fournisseur d'IA" },
               { title: config.hasKey ? "Clé API enregistrée" : "Pas encore de clé API", detail: config.hasKey ? `${config.keyHint ?? ""} · sur cet ordinateur` : "L'équipe attend ta clé pour travailler" },
             ]}
           />
@@ -306,7 +303,7 @@ function Budget({ state, status, events, onChange }: { state: CompanyState; stat
       : "Je surveille la dépense pour toi : chaque tâche a un plafond, et l'équipe s'arrête pour la journée quand le budget du jour est atteint.";
   return (
     <>
-      <Pilot on title="Version open source" sub="Tu paies directement Anthropic avec ta clé. Narthex ne prend rien au passage." />
+      <Pilot on title="Version open source" sub="Tu paies directement ton fournisseur d'IA avec ta clé. Narthex ne prend rien au passage." />
       <Posts>
         <Post state={state} text={text}>
           <Table title="Par agent, sur 30 jours" cols={["Agent", "Ce qui a coûté le plus", "Dépense IA"]} grid="minmax(0, 1.1fr) minmax(0, 1.6fr) 90px">
@@ -335,7 +332,7 @@ function Budget({ state, status, events, onChange }: { state: CompanyState; stat
             <button
               className="btn btn-primary"
               onClick={() =>
-                setActing({ id: "budget", kind: "budget", eyebrow: "Dépense IA", title: "Ajuster le budget", why: "La dépense IA est facturée par Anthropic sur ton compte.", action: "budget", label: "" })
+                setActing({ id: "budget", kind: "budget", eyebrow: "Dépense IA", title: "Ajuster le budget", why: "La dépense IA est facturée sur ton compte, chez ton fournisseur d'IA.", action: "budget", label: "" })
               }
             >
               Ajuster le budget
@@ -357,7 +354,7 @@ function BudgetSide({ state, status, events }: { state: CompanyState; status: En
         items={[
           { label: "Aujourd'hui", detail: `Sur ${fmt.dollars(state.settings.dailyBudgetCredits)} prévus`, value: fmt.dollars(todaySpent(state, status.now)) },
           { label: "Cette semaine", detail: "Les 7 derniers jours", value: fmt.dollars(sumSince(events, status.now - 7 * DAY)) },
-          { label: "Depuis le début", detail: "Payé directement à Anthropic", value: fmt.dollars(state.usage.credits) },
+          { label: "Depuis le début", detail: "Payé directement à ton fournisseur d'IA", value: fmt.dollars(state.usage.credits) },
         ]}
       />
       <SideList
@@ -679,9 +676,20 @@ function DiscordSetup({ inputRef, onConnected }: { inputRef: React.RefObject<HTM
 
 // ---------- API et modèles ----------
 
+const LEVEL_USE: Record<"light" | "standard" | "deep", string> = {
+  light: "Vérifier, reformuler, une petite liste",
+  standard: "Le travail courant",
+  deep: "Le droit, les chiffres, les décisions difficiles",
+};
+
 function ApiModels({ state, status, config, events, onChange }: { state: CompanyState; status: EngineStatus; config: Config; events: StoredEvent[]; onChange(): void }) {
   const [acting, setActing] = useState<Mission>();
   const [models, setModels] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(config.models).filter(([, v]) => v)) as Record<string, string>);
+  const [levels, setLevels] = useState<Record<string, string>>(() => ({ ...config.levels }));
+  const options = (current?: string) => {
+    const list = config.choices.map((x) => ({ value: x.id, label: x.label }));
+    return current && !list.some((o) => o.value === current) ? [...list, { value: current, label: current }] : list;
+  };
   const [message, setMessage] = useState<string>();
   const agents = Object.values(state.agents).sort((a, b) => a.hiredAt - b.hiredAt);
   const roles = [...new Set([...agents.map((a) => a.role), ...ROLES.map((r) => r.id)])];
@@ -692,7 +700,7 @@ function ApiModels({ state, status, config, events, onChange }: { state: Company
   const monthly = (r: string) => Math.round((week.byAgent.filter((a) => a.role === r).reduce((s, a) => s + a.credits, 0) * 30) / 7);
   const total = roles.reduce((s, r) => s + monthly(r), 0);
   const save = async () => {
-    await window.narthex.config.setModels(models);
+    await window.narthex.config.setModels(Object.fromEntries(Object.entries(models).filter(([, v]) => v)), levels);
     setMessage(config.ownsEngine ? "Enregistré. Chaque agent utilise son modèle dès sa prochaine étape." : "Enregistré. Il s'appliquera au prochain lancement de l'équipe.");
     onChange();
   };
@@ -700,12 +708,12 @@ function ApiModels({ state, status, config, events, onChange }: { state: Company
     setActing({ id: "key", kind: "key", eyebrow: "API et modèles", title: config.hasKey ? "Remplacer ta clé API" : "Ajoute ta clé API", why: "Elle reste sur ton ordinateur.", action: "key", label: "" });
   return (
     <>
-      <Pilot on={config.hasKey || status.runtime === "claude-code"} title="Version open source" sub="Tu fournis ta clé et tu choisis le modèle de chaque agent." />
+      <Pilot on={config.hasKey || status.runtime === "claude-code"} title="Version open source" sub="Ta clé, chez le fournisseur de ton choix. Chaque agent choisit un modèle léger ou fort selon la tâche ; tu peux lui en imposer un." />
       <Posts>
-        <Post state={state} text="Ta clé reste sur ta machine, Narthex ne l'envoie qu'à Anthropic. Pour chaque rôle, tu peux choisir un modèle : le plus solide pour le juridique et moi, plus léger pour ce qui est simple.">
+        <Post state={state} text={`Ta clé reste sur ta machine, Narthex ne l'envoie qu'à ${config.providerLabel}. Pour chaque tâche, l'agent choisit le niveau : léger pour une vérification, approfondi pour le droit ou les chiffres. Une clé OpenRouter donne accès à presque tous les modèles.`}>
           <Table title="Clé du fournisseur" cols={["Fournisseur", "Clé", "État", ""]} grid="minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.9fr) 104px">
             <Cells>
-              <span>Anthropic</span>
+              <span>{config.providerLabel}</span>
               <span className="muted rg-mono">{config.hasKey ? config.keyHint : "—"}</span>
               {config.hasKey ? <State tone="ok">Valide</State> : <State tone="off">Pas de clé</State>}
               <span className="rg-end">
@@ -723,10 +731,23 @@ function ApiModels({ state, status, config, events, onChange }: { state: Company
               </Cells>
             )}
           </Table>
+          <Table title="Modèle par niveau" cols={["Niveau", "Modèle", "Pour"]} grid="minmax(0, 0.7fr) 210px minmax(0, 1fr)">
+            {(["light", "standard", "deep"] as const).map((l) => (
+              <Cells key={l}>
+                <span>{capitalize(LEVEL_LABEL[l])}</span>
+                {options(levels[l]).length > 0 ? (
+                  <Choice label={`Modèle du niveau ${LEVEL_LABEL[l]}`} wide value={levels[l] ?? ""} onChange={(v) => setLevels({ ...levels, [l]: v })} options={options(levels[l])} />
+                ) : (
+                  <span className="muted rg-mono">{levels[l] || "—"}</span>
+                )}
+                <span className="muted small">{LEVEL_USE[l]}</span>
+              </Cells>
+            ))}
+          </Table>
           <Table
             title="Modèle par agent"
             cols={["Agent", "Modèle", "Par mois"]}
-            grid="minmax(0, 1fr) 210px 90px"
+            grid="minmax(0, 1fr) 280px 90px"
             note={total > 0 ? `Estimation au rythme des 7 derniers jours : environ ${fmt.dollars(total)} par mois.` : "Pas encore d'estimation : l'équipe n'a rien dépensé ces 7 derniers jours."}
           >
             {roles.map((r) => {
@@ -739,7 +760,13 @@ function ApiModels({ state, status, config, events, onChange }: { state: Company
                     {agent?.name ?? role(r).defaultName}
                     <span className="muted small">· {role(r).title}</span>
                   </span>
-                  <Choice label={`Modèle de ${agent?.name ?? role(r).defaultName}`} wide value={models[r] ?? role(r).model} onChange={(v) => setModels({ ...models, [r]: v })} options={MODELS.map((x) => ({ value: x.id, label: x.label }))} />
+                  <Choice
+                    label={`Modèle de ${agent?.name ?? role(r).defaultName}`}
+                    wide
+                    value={models[r] ?? ""}
+                    onChange={(v) => setModels({ ...models, [r]: v })}
+                    options={[{ value: "", label: `Au choix de l'agent (${LEVEL_LABEL[roleLevel(r)]})` }, ...options(models[r])]}
+                  />
                   <span className="rg-num muted">{m ? `≈ ${fmt.dollars(m)}` : "—"}</span>
                 </Cells>
               );
@@ -749,7 +776,7 @@ function ApiModels({ state, status, config, events, onChange }: { state: Company
             <button className="btn btn-primary" onClick={save}>
               Enregistrer
             </button>
-            <span className="muted small">Opus 5.5 : le plus solide · Sonnet 5.5 : deux fois moins cher · Haiku 5.5 : le plus léger</span>
+            <span className="muted small">« Au choix de l'agent » : il prend le niveau qu'il faut pour chaque tâche.</span>
           </div>
           <Saved {...(message ? { message } : {})} />
         </Post>
@@ -767,8 +794,8 @@ function ApiSide({ status, config, events }: { status: EngineStatus; config: Con
       title="Les chiffres"
       aside="7 derniers jours"
       items={[
-        { label: "Dépense IA", detail: "Payée directement à Anthropic", value: fmt.dollars(sumSince(events, since)) },
-        { label: "Clés valides", detail: "Anthropic", value: config.hasKey ? "1 sur 1" : "0 sur 1" },
+        { label: "Dépense IA", detail: `Payée directement à ${config.providerLabel}`, value: fmt.dollars(sumSince(events, since)) },
+        { label: "Clés valides", detail: config.providerLabel, value: config.hasKey ? "1 sur 1" : "0 sur 1" },
         { label: "Appels au modèle", detail: "Par toute l'équipe", value: new Intl.NumberFormat("fr-FR").format(calls) },
       ]}
     />
@@ -887,4 +914,8 @@ function WeekStats({ state, now, events }: { state: CompanyState; now: number; e
       ]}
     />
   );
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

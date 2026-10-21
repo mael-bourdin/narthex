@@ -12,6 +12,7 @@ import {
   type StaffingEntry,
   type Task,
   type TaskKind,
+  type TaskLevel,
   type Timestamp,
 } from "./types.ts";
 
@@ -39,6 +40,7 @@ export interface TaskDraft {
   tag?: string;
   scheduledAt?: Timestamp;
   parentId?: string;
+  level?: TaskLevel;
 }
 
 const HOUR = 3_600_000;
@@ -285,6 +287,7 @@ export function guardTask(state: CompanyState, draft: TaskDraft, now: Timestamp)
     createdAt: now,
     scheduledAt,
     ...(draft.tag ? { tag: draft.tag } : {}),
+    ...(draft.level ? { level: draft.level } : {}),
     ...(draft.parentId ? { parentId: draft.parentId } : {}),
     ...(kind === "external" ? { cancellableUntil: Math.max(scheduledAt, now + (sensitive ? state.settings.cancelWindowHours * HOUR : windowMs)) } : {}),
   };

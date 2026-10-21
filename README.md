@@ -11,7 +11,7 @@ Tu regardes, tu peux tout arrêter, et tu ne fais que ce que la loi te réserve.
 [![Licence MIT](https://img.shields.io/badge/licence-MIT-8c7bea)](LICENSE)
 [![Node 24](https://img.shields.io/badge/node-%E2%89%A5%2024-3fbf7f)](https://nodejs.org)
 [![macOS · Windows · Linux](https://img.shields.io/badge/plateformes-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-555)](#installer)
-[![Claude](https://img.shields.io/badge/agents-Claude-d97757)](https://www.anthropic.com/claude)
+[![Modèles](https://img.shields.io/badge/mod%C3%A8les-Claude%20%C2%B7%20GPT%20%C2%B7%20Gemini%20%C2%B7%20Mistral-d97757)](#ta-cl%C3%A9-ton-argent)
 [![Version](https://img.shields.io/badge/version-0.1-555)](docs/PROMPT.md)
 
 <img src="docs/images/fil.png" alt="Le Fil : Hugo, l'agent juridique, a vérifié le nom de l'entreprise au registre, sur les noms de domaine et à l'INPI" width="900">
@@ -79,7 +79,9 @@ Pour en faire une commande : `npm run build:cli`, puis `npm link -w @narthex/cli
 
 ### Ta clé, ton argent
 
-Les agents pensent avec Claude, via ta clé API Anthropic. Elle reste sur ton ordinateur. Sans clé, l'équipe prépare tout et attend : rien n'est inventé, le Fil reste vide.
+Les agents pensent avec le modèle de ton choix : ta clé Anthropic (Claude), OpenAI, ou OpenRouter pour presque tous les modèles (GPT, Gemini, Mistral, DeepSeek…). Une API compatible OpenAI marche aussi, modèles locaux compris (`narthex config api <adresse>`). Ta clé reste sur ton ordinateur.
+
+Pour chaque tâche, l'agent choisit son niveau : léger pour une vérification, normal, approfondi pour le droit ou les chiffres. Chaque niveau a son modèle, que tu peux changer (`narthex config niveau approfondi <modèle>`), et tu peux imposer un modèle à un agent dans Réglages · API et modèles. Sans clé, l'équipe prépare tout et attend : rien n'est inventé, le Fil reste vide.
 
 - **Budgets.** Par défaut, l'équipe dépense au plus 3 $ par jour et 1,50 $ par tâche.
   - Une tâche qui dépasse s'arrête.

@@ -1,4 +1,4 @@
-import type { Agent, CompanyState, FirstLook, RoleId, RuntimeName, Source, Task, TaskKind } from "@narthex/core";
+import type { Agent, CompanyState, FirstLook, RoleId, RuntimeName, Source, Task, TaskKind, TaskLevel } from "@narthex/core";
 
 /** What an agent asks to do next; the engine runs it through `guardTask` before anything is planned. */
 export interface FollowUp {
@@ -10,6 +10,8 @@ export interface FollowUp {
   inHours?: number;
   /** Hand the work to a teammate with this role instead of doing it oneself. */
   assignee?: RoleId;
+  /** How deep to go: the agent picks a lighter or stronger model for that task. */
+  level?: TaskLevel;
 }
 
 export interface WorkContext {

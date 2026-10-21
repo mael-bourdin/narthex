@@ -1,14 +1,14 @@
 import { createInterface } from "node:readline/promises";
 import { onboardingTeam, ROLE_PROMISE, SEUIL, type FirstLook } from "@narthex/core";
 import {
-  AnthropicRuntime,
+  makeRuntime,
   loadConfig,
   needsKey,
   openEngine,
-  saveKey,
+  saveProviderKey,
   SocketClient,
   socketPath,
-  verifyAnthropicKey,
+  verifyKey,
   InProcessClient,
   type Client,
   type Host,
@@ -68,10 +68,10 @@ export async function runSeuil(options: SeuilOptions): Promise<void> {
           break;
         }
         print(dim(`  ${SEUIL.checking}`));
-        const check = await verifyAnthropicKey(raw);
+        const check = await verifyKey(raw);
         if (check.ok) {
-          const config = saveKey(options.dir, check.key);
-          engine?.useRuntime(new AnthropicRuntime({ apiKey: check.key, ...(config.model ? { model: config.model } : {}) }));
+          const config = saveProviderKey(options.dir, check.provider, check.key);
+          engine?.useRuntime(makeRuntime(config));
           print(violet("  ✦"));
           await say(SEUIL.askName);
           break;

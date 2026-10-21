@@ -1,4 +1,4 @@
-import type { RoleId } from "./types.ts";
+import type { RoleId, TaskLevel } from "./types.ts";
 
 /** Tools an agent may be given. The engine maps each name to a real implementation. */
 export type ToolName = "web_search" | "web_fetch" | "search_companies" | "plan_task" | "publish_deliverable" | "post_update" | "update_memory" | "recruit";
@@ -152,3 +152,15 @@ export function role(id: RoleId): RoleDef {
   if (!def) throw new Error(`Unknown role: ${id}`);
   return def;
 }
+
+/** The level of a role's ordinary work, from its default model: careful where a mistake costs most. */
+export function roleLevel(id: RoleId): TaskLevel {
+  const model = role(id).model;
+  return model.includes("opus") ? "deep" : model.includes("haiku") ? "light" : "standard";
+}
+
+/** Claude for each level. */
+export const CLAUDE_BY_LEVEL: Record<TaskLevel, string> = { light: "claude-haiku-5-5", standard: "claude-sonnet-5-5", deep: "claude-opus-5-5" };
+
+export const LEVEL_LABEL: Record<TaskLevel, string> = { light: "léger", standard: "normal", deep: "approfondi" };
+

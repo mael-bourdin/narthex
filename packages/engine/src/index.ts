@@ -19,3 +19,4 @@ export * from "./host.ts";
 export * from "./connectors/discord.ts";
 export * from "./discord-bridge.ts";
 export * from "./leaderboard.ts";
+export * from "./compatible.ts";
