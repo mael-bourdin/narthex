@@ -376,6 +376,16 @@ a { color: var(--accent); }
 .timeline li { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 10px; }
 .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ranking { margin-top: 12px; }
+.ranking-table { display: grid; grid-template-columns: 40px 2fr 1fr 1.3fr 1.3fr 0.6fr 0.6fr; gap: 12px 14px; align-items: center; }
+.ranking-table > span { padding: 6px 0; border-top: 1px solid var(--border-subtle); }
+.ranking-table > span:nth-child(-n+7) { border-top: 0; }
+.rank { font-weight: 500; color: var(--text-secondary); }
+.rank.top1, .rank.top2, .rank.top3 { color: var(--text-primary); }
+.ranking-table .own { color: var(--accent); }
+.choices { display: grid; gap: 12px; }
+.choice { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; cursor: pointer; }
+.choice input { margin-top: 3px; accent-color: var(--accent); }
 .lessons { text-align: left; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 4px; }
 .lessons ul { margin: 6px 0; padding-left: 16px; color: var(--text-secondary); display: grid; gap: 4px; }
 .memory-title { font-size: 17px; font-weight: 500; margin: 24px 0 10px; }

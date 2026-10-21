@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { fmt } from "@narthex/core";
 import { Bureau } from "./Bureau.tsx";
+import { Classement } from "./Classement.tsx";
 import { CompanySwitcher } from "./CompanySwitcher.tsx";
 import { Entreprise } from "./Entreprise.tsx";
 import { Reglages, type ReglagesView } from "./Reglages.tsx";
@@ -12,8 +13,8 @@ import { PixelAvatar } from "./PixelAvatar.tsx";
 import { Logo } from "./ui.tsx";
 import { useCompany } from "./useCompany.ts";
 
-type Tab = "Fil" | "Bureau" | "Équipe" | "Entreprise" | "Réglages";
-const TABS: Tab[] = ["Fil", "Bureau", "Équipe", "Entreprise"];
+type Tab = "Fil" | "Bureau" | "Équipe" | "Entreprise" | "Classement" | "Réglages";
+const TABS: Tab[] = ["Fil", "Bureau", "Équipe", "Entreprise", "Classement"];
 
 export function App() {
   const { state, status, refresh } = useCompany();
@@ -117,6 +118,7 @@ export function App() {
           />
         )}
         {tab === "Réglages" && <Reglages state={state} status={status} view={reglages} onView={setReglages} onChange={refresh} />}
+        {tab === "Classement" && <Classement state={state} />}
         {tab === "Bureau" && <Bureau state={state} status={status} onAgent={openAgent} onChange={refresh} />}
       </main>
     </div>
